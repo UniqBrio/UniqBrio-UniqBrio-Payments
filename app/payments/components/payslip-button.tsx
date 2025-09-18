@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
-import { FileText, Search, Download, Print } from "lucide-react"
+import { FileText, Search, Download, Printer } from "lucide-react"
 import { PaymentRecord } from './payment-types'
 
 interface PayslipButtonProps {
@@ -172,7 +172,7 @@ export function PayslipButton({ students }: PayslipButtonProps) {
           {selectedStudent && (
             <div className="flex gap-2 pt-4">
               <Button onClick={generatePayslip} className="flex-1 bg-[#9234ea] hover:bg-[#9234ea]/90">
-                <Print className="h-4 w-4 mr-2" />
+                  <Printer className="h-4 w-4 mr-2" />
                 Print Receipt
               </Button>
               <Button onClick={downloadPayslip} variant="outline" className="flex-1">
