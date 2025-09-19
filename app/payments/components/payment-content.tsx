@@ -11,12 +11,16 @@ interface PaymentContentProps {
   onUpdateRecord: (id: string, updates: any) => void
 }
 
+import React, { useState } from 'react';
+
 export function PaymentContent({ 
   filteredRecords, 
   viewMode, 
   isColumnVisible, 
   onUpdateRecord 
 }: PaymentContentProps) {
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
+
   if (filteredRecords.length === 0) {
     return <PaymentEmptyState />
   }
@@ -33,6 +37,8 @@ export function PaymentContent({
           filteredRecords={filteredRecords}
           isColumnVisible={isColumnVisible}
           onUpdateRecord={onUpdateRecord}
+          selectedRows={selectedRows}
+          setSelectedRows={setSelectedRows}
         />
       )}
     </>
