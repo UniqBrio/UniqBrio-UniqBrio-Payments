@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import MainLayout from "@/components/main-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,6 @@ import { PayslipButton } from './components/payslip-button'
 import { PaymentTable } from './components/payment-table'
 import { PaymentGrid } from './components/payment-grid'
 import { usePaymentLogic } from './components/use-payment-logic'
-import { courseWisePayments } from './components/payment-data'
 
 export default function PaymentStatusPage() {
   const {
@@ -28,6 +27,10 @@ export default function PaymentStatusPage() {
     setCategoryFilters,
     courseFilters,
     setCourseFilters,
+    sortBy,
+    setSortBy,
+    sortOrder,
+    setSortOrder,
     filteredRecords,
     viewMode,
     setViewMode,
@@ -95,6 +98,49 @@ export default function PaymentStatusPage() {
   }
 
 
+
+  // Selected rows state lifted up
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
+
+  // Export logic using selectedRows and filteredRecords
+  function escapeCSV(val: any) {
+    if (val == null) return '';
+    if (typeof val === 'object') return '"' + JSON.stringify(val).replace(/"/g, '""') + '"';
+    const str = String(val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+  function handleExportSelectedRows() {
+    const filteredRecords = filteredRecordsRef.current || [];
+    const selected = filteredRecords.filter(r => selectedRows.includes(r.id));
+    if (selected.length === 0) return;
+    // Only export columns that are visible in the table, in the same order
+    const allKeys = [
+      'id','name','course','category','courseType','registration','finalPayment','totalPaid','balance','status','frequency','paidDate','nextDue','reminder','mode','communication','paymentDetails','actions'
+    ];
+    const visibleKeys = allKeys.filter(isColumnVisible);
+    const header = visibleKeys.join(',');
+    const rows = selected.map(row =>
+      visibleKeys.map(key => escapeCSV((row as any)[key])).join(',')
+    );
+    const csv = [header, ...rows].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'export.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // Keep a ref to filteredRecords for export
+  const filteredRecordsRef = useRef(filteredRecords);
+  filteredRecordsRef.current = filteredRecords;
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -135,7 +181,7 @@ export default function PaymentStatusPage() {
           setCourseFilters={setCourseFilters}
           viewMode={viewMode}
           setViewMode={setViewMode}
-          onExport={handleExport}
+          onExport={handleExportSelectedRows}
           columns={columns}
           onColumnToggle={handleColumnToggle}
           records={records}
@@ -182,6 +228,8 @@ export default function PaymentStatusPage() {
                     filteredRecords={filteredRecords}
                     isColumnVisible={isColumnVisible}
                     onUpdateRecord={handleUpdateRecord}
+                    selectedRows={selectedRows}
+                    setSelectedRows={setSelectedRows}
                   />
                 )}
               </>

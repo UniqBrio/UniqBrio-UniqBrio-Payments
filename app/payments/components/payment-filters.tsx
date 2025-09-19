@@ -1,5 +1,5 @@
-"use client"
-
+"use client";
+import "./payment-filters.css";
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,8 +24,8 @@ interface PaymentFiltersProps {
   onExport: () => void
   columns: ColumnConfig[]
   onColumnToggle: (key: string, visible: boolean) => void
-  sortBy?: string
-  setSortBy?: (sort: string) => void
+  // sortBy?: string
+  // setSortBy?: (sort: string) => void
   onUpload?: () => void
   records?: any[]
 }
@@ -44,8 +44,8 @@ export function PaymentFilters({
   onExport,
   columns,
   onColumnToggle,
-  sortBy = "name-asc",
-  setSortBy = () => {},
+  // sortBy = "name-asc",
+  // setSortBy = () => {},
   onUpload = () => {},
   records = [],
 }: PaymentFiltersProps) {
@@ -58,8 +58,7 @@ export function PaymentFilters({
   const [tempStatusFilters, setTempStatusFilters] = useState<string[]>(statusFilters)
   const [tempCategoryFilters, setTempCategoryFilters] = useState<string[]>(categoryFilters)
   const [tempCourseFilters, setTempCourseFilters] = useState<string[]>(courseFilters)
-  const [selectedSortBy, setSelectedSortBy] = useState<string>('name')
-  const [selectedOrder, setSelectedOrder] = useState<string>('asc')
+  // Sorting logic removed
   const [isClearing, setIsClearing] = useState(false)
 
   const handleStatusChange = (status: string, checked: boolean) => {
@@ -86,10 +85,13 @@ export function PaymentFilters({
     }
   }
 
+  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false)
   const handleApply = () => {
     setStatusFilters(tempStatusFilters)
     setCategoryFilters(tempCategoryFilters)
     setCourseFilters(tempCourseFilters)
+    setFilterPopoverOpen(false)
+    setIsClearing(false)
   }
 
 
@@ -102,21 +104,15 @@ export function PaymentFilters({
     setStatusFilters([])
     setCategoryFilters([])
     setCourseFilters([])
-    setIsClearing(false)
+    setTimeout(() => {
+      setIsClearing(false)
+      setFilterPopoverOpen(false)
+    }, 300)
   }
 
   const hasActiveFilters = statusFilters.length > 0 || categoryFilters.length > 0 || courseFilters.length > 0
 
-  const handleExport = () => {
-    const data = "Student Name,Course,Amount,Status,Date\nJohn Doe,React Course,5000 INR,Paid,Jul'25\nJane Smith,Vue Course,3000 INR,Pending,Aug'25"
-    const blob = new Blob([data], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'payments.csv'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
+
 
   return (
     <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm mb-4">
@@ -134,8 +130,9 @@ export function PaymentFilters({
 
         {/* Horizontal Toolbar */}
         <div className="flex items-center gap-2">
+
         {/* Filter Button */}
-        <Popover>
+        <Popover open={filterPopoverOpen} onOpenChange={setFilterPopoverOpen}>
           <PopoverTrigger asChild>
             <Button 
               variant="outline" 
@@ -144,20 +141,19 @@ export function PaymentFilters({
               title="Filter payments by status and mode"
             >
               <Filter className="h-5 w-5" />
-              {isClearing && (
+              {isClearing ? (
                 <div className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
                   <X className="h-2 w-2 text-white" />
                 </div>
-              )}
-              {hasActiveFilters && !isClearing && (
+              ) : hasActiveFilters ? (
                 <div className="absolute top-1 right-1 w-3 h-3 bg-green-500 rounded-full flex items-center justify-center">
                   <Check className="h-2 w-2 text-white" />
                 </div>
-              )}
+              ) : null}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-80 bg-white rounded-lg shadow-lg border border-black" align="start">
-            <div className="max-h-64 overflow-y-auto" style={{scrollbarWidth: 'thin', scrollbarColor: '#9234ea #f3f4f6'}}>
+            <div className="max-h-64 overflow-y-auto custom-scrollbar">
               <div className="p-3 space-y-3">
                 {/* Filter by Course */}
                 <div className="space-y-2">
@@ -165,6 +161,7 @@ export function PaymentFilters({
                   <div className="grid grid-cols-2 gap-2">
                     {availableCourses.map((course) => (
                       <div key={course} className="flex items-center gap-1">
+
                         <Checkbox
                           id={`course-${course}`}
                           checked={tempCourseFilters.includes(course)}
@@ -231,9 +228,7 @@ export function PaymentFilters({
                       Apply
                     </Button>
                     <Button 
-                      onClick={() => {
-                        handleClearAll()
-                      }} 
+                      onClick={handleClearAll}
                       variant="outline" 
                       className="flex-1 text-red-600 border-red-200 hover:bg-red-50 text-xs h-8" 
                       title="Clear all filters"
@@ -241,22 +236,6 @@ export function PaymentFilters({
                       <X className="h-3 w-3 mr-1 text-red-600" />
                       Clear
                     </Button>
-                    <Button 
-                      onClick={() => {
-                        setTempStatusFilters([])
-                        setTempCategoryFilters([])
-                        setTempCourseFilters([])
-                        setStatusFilters([])
-                        setCategoryFilters([])
-                        setCourseFilters([])
-                      }} 
-                      variant="outline" 
-                      size="sm"
-                      className="px-2 h-8 border-gray-200 hover:bg-gray-100" 
-                      title="Reset filters"
-                    >
-                      <RotateCcw className="h-3 w-3" />
-                    </Button>
                   </div>
                 </div>
 
@@ -265,73 +244,8 @@ export function PaymentFilters({
           </PopoverContent>
         </Popover>
 
-        {/* Sort Dropdown */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button 
-              variant="outline" 
-              className="h-10 px-3 border-gray-300 rounded-md shadow-sm flex items-center gap-2 min-w-[120px]"
-              title="Sort"
-            >
-              <div className="flex items-center gap-1 text-sm">
-                <ArrowUpDown className="h-4 w-4" />
-                <span className="capitalize">{selectedSortBy}</span>
-                {selectedOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-              </div>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-40 p-0 bg-white rounded-lg shadow-lg border border-gray-300" align="start">
-            <div className="p-3">
-              <div className="text-xs font-semibold text-gray-900 mb-2">Sort By</div>
-              <div className="space-y-1 mb-3">
-                <div 
-                  className="flex items-center justify-between py-1 cursor-pointer hover:bg-gray-50"
-                  onClick={() => setSelectedSortBy('name')}
-                >
-                  <span className="text-xs text-gray-700">Name</span>
-                  {selectedSortBy === 'name' && <span className="text-gray-900 font-bold">✔</span>}
-                </div>
-                <div 
-                  className="flex items-center justify-between py-1 cursor-pointer hover:bg-gray-50"
-                  onClick={() => setSelectedSortBy('type')}
-                >
-                  <span className="text-xs text-gray-700">Type</span>
-                  {selectedSortBy === 'type' && <span className="text-gray-900 font-bold">✔</span>}
-                </div>
-                <div 
-                  className="flex items-center justify-between py-1 cursor-pointer hover:bg-gray-50"
-                  onClick={() => setSelectedSortBy('amount')}
-                >
-                  <span className="text-xs text-gray-700">Amount</span>
-                  {selectedSortBy === 'amount' && <span className="text-gray-900 font-bold">✔</span>}
-                </div>
-              </div>
-              <div className="text-xs font-semibold text-gray-900 mb-2">Order</div>
-              <div className="space-y-1">
-                <div 
-                  className="flex items-center justify-between py-1 cursor-pointer hover:bg-gray-50"
-                  onClick={() => setSelectedOrder('asc')}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-700">Ascending</span>
-                    <span className="text-xs">↑</span>
-                  </div>
-                  {selectedOrder === 'asc' && <span className="text-gray-900 font-bold">✔</span>}
-                </div>
-                <div 
-                  className="flex items-center justify-between py-1 cursor-pointer hover:bg-gray-50"
-                  onClick={() => setSelectedOrder('desc')}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-700">Descending</span>
-                    <span className="text-xs">↓</span>
-                  </div>
-                  {selectedOrder === 'desc' && <span className="text-gray-900 font-bold">✔</span>}
-                </div>
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
+  {/* Sort Dropdown removed */}
+
 
         {/* View Toggle Buttons */}
         <div className="border border-gray-300 rounded-md flex overflow-hidden">
@@ -373,13 +287,17 @@ export function PaymentFilters({
           </Button>
         </div>
 
+            
+                {/* Export Icon */}
         <TooltipButton
-          onClick={handleExport}
+          onClick={onExport}
           className="h-10 w-10 p-0 bg-white text-black border-gray-300 hover:bg-gray-50 rounded-md shadow-sm"
-          tooltip="Export"
+          tooltip="Export selected rows"
         >
           <Download className="h-4 w-4" />
         </TooltipButton>
+
+
 
           <ColumnVisibility
             columns={columns}

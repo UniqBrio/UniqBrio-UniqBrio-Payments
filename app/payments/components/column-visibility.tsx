@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, RotateCcw, Copy, X, Grid3X3, Save } from "lucide-react"
+import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, RotateCcw, X, Save } from "lucide-react"
 
 export interface ColumnConfig {
   key: string
@@ -46,30 +46,43 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
     setSelectedDisplayed([])
   }
 
+  // Move all selected displayed columns up as a block, preserving order
   const moveUp = () => {
-    if (selectedDisplayed.length === 1) {
-      const index = displayedColumns.findIndex(col => col.key === selectedDisplayed[0])
-      if (index > 0) {
-        const newDisplayed = [...displayedColumns]
-        const temp = newDisplayed[index]
-        newDisplayed[index] = newDisplayed[index - 1]
-        newDisplayed[index - 1] = temp
-        setDisplayedColumns(newDisplayed)
+    if (selectedDisplayed.length === 0) return;
+    const indices = displayedColumns
+      .map((col, idx) => selectedDisplayed.includes(col.key) ? idx : -1)
+      .filter(idx => idx !== -1)
+      .sort((a, b) => a - b);
+    if (indices.length === 0 || indices[0] === 0) return; // can't move if topmost is already at top
+    const newDisplayed = [...displayedColumns];
+    for (let i = 0; i < newDisplayed.length; i++) {
+      // For each selected index, swap with the one above if not already at top or above another selected
+      if (indices.includes(i) && !indices.includes(i - 1) && i > 0) {
+        const temp = newDisplayed[i - 1];
+        newDisplayed[i - 1] = newDisplayed[i];
+        newDisplayed[i] = temp;
       }
     }
+    setDisplayedColumns(newDisplayed);
   }
 
+  // Move all selected displayed columns down as a block, preserving order
   const moveDown = () => {
-    if (selectedDisplayed.length === 1) {
-      const index = displayedColumns.findIndex(col => col.key === selectedDisplayed[0])
-      if (index < displayedColumns.length - 1) {
-        const newDisplayed = [...displayedColumns]
-        const temp = newDisplayed[index]
-        newDisplayed[index] = newDisplayed[index + 1]
-        newDisplayed[index + 1] = temp
-        setDisplayedColumns(newDisplayed)
+    if (selectedDisplayed.length === 0) return;
+    const indices = displayedColumns
+      .map((col, idx) => selectedDisplayed.includes(col.key) ? idx : -1)
+      .filter(idx => idx !== -1)
+      .sort((a, b) => b - a); // reverse order for down
+    if (indices.length === 0 || indices[0] === displayedColumns.length - 1) return; // can't move if bottommost is at bottom
+    const newDisplayed = [...displayedColumns];
+    for (let i = newDisplayed.length - 1; i >= 0; i--) {
+      if (indices.includes(i) && !indices.includes(i + 1) && i < newDisplayed.length - 1) {
+        const temp = newDisplayed[i + 1];
+        newDisplayed[i + 1] = newDisplayed[i];
+        newDisplayed[i] = temp;
       }
     }
+    setDisplayedColumns(newDisplayed);
   }
 
   const apply = () => {
@@ -86,17 +99,17 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="h-10 w-10 p-0 bg-[#9234ea] text-white border-[#9234ea] hover:bg-[#9234ea]/90" title="Columns">
-          <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-            <rect x="1" y="1" width="4" height="4" />
-            <rect x="6" y="1" width="4" height="4" />
-            <rect x="11" y="1" width="4" height="4" />
-            <rect x="1" y="6" width="4" height="4" />
-            <rect x="6" y="6" width="4" height="4" />
-            <rect x="11" y="6" width="4" height="4" />
-            <rect x="1" y="12" width="4" height="4" />
-            <rect x="6" y="12" width="4" height="4" />
-            <rect x="11" y="12" width="4" height="4" />
+        <Button variant="outline" size="sm" className="h-10 w-10 p-0 bg-[#ede9fe] text-[#9333ea] border-[#a78bfa] hover:bg-[#c4b5fd]/60" title="Display columns">
+          <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="#9333ea" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4" y="4" width="4" height="4" rx="1.5" fill="#a78bfa" />
+            <rect x="10" y="4" width="4" height="4" rx="1.5" fill="#a78bfa" />
+            <rect x="16" y="4" width="4" height="4" rx="1.5" fill="#a78bfa" />
+            <rect x="4" y="10" width="4" height="4" rx="1.5" fill="#a78bfa" />
+            <rect x="10" y="10" width="4" height="4" rx="1.5" fill="#a78bfa" />
+            <rect x="16" y="10" width="4" height="4" rx="1.5" fill="#a78bfa" />
+            <rect x="4" y="16" width="4" height="4" rx="1.5" fill="#a78bfa" />
+            <rect x="10" y="16" width="4" height="4" rx="1.5" fill="#a78bfa" />
+            <rect x="16" y="16" width="4" height="4" rx="1.5" fill="#a78bfa" />
           </svg>
         </Button>
       </DialogTrigger>
@@ -111,6 +124,24 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
             {/* Available Columns */}
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-gray-700">Available Columns</h3>
+              <div className="flex gap-2 mb-2">
+                <label className="flex items-center gap-1 cursor-pointer text-xs font-medium text-gray-700" title="Select all available columns">
+                  <input
+                    type="checkbox"
+                    checked={selectedAvailable.length === availableColumns.length && availableColumns.length > 0}
+                    onChange={e => setSelectedAvailable(e.target.checked ? availableColumns.map(col => col.key) : [])}
+                  />
+                  Select All
+                </label>
+                <label className="flex items-center gap-1 cursor-pointer text-xs font-medium text-gray-700" title="Deselect all available columns">
+                  <input
+                    type="checkbox"
+                    checked={selectedAvailable.length === 0}
+                    onChange={e => setSelectedAvailable([])}
+                  />
+                  Deselect All
+                </label>
+              </div>
               <div className="border rounded h-40 overflow-y-auto bg-white" style={{
                 scrollbarWidth: 'thin',
                 scrollbarColor: '#9333ea #f3f4f6'
@@ -119,7 +150,7 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
                   {availableColumns.map((column) => (
                     <div
                       key={column.key}
-                      className={`px-2 py-1 text-sm rounded cursor-pointer transition-colors ${
+                      className={`flex items-center gap-2 px-2 py-1 text-sm rounded cursor-pointer transition-colors ${
                         selectedAvailable.includes(column.key)
                           ? 'bg-[#9234ea]/10 border border-[#9234ea]/30'
                           : 'hover:bg-gray-50'
@@ -128,10 +159,26 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
                         if (selectedAvailable.includes(column.key)) {
                           setSelectedAvailable(selectedAvailable.filter(id => id !== column.key))
                         } else {
-                          setSelectedAvailable([...selectedAvailable, column.key])
+                          setSelectedAvailable([...selectedAvailable, column.key]);
+                          setSelectedDisplayed([]);
                         }
                       }}
                     >
+                      <input
+                        type="checkbox"
+                        checked={selectedAvailable.includes(column.key)}
+                        onChange={() => {
+                          if (selectedAvailable.includes(column.key)) {
+                            setSelectedAvailable(selectedAvailable.filter(id => id !== column.key))
+                          } else {
+                            setSelectedAvailable([...selectedAvailable, column.key]);
+                            setSelectedDisplayed([]);
+                          }
+                        }}
+                        className="accent-[#9234ea]"
+                        title={column.label}
+                        onClick={e => e.stopPropagation()}
+                      />
                       {column.label}
                     </div>
                   ))}
@@ -164,6 +211,24 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
             {/* Displayed Columns */}
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-gray-700">Displayed Columns</h3>
+              <div className="flex gap-2 mb-2">
+                <label className="flex items-center gap-1 cursor-pointer text-xs font-medium text-gray-700" title="Select all displayed columns">
+                  <input
+                    type="checkbox"
+                    checked={selectedDisplayed.length === displayedColumns.length && displayedColumns.length > 0}
+                    onChange={e => setSelectedDisplayed(e.target.checked ? displayedColumns.map(col => col.key) : [])}
+                  />
+                  Select All
+                </label>
+                <label className="flex items-center gap-1 cursor-pointer text-xs font-medium text-gray-700" title="Deselect all displayed columns">
+                  <input
+                    type="checkbox"
+                    checked={selectedDisplayed.length === 0}
+                    onChange={e => setSelectedDisplayed([])}
+                  />
+                  Deselect All
+                </label>
+              </div>
               <div className="border rounded h-40 overflow-y-auto bg-white" style={{
                 scrollbarWidth: 'thin',
                 scrollbarColor: '#9333ea #f3f4f6'
@@ -172,7 +237,7 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
                   {displayedColumns.map((column) => (
                     <div
                       key={column.key}
-                      className={`px-2 py-1 text-sm rounded cursor-pointer transition-colors ${
+                      className={`flex items-center gap-2 px-2 py-1 text-sm rounded cursor-pointer transition-colors ${
                         selectedDisplayed.includes(column.key)
                           ? 'bg-[#9234ea]/10 border border-[#9234ea]/30'
                           : 'hover:bg-gray-50'
@@ -181,10 +246,26 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
                         if (selectedDisplayed.includes(column.key)) {
                           setSelectedDisplayed(selectedDisplayed.filter(id => id !== column.key))
                         } else {
-                          setSelectedDisplayed([column.key])
+                          setSelectedDisplayed([...selectedDisplayed, column.key]);
+                          setSelectedAvailable([]);
                         }
                       }}
                     >
+                      <input
+                        type="checkbox"
+                        checked={selectedDisplayed.includes(column.key)}
+                        onChange={() => {
+                          if (selectedDisplayed.includes(column.key)) {
+                            setSelectedDisplayed(selectedDisplayed.filter(id => id !== column.key))
+                          } else {
+                            setSelectedDisplayed([...selectedDisplayed, column.key]);
+                            setSelectedAvailable([]);
+                          }
+                        }}
+                        className="accent-[#9234ea]"
+                        title={column.label}
+                        onClick={e => e.stopPropagation()}
+                      />
                       {column.label}
                     </div>
                   ))}
@@ -202,8 +283,9 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
                 variant="outline"
                 size="sm"
                 onClick={moveUp}
-                disabled={selectedDisplayed.length !== 1 || displayedColumns.findIndex(col => col.key === selectedDisplayed[0]) === 0}
+                disabled={selectedDisplayed.length === 0 || displayedColumns.length === 0 || displayedColumns.findIndex(col => col.key === selectedDisplayed[0]) === 0}
                 className="w-10 h-8 p-0 bg-gray-100 hover:bg-gray-200"
+                title="Move selected up"
               >
                 <ArrowUp className="h-4 w-4" />
               </Button>
@@ -211,8 +293,9 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
                 variant="outline"
                 size="sm"
                 onClick={moveDown}
-                disabled={selectedDisplayed.length !== 1 || displayedColumns.findIndex(col => col.key === selectedDisplayed[0]) === displayedColumns.length - 1}
+                disabled={selectedDisplayed.length === 0 || displayedColumns.length === 0 || displayedColumns.findIndex(col => col.key === selectedDisplayed[selectedDisplayed.length-1]) === displayedColumns.length - 1}
                 className="w-10 h-8 p-0 bg-gray-100 hover:bg-gray-200"
+                title="Move selected down"
               >
                 <ArrowDown className="h-4 w-4" />
               </Button>
@@ -223,17 +306,23 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
           <div className="flex justify-end space-x-2 pt-2">
             <Button
               variant="outline"
+              onClick={() => {
+                setSelectedAvailable([])
+                setSelectedDisplayed([])
+              }}
               className="w-12 h-10 p-0 border-gray-300 hover:bg-gray-50"
+              title="Reset all column selections"
             >
               <RotateCcw className="w-4 h-4" />
             </Button>
             <Button
               onClick={apply}
               className="w-12 h-10 p-0 bg-[#9234ea] hover:bg-[#9234ea]/90 text-white"
+              title="Apply column changes"
             >
               <Save className="w-4 h-4" />
             </Button>
-            <Button variant="outline" onClick={cancel} className="w-12 h-10 p-0 border-gray-300 hover:bg-gray-50">
+            <Button variant="outline" onClick={cancel} className="w-12 h-10 p-0 border-gray-300 hover:bg-gray-50" title="Close dialog">
               <X className="w-4 h-4" />
             </Button>
           </div>

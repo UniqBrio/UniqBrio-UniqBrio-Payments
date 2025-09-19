@@ -7,8 +7,8 @@ export function usePaymentLogic() {
   const [statusFilters, setStatusFilters] = useState<string[]>([])
   const [categoryFilters, setCategoryFilters] = useState<string[]>([])
   const [courseFilters, setCourseFilters] = useState<string[]>([])
-  const [sortBy, setSortBy] = useState<string>("name")
-  const [sortOrder, setSortOrder] = useState<string>("asc")
+  const [sortBy, setSortBy] = useState<string>("id")
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>("asc")
   const [filteredRecords, setFilteredRecords] = useState<PaymentRecord[]>([])
   const [viewMode, setViewMode] = useState<"grid" | "list">("list")
   const [records, setRecords] = useState<PaymentRecord[]>([])
@@ -67,57 +67,40 @@ export function usePaymentLogic() {
       )
     }
 
-    // Apply sorting
-    filtered = filtered.sort((a, b) => {
-      let aValue: any
-      let bValue: any
-
+    // Robust sorting logic
+    filtered = filtered.slice().sort((a, b) => {
+      let aValue: any, bValue: any, comparison = 0;
       switch (sortBy) {
         case 'id':
-          aValue = a.id
-          bValue = b.id
-          break
+          // Natural sort for IDs like ART001, ART002
+          aValue = a.id;
+          bValue = b.id;
+          comparison = aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: 'base' });
+          break;
         case 'name':
-          aValue = a.name.toLowerCase()
-          bValue = b.name.toLowerCase()
-          break
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+          comparison = aValue.localeCompare(bValue);
+          break;
+        case 'type':
+        case 'courseType':
+          aValue = (a.courseType || '').toLowerCase();
+          bValue = (b.courseType || '').toLowerCase();
+          comparison = aValue.localeCompare(bValue);
+          break;
         case 'amount':
-          aValue = a.finalPayment
-          bValue = b.finalPayment
-          break
-        case 'balance':
-          aValue = a.balancePayment
-          bValue = b.balancePayment
-          break
-        case 'status':
-          aValue = a.paymentStatus.toLowerCase()
-          bValue = b.paymentStatus.toLowerCase()
-          break
-        case 'course':
-          aValue = a.activity.toLowerCase()
-          bValue = b.activity.toLowerCase()
-          break
+        case 'finalPayment':
+          aValue = a.finalPayment;
+          bValue = b.finalPayment;
+          comparison = aValue - bValue;
+          break;
         default:
-          aValue = a.name.toLowerCase()
-          bValue = b.name.toLowerCase()
+          comparison = 0;
       }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
-      if (typeof aValue === 'string') {
-        let comparison
-        if (sortBy === 'id') {
-          // Natural sorting for alphanumeric IDs like ART001, ART002
-          comparison = aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: 'base' })
-        } else {
-          comparison = aValue.localeCompare(bValue)
-        }
-        return sortOrder === 'desc' ? comparison : -comparison
-      } else {
-        const comparison = aValue - bValue
-        return sortOrder === 'desc' ? comparison : -comparison
-      }
-    })
-
-    setFilteredRecords(filtered)
+    setFilteredRecords(filtered);
   }
 
   // Fetch students from database
@@ -214,10 +197,10 @@ export function usePaymentLogic() {
     setCategoryFilters,
     courseFilters,
     setCourseFilters,
-    sortBy,
-    setSortBy,
-    sortOrder,
-    setSortOrder,
+  // sortBy,
+  // setSortBy,
+  // sortOrder,
+  // setSortOrder,
     filteredRecords,
     viewMode,
     setViewMode,

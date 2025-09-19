@@ -151,7 +151,7 @@ export function StudentManualPayment({ students, onSubmit }: StudentManualPaymen
       if (!newOpen) resetForm()
     }}>
       <DialogTrigger asChild>
-        <Button className="bg-purple-600 hover:bg-purple-700 text-white ">
+        <Button className="bg-[#9234ea] hover:bg-[#9234ea]/90 text-white">
           <CreditCard className="h-4 w-4 mr-2" />
           Manual Payment
         </Button>
@@ -186,7 +186,7 @@ export function StudentManualPayment({ students, onSubmit }: StudentManualPaymen
                     onKeyDown={(e) => e.key === "Enter" && handleStudentSearch()}
                   />
                 </div>
-                <Button onClick={handleStudentSearch} className="mt-6 bg-purple-600 hover:bg-purple-700">
+                <Button onClick={handleStudentSearch} className="mt-6 bg-[#9234ea] hover:bg-[#9234ea]/90">
                   <Search className="h-4 w-4" />
                 </Button>
               </div>
@@ -319,7 +319,7 @@ export function StudentManualPayment({ students, onSubmit }: StudentManualPaymen
                   <Button variant="outline" onClick={() => setOpen(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={handleSubmit} className="bg-purple-600 hover:bg-purple-700">
+                  <Button onClick={handleSubmit} className="bg-[#9234ea] hover:bg-[#9234ea]/90">
                     Record Payment
                   </Button>
                 </div>

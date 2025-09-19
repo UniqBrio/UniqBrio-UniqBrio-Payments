@@ -1,17 +1,37 @@
 "use client"
 
 import { Card, CardContent } from "@/components/ui/card"
+import { useState } from "react"
+// CSV export helper (no external dependency)
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { PaymentRecord } from './payment-types'
 import { PaymentTableRow } from './payment-table-row'
 
 interface PaymentTableProps {
-  filteredRecords: PaymentRecord[]
-  isColumnVisible: (key: string) => boolean
-  onUpdateRecord: (id: string, updates: Partial<PaymentRecord>) => void
+  filteredRecords: PaymentRecord[];
+  isColumnVisible: (key: string) => boolean;
+  onUpdateRecord: (id: string, updates: Partial<PaymentRecord>) => void;
+  selectedRows: string[];
+  setSelectedRows: (rows: string[]) => void;
 }
 
-export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord }: PaymentTableProps) {
+
+
+
+
+export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord, selectedRows, setSelectedRows }: PaymentTableProps) {
+  // Selection logic
+  const allSelected = filteredRecords.length > 0 && selectedRows.length === filteredRecords.length;
+  const toggleAll = () => {
+    setSelectedRows(allSelected ? [] : filteredRecords.map(r => r.id));
+  };
+  const toggleRow = (id: string) => {
+    setSelectedRows(selectedRows.includes(id)
+      ? selectedRows.filter((rowId: string) => rowId !== id)
+      : [...selectedRows, id]
+    );
+  };
+
   return (
     <Card className="border-[#9234ea]/30">
       <CardContent className="p-0">
@@ -19,7 +39,17 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord 
           <Table>
             <TableHeader>
               <TableRow className="bg-[#9234ea]/5 border-[#9234ea]/10">
-                {isColumnVisible('id') && <TableHead className="text-sm p-3 font-semibold">ID</TableHead>}
+                <TableHead className="p-3 w-8">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    aria-label="Select all rows"
+                  />
+                </TableHead>
+                {isColumnVisible('id') && (
+                  <TableHead className="text-sm p-3 font-semibold">ID</TableHead>
+                )}
                 {isColumnVisible('name') && <TableHead className="text-sm p-3 font-semibold">Name</TableHead>}
                 {isColumnVisible('course') && <TableHead className="text-sm p-3 font-semibold">Course</TableHead>}
                 {isColumnVisible('category') && <TableHead className="text-sm p-3 font-semibold">Category</TableHead>}
@@ -40,12 +70,15 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord 
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredRecords.map((record) => (
+              {filteredRecords.map((record: any) => (
                 <PaymentTableRow
                   key={record.id}
                   record={record}
                   isColumnVisible={isColumnVisible}
                   onUpdateRecord={onUpdateRecord}
+                  selectable
+                  selected={selectedRows.includes(record.id)}
+                  onSelectRow={() => toggleRow(record.id)}
                 />
               ))}
             </TableBody>
@@ -53,5 +86,7 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord 
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
+
+

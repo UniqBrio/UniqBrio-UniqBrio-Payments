@@ -13,9 +13,12 @@ interface PaymentTableRowProps {
   record: PaymentRecord
   isColumnVisible: (key: string) => boolean
   onUpdateRecord: (id: string, updates: Partial<PaymentRecord>) => void
+  selectable?: boolean
+  selected?: boolean
+  onSelectRow?: () => void
 }
 
-export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord }: PaymentTableRowProps) {
+export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, selectable, selected, onSelectRow }: PaymentTableRowProps) {
   const [editingText, setEditingText] = useState<{ id: string; text: string } | null>(null)
 
   const formatDate = (dateString: string | null) => {
@@ -68,6 +71,16 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord }: Pay
 
   return (
     <TableRow key={record.id} className="hover:bg-[#9234ea]/5 border-[#9234ea]/10">
+      {selectable && (
+        <TableCell className="p-3 w-8">
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={onSelectRow}
+            aria-label="Select row"
+          />
+        </TableCell>
+      )}
       {isColumnVisible('id') && (
         <TableCell className="font-medium text-sm p-3">{record.id}</TableCell>
       )}
