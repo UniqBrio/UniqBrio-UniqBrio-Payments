@@ -125,15 +125,17 @@ export function PaymentFilters({
   ];
 
 
+  const hasRecords = records && records.length > 0;
+
   return (
-    <div className="p-4 bg-white rounded-lg shadow-sm mb-4">
-      <div className="flex flex-col gap-2">
+    <div className={`p-4 bg-white rounded-lg shadow-sm mb-4 ${hasRecords ? 'w-full' : ''}`}>
+      <div className="flex flex-col gap-2 w-full">
         <div className="flex items-center gap-2 w-full">
-          <div className="flex-1 relative min-w-[200px]">
+          <div className={`relative ${hasRecords ? 'flex-grow w-full' : 'flex-1 min-w-[200px]'}`}>
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <input
                 type="text"
-                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300"
+                className={`${hasRecords ? 'w-full' : 'w-full'} pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300`}
                 placeholder="Search courses, instructors, tags..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -144,8 +146,8 @@ export function PaymentFilters({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-10 px-3 gap-1 border-none text-black hover:bg-gray-50 rounded-md shadow-sm flex items-center"
-                title="Sort"
+                className="h-10 px-3 gap-1 border border-gray-200 text-black hover:bg-gray-50 rounded-md shadow-sm flex items-center"
+                title="Filter"
               >
                 <Filter className="h-5 w-5" />
                 {hasActiveFilters && !isClearing && (
@@ -259,7 +261,7 @@ export function PaymentFilters({
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className="h-10 px-4 border-none rounded-md shadow-sm flex items-center gap-2 min-w-[100px] font-semibold"
+                className="h-10 px-4 border border-gray-200 rounded-md shadow-sm flex items-center gap-2 min-w-[100px] font-semibold"
                 title="Sort"
               >
                 <ArrowUpDown className="h-4 w-4 mr-1" />
@@ -357,12 +359,14 @@ export function PaymentFilters({
           />
         </div>
         {/* Results Count */}
-        <div className="flex items-center gap-2 mt-2 px-4 py-2 bg-[#f6f3ff] border border-[#d1bfff] rounded-lg w-fit">
-          <div className="w-2 h-2 bg-[#9234ea] rounded-full"></div>
-          <span className="text-base text-[#9234ea] font-medium">
-            {Array.isArray(records) ? `${records.length} payment records found` : 'Payment records found'}
-          </span>
-        </div>
+        {hasRecords && (
+          <div className={`flex items-center gap-2 mt-2 px-4 py-2 bg-[#f6f3ff] border border-[#d1bfff] rounded-lg ${hasRecords ? 'w-full' : 'w-fit'}`}>
+            <div className="w-2 h-2 bg-[#9234ea] rounded-full"></div>
+            <span className="text-base text-[#9234ea] font-medium">
+              {Array.isArray(records) ? `${records.length} payment records found` : 'Payment records found'}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

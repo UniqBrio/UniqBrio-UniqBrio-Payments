@@ -18,6 +18,7 @@ import { PaymentTable } from './components/payment-table'
 import { PaymentGrid } from './components/payment-grid'
 import { usePaymentLogic } from './components/use-payment-logic'
 
+// PaymentStatusPage: Main payment management page
 export default function PaymentStatusPage() {
   const {
     searchTerm,
@@ -49,27 +50,12 @@ export default function PaymentStatusPage() {
 
   const [showCourseWisePopup, setShowCourseWisePopup] = useState(false)
 
+  // handleStudentManualPayment: Handles manual payment submission for a student
   const handleStudentManualPayment = async (payload: StudentManualPaymentPayload) => {
     const target = records.find((r) => r.id === payload.studentId)
     if (!target) return
 
     try {
-      // TODO: Future implementation - Save payment to separate payments collection
-      // const response = await fetch('/api/payments', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify({
-      //     studentId: payload.studentId,
-      //     amount: payload.amount,
-      //     date: payload.date,
-      //     mode: payload.mode,
-      //     notes: payload.notes
-      //   })
-      // })
-
-      // if (response.ok) {
         // Update local state for UI
         const newTotalPaid = (target.totalPaidAmount || 0) + payload.amount
         const newBalance = Math.max(0, target.finalPayment - newTotalPaid)
@@ -86,9 +72,6 @@ export default function PaymentStatusPage() {
           title: "Payment Recorded",
           description: `Payment of ${payload.amount} recorded for ${target.name}`,
         })
-      // } else {
-      //   throw new Error('Failed to save payment')
-      // }
     } catch (error) {
       toast({
         title: "Error",
@@ -98,12 +81,11 @@ export default function PaymentStatusPage() {
     }
   }
 
-
-
   // Selected rows state lifted up
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
   // Export logic using selectedRows and filteredRecords
+  // escapeCSV: Escapes values for CSV export
   function escapeCSV(val: any) {
     if (val == null) return '';
     if (typeof val === 'object') return '"' + JSON.stringify(val).replace(/"/g, '""') + '"';
@@ -113,6 +95,7 @@ export default function PaymentStatusPage() {
     }
     return str;
   }
+  // handleExportSelectedRows: Exports selected payment records as CSV
   function handleExportSelectedRows() {
     const filteredRecords = filteredRecordsRef.current || [];
     const selected = filteredRecords.filter(r => selectedRows.includes(r.id));
@@ -142,6 +125,8 @@ export default function PaymentStatusPage() {
   const filteredRecordsRef = useRef(filteredRecords);
   filteredRecordsRef.current = filteredRecords;
 
+  console.log("Filtered Records:", filteredRecords);
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -152,32 +137,29 @@ export default function PaymentStatusPage() {
             <p className="text-gray-600 mt-1">Track student payments, send reminders, and manage financial records</p>
           </div>
           <div className="flex gap-2">
-            <TooltipButton tooltip="Manual Payment">
-              <span>
-                <StudentManualPayment 
-                  students={records}
-                  onSubmit={handleStudentManualPayment}
-                />
-              </span>
-            </TooltipButton>
-            <TooltipButton tooltip="Generate Payslip">
-              <span>
-                <PayslipButton 
-                  students={records} 
-                />
-              </span>
-            </TooltipButton>
-            <TooltipButton tooltip="Course Wise Summary">
-              <span>
-                <Button
-                  onClick={() => setShowCourseWisePopup(true)}
-                  className="bg-[#9234ea] hover:bg-[#9234ea]/90 border border-gray-300 rounded-md shadow-sm"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Course Summary
-                </Button>
-              </span>
-            </TooltipButton>
+            <div className="tooltip-container">
+              <StudentManualPayment 
+                students={records}
+                onSubmit={handleStudentManualPayment}
+              />
+              <div className="tooltip">Manual Payment</div>
+            </div>
+            <div className="tooltip-container">
+              <PayslipButton 
+                students={records} 
+              />
+              <div className="tooltip">Generate Payslip</div>
+            </div>
+            <div className="tooltip-container">
+              <Button
+                onClick={() => setShowCourseWisePopup(true)}
+                className="bg-[#9234ea] hover:bg-[#9234ea]/90"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Course-wise Summary
+              </Button>
+              <div className="tooltip">Course-wise Summary</div>
+            </div>
           </div>
         </div>
 
@@ -227,33 +209,37 @@ export default function PaymentStatusPage() {
 
         {/* Payment View - Grid or Table */}
         {!loading && !error && (
-          <>
+          <div className="w-full bg-white shadow-md rounded-lg p-4">
             {filteredRecords.length === 0 ? (
-              <Card>
+              <Card className="w-full">
                 <CardContent className="p-8 text-center">
                   <p className="text-gray-600">No student payment records found in the database.</p>
                   <p className="text-sm text-gray-500 mt-2">Add student data to the "Students" collection to see payment records here.</p>
                 </CardContent>
               </Card>
             ) : (
-              <>
+              <div className="w-full">
                 {viewMode === "grid" ? (
-                  <PaymentGrid
-                    filteredRecords={filteredRecords}
-                    onUpdateRecord={handleUpdateRecord}
-                  />
+                  <div className="w-full">
+                    <PaymentGrid
+                      filteredRecords={filteredRecords}
+                      onUpdateRecord={handleUpdateRecord}
+                    />
+                  </div>
                 ) : (
-                  <PaymentTable
-                    filteredRecords={filteredRecords}
-                    isColumnVisible={isColumnVisible}
-                    onUpdateRecord={handleUpdateRecord}
-                    selectedRows={selectedRows}
-                    setSelectedRows={setSelectedRows}
-                  />
+                  <div className="w-full">
+                    <PaymentTable
+                      filteredRecords={filteredRecords}
+                      isColumnVisible={isColumnVisible}
+                      onUpdateRecord={handleUpdateRecord}
+                      selectedRows={selectedRows}
+                      setSelectedRows={setSelectedRows}
+                    />
+                  </div>
                 )}
-              </>
+              </div>
             )}
-          </>
+          </div>
         )}
 
         {/* Course Wise Payment Popup */}

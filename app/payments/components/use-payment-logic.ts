@@ -113,15 +113,15 @@ export function usePaymentLogic() {
         
         if (result.success) {
           const paymentRecords = result.data.map((student: any) => ({
-            id: student.studentId || student._id,
+            id: student.studentId || student._id || 'N/A', // Ensure ID is always populated
             name: student.name || 'Unknown',
-            activity: student.activity || 'Course',
+            activity: student.activity || 'No Course Assigned', // Default value for course
             category: student.category || 'Regular',
             courseType: 'Individual',
             currency: 'INR',
-            finalPayment: student.finalPayment || 25000,
+            finalPayment: student.finalPayment || 0, // Default to 0 if missing
             totalPaidAmount: student.totalPaidAmount || 0,
-            balancePayment: student.balancePayment || (student.finalPayment || 25000) - (student.totalPaidAmount || 0),
+            balancePayment: student.balancePayment || (student.finalPayment || 0) - (student.totalPaidAmount || 0),
             paymentStatus: student.paymentStatus || (student.totalPaidAmount > 0 ? (student.balancePayment === 0 ? 'Paid' : 'Partial') : 'Pending'),
             paymentFrequency: student.paymentFrequency || 'Monthly',
             paidDate: student.paidDate || '',

@@ -305,6 +305,14 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
           {/* Action Buttons */}
           <div className="flex justify-end space-x-2 pt-2">
             <Button
+              onClick={apply}
+              className="w-12 h-10 p-0 bg-[#9234ea] hover:bg-[#9234ea]/90 text-white"
+              title="Apply column changes"
+            >
+              <Save className="w-4 h-4" />
+            </Button>
+
+            <Button
               variant="outline"
               onClick={() => {
                 setSelectedAvailable([])
@@ -315,13 +323,7 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
             >
               <RotateCcw className="w-4 h-4" />
             </Button>
-            <Button
-              onClick={apply}
-              className="w-12 h-10 p-0 bg-[#9234ea] hover:bg-[#9234ea]/90 text-white"
-              title="Apply column changes"
-            >
-              <Save className="w-4 h-4" />
-            </Button>
+            
             <Button variant="outline" onClick={cancel} className="w-12 h-10 p-0 border-gray-300 hover:bg-gray-50" title="Close dialog">
               <X className="w-4 h-4" />
             </Button>
