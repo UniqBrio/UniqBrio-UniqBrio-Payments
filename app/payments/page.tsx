@@ -9,6 +9,7 @@ import { FileText } from "lucide-react"
 
 // Payment components
 import { PaymentFilters } from './components/payment-filters'
+import { TooltipButton } from './components/tooltip-button'
 import { PaymentSummaryCards } from './components/payment-summary-cards'
 import { CourseWisePaymentPopup } from './components/course-wise-payment-popup'
 import { StudentManualPayment, StudentManualPaymentPayload } from './components/student-manual-payment'
@@ -151,18 +152,32 @@ export default function PaymentStatusPage() {
             <p className="text-gray-600 mt-1">Track student payments, send reminders, and manage financial records</p>
           </div>
           <div className="flex gap-2">
-            <StudentManualPayment 
-              students={records}
-              onSubmit={handleStudentManualPayment}
-            />
-            <PayslipButton students={records} />
-            <Button
-              onClick={() => setShowCourseWisePopup(true)}
-              className="bg-[#9234ea] hover:bg-[#9234ea]/90"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Course Summary
-            </Button>
+            <TooltipButton tooltip="Manual Payment">
+              <span>
+                <StudentManualPayment 
+                  students={records}
+                  onSubmit={handleStudentManualPayment}
+                />
+              </span>
+            </TooltipButton>
+            <TooltipButton tooltip="Generate Payslip">
+              <span>
+                <PayslipButton 
+                  students={records} 
+                />
+              </span>
+            </TooltipButton>
+            <TooltipButton tooltip="Course Wise Summary">
+              <span>
+                <Button
+                  onClick={() => setShowCourseWisePopup(true)}
+                  className="bg-[#9234ea] hover:bg-[#9234ea]/90 border border-gray-300 rounded-md shadow-sm"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Course Summary
+                </Button>
+              </span>
+            </TooltipButton>
           </div>
         </div>
 
@@ -184,6 +199,10 @@ export default function PaymentStatusPage() {
           onExport={handleExportSelectedRows}
           columns={columns}
           onColumnToggle={handleColumnToggle}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortOrder={sortOrder}
+          setSortOrder={setSortOrder}
           records={records}
         />
 

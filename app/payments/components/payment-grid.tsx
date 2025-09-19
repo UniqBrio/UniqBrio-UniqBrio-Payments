@@ -60,7 +60,11 @@ export function PaymentGrid({ filteredRecords, onUpdateRecord }: PaymentGridProp
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {filteredRecords.map((record) => (
-        <Card key={record.id} className="border-purple-200 hover:shadow-lg transition-shadow">
+        <Card
+          key={record.id}
+          className="border-2 border-[#f2994a] rounded-xl shadow-sm hover:shadow-lg transition-shadow p-1"
+          style={{ boxShadow: '0 0 0 2px #f2994a22' }}
+        >
           <CardHeader className="pb-3">
             <div className="flex justify-between items-start">
               <div>
