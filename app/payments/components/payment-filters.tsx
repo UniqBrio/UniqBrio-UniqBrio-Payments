@@ -131,11 +131,11 @@ export function PaymentFilters({
     <div className={`p-4 bg-white rounded-lg shadow-sm mb-4 ${hasRecords ? 'w-full' : ''}`}>
       <div className="flex flex-col gap-2 w-full">
         <div className="flex items-center gap-2 w-full">
-          <div className={`relative ${hasRecords ? 'flex-grow w-full' : 'flex-1 min-w-[200px]'}`}>
+          <div className={`relative ${hasRecords ? 'flex-grow' : 'flex-1 min-w-[120px] max-w-[850px]'}`}>
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <input
                 type="text"
-                className={`${hasRecords ? 'w-full' : 'w-full'} pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300`}
+                className={`pl-10 pr-2 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300 w-full max-w-[850px]`}
                 placeholder="Search courses, instructors, tags..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}

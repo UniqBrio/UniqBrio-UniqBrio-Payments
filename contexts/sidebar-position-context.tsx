@@ -13,11 +13,13 @@ interface SidebarPositionContextType {
 const SidebarPositionContext = createContext<SidebarPositionContextType | undefined>(undefined)
 
 export function SidebarPositionProvider({ children }: { children: React.ReactNode }) {
-  // Try to get the saved position from localStorage, default to "left"
+  // Initialize with default value and track if hydrated
   const [position, setPosition] = useState<SidebarPosition>("left")
+  const [isHydrated, setIsHydrated] = useState(false)
 
   // Load the saved position from localStorage on component mount
   useEffect(() => {
+    setIsHydrated(true)
     const savedPosition = localStorage.getItem("sidebarPosition") as SidebarPosition | null
     if (savedPosition) {
       setPosition(savedPosition)
@@ -27,7 +29,9 @@ export function SidebarPositionProvider({ children }: { children: React.ReactNod
   // Save the position to localStorage whenever it changes
   const handleSetPosition = (newPosition: SidebarPosition) => {
     setPosition(newPosition)
-    localStorage.setItem("sidebarPosition", newPosition)
+    if (isHydrated) {
+      localStorage.setItem("sidebarPosition", newPosition)
+    }
   }
 
   return (

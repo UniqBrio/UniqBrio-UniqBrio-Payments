@@ -137,7 +137,7 @@ export function CourseWisePaymentPopup({ open, onClose, courseData }: CourseWise
                           </Badge>
                         ) : collectionRate >= 50 ? (
                           <Badge variant="secondary" className="text-sm">
-                            Partial
+                            Pending
                           </Badge>
                         ) : (
                           <Badge variant="destructive" className="text-sm">

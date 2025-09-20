@@ -9,6 +9,7 @@ interface PaymentContentProps {
   viewMode: "grid" | "list"
   isColumnVisible: (key: string) => boolean
   onUpdateRecord: (id: string, updates: any) => void
+  refreshPaymentData?: () => void
 }
 
 import React, { useState } from 'react';
@@ -17,7 +18,8 @@ export function PaymentContent({
   filteredRecords, 
   viewMode, 
   isColumnVisible, 
-  onUpdateRecord 
+  onUpdateRecord,
+  refreshPaymentData
 }: PaymentContentProps) {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
@@ -37,6 +39,7 @@ export function PaymentContent({
           filteredRecords={filteredRecords}
           isColumnVisible={isColumnVisible}
           onUpdateRecord={onUpdateRecord}
+          refreshPaymentData={refreshPaymentData}
           selectedRows={selectedRows}
           setSelectedRows={setSelectedRows}
         />

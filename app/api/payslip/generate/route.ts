@@ -1,0 +1,118 @@
+import { NextRequest, NextResponse } from "next/server";
+import { connectDB } from "@/lib/db";
+import Student from "@/models/student";
+
+// Mark this route as dynamic since it uses request parameters
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const studentId = searchParams.get('studentId');
+
+    if (!studentId) {
+      return NextResponse.json(
+        { success: false, error: "Student ID is required" },
+        { status: 400 }
+      );
+    }
+
+    await connectDB();
+    const student = await Student.findOne({ studentId });
+
+    if (!student) {
+      return NextResponse.json(
+        { success: false, error: "Student not found" },
+        { status: 404 }
+      );
+    }
+
+    // Generate payslip HTML
+    const payslipHTML = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Payment Receipt - ${student.name}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; border-bottom: 2px solid #9234ea; padding-bottom: 20px; margin-bottom: 30px; }
+            .company-name { font-size: 24px; font-weight: bold; color: #9234ea; margin-bottom: 5px; }
+            .receipt-title { font-size: 18px; margin-top: 10px; }
+            .student-info { margin-bottom: 30px; }
+            .info-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+            .payment-details { border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; }
+            .amount { font-size: 20px; font-weight: bold; color: #9234ea; }
+            .footer { text-align: center; margin-top: 40px; color: #666; }
+            .timestamp { text-align: right; font-size: 12px; color: #999; margin-bottom: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="timestamp">Generated on: ${new Date().toLocaleString()}</div>
+          
+          <div class="header">
+            <div class="company-name">UniqBrio</div>
+            <div class="receipt-title">Payment Receipt</div>
+          </div>
+
+          <div class="student-info">
+            <div class="info-row">
+              <strong>Student ID:</strong>
+              <span>${student.studentId}</span>
+            </div>
+            <div class="info-row">
+              <strong>Student Name:</strong>
+              <span>${student.name}</span>
+            </div>
+            <div class="info-row">
+              <strong>Course:</strong>
+              <span>${student.activity || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+              <strong>Category:</strong>
+              <span>${student.category || 'Regular'}</span>
+            </div>
+          </div>
+
+          <div class="payment-details">
+            <h3>Payment Summary</h3>
+            <div class="info-row">
+              <strong>Total Course Fee:</strong>
+              <span class="amount">₹${(student.courseFee || 0).toLocaleString()}</span>
+            </div>
+            <div class="info-row">
+              <strong>Amount Paid:</strong>
+              <span style="color: green;">₹${(student.totalPaidAmount || 0).toLocaleString()}</span>
+            </div>
+            <div class="info-row">
+              <strong>Balance Due:</strong>
+              <span style="color: red;">₹${Math.max(0, (student.courseFee || 0) - (student.totalPaidAmount || 0)).toLocaleString()}</span>
+            </div>
+            <div class="info-row">
+              <strong>Payment Status:</strong>
+              <span style="font-weight: bold;">${student.paymentStatus || 'Pending'}</span>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>Thank you for choosing UniqBrio!</p>
+            <p style="font-size: 12px;">For any queries, please contact us at support@uniqbrio.com</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return new NextResponse(payslipHTML, {
+      headers: {
+        'Content-Type': 'text/html',
+        'Content-Disposition': `inline; filename="payslip-${student.studentId}.html"`
+      },
+    });
+
+  } catch (error) {
+    console.error('Payslip generation error:', error);
+    return NextResponse.json(
+      { success: false, error: "Failed to generate payslip" },
+      { status: 500 }
+    );
+  }
+}

@@ -151,6 +151,7 @@ export function PayslipButton({ students }: PayslipButtonProps) {
                 onChange={(e) => setStudentId(e.target.value)}
                 placeholder="Enter student ID (e.g., ART001)"
                 onKeyDown={(e) => e.key === "Enter" && handleStudentSearch()}
+                className="h-8 text-sm px-2"
               />
             </div>
             <Button onClick={handleStudentSearch} className="mt-6 bg-[#9234ea] hover:bg-[#9234ea]/90">

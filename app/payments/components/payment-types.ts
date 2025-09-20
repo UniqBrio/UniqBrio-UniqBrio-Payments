@@ -4,10 +4,14 @@ export interface PaymentRecord {
   activity: string
   category: string
   courseType: "Regular" | "Special" | "Ongoing"
+  cohort?: string
+  batch?: string
+  instructor?: string
+  classSchedule?: string
   finalPayment: number
   totalPaidAmount: number
   balancePayment: number
-  paymentStatus: "Paid" | "Partial" | "Pending" | "Overdue"
+  paymentStatus: "Paid" | "Pending"
   paymentFrequency: "Monthly"| "Quarterly"|"Semi-annual" | "Weekly" | "Yearly" | "One-time"
   nextPaymentDate: string
   paidDate: string
@@ -27,9 +31,11 @@ export interface PaymentRecord {
     courseRegistration?: number
     confirmationFee?: number
     paid: boolean
+    status?: "Paid" | "Pending"
   }
   paymentModes: string[]
   studentType: "New" | "Existing"
+  courseStartDate?: string
 }
 
 export interface PaymentSummary {

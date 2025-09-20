@@ -26,6 +26,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguage] = useState("en")
   const [isOffline, setIsOffline] = useState(false)
   const [pinnedMenuItems, setPinnedMenuItems] = useState<string[]>([])
+  const [isHydrated, setIsHydrated] = useState(false)
 
   // Sample notification templates
   const [notifications] = useState<NotificationTemplate[]>([
@@ -55,6 +56,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize user from localStorage
   useEffect(() => {
+    setIsHydrated(true)
     const savedUser = localStorage.getItem("uniqbrio-user")
     if (savedUser) {
       setUser(JSON.parse(savedUser))
@@ -87,20 +89,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Load theme from localStorage
   useEffect(() => {
+    if (!isHydrated) return
     const savedTheme = localStorage.getItem("uniqbrio-theme") as "light" | "dark"
     if (savedTheme) {
       setTheme(savedTheme)
       document.documentElement.classList.toggle("dark", savedTheme === "dark")
     }
-  }, [])
+  }, [isHydrated])
 
   // Load language from localStorage
   useEffect(() => {
+    if (!isHydrated) return
     const savedLanguage = localStorage.getItem("uniqbrio-language")
     if (savedLanguage) {
       setLanguage(savedLanguage)
     }
-  }, [])
+  }, [isHydrated])
 
   // Load pinned menu items
   useEffect(() => {
@@ -126,14 +130,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light"
     setTheme(newTheme)
-    localStorage.setItem("uniqbrio-theme", newTheme)
-    document.documentElement.classList.toggle("dark", newTheme === "dark")
+    if (isHydrated) {
+      localStorage.setItem("uniqbrio-theme", newTheme)
+      document.documentElement.classList.toggle("dark", newTheme === "dark")
+    }
 
     // Update user preferences
-    if (user) {
+    if (user && isHydrated) {
       const updatedUser = {
         ...user,
-        preferences: { ...user.preferences, theme: newTheme },
+        preferences: { ...user.preferences, theme: newTheme as "light" | "dark" },
       }
       setUser(updatedUser)
       localStorage.setItem("uniqbrio-user", JSON.stringify(updatedUser))

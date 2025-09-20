@@ -5,15 +5,13 @@ import MainLayout from "@/components/main-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/use-toast"
-import { FileText } from "lucide-react"
+import { FileText, RefreshCw } from "lucide-react"
 
 // Payment components
 import { PaymentFilters } from './components/payment-filters'
 import { TooltipButton } from './components/tooltip-button'
 import { PaymentSummaryCards } from './components/payment-summary-cards'
 import { CourseWisePaymentPopup } from './components/course-wise-payment-popup'
-import { StudentManualPayment, StudentManualPaymentPayload } from './components/student-manual-payment'
-import { PayslipButton } from './components/payslip-button'
 import { PaymentTable } from './components/payment-table'
 import { PaymentGrid } from './components/payment-grid'
 import { usePaymentLogic } from './components/use-payment-logic'
@@ -41,6 +39,7 @@ export default function PaymentStatusPage() {
     paymentSummary,
     handleFilter,
     handleUpdateRecord,
+    refreshPaymentData,
     handleColumnToggle,
     isColumnVisible,
     handleExport,
@@ -50,39 +49,19 @@ export default function PaymentStatusPage() {
 
   const [showCourseWisePopup, setShowCourseWisePopup] = useState(false)
 
-  // handleStudentManualPayment: Handles manual payment submission for a student
-  const handleStudentManualPayment = async (payload: StudentManualPaymentPayload) => {
-    const target = records.find((r) => r.id === payload.studentId)
-    if (!target) return
-
-    try {
-        // Update local state for UI
-        const newTotalPaid = (target.totalPaidAmount || 0) + payload.amount
-        const newBalance = Math.max(0, target.finalPayment - newTotalPaid)
-        const newStatus = newBalance === 0 ? "Paid" : newTotalPaid > 0 ? "Partial" : target.paymentStatus
-        
-        handleUpdateRecord(payload.studentId, {
-          totalPaidAmount: newTotalPaid,
-          balancePayment: newBalance,
-          paidDate: payload.date,
-          paymentStatus: newStatus,
-        })
-
-        toast({
-          title: "Payment Recorded",
-          description: `Payment of ${payload.amount} recorded for ${target.name}`,
-        })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to record payment",
-        variant: "destructive"
-      })
-    }
-  }
-
   // Selected rows state lifted up
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
+
+  // Handle refresh data
+  const handleRefreshData = async () => {
+    try {
+      await refreshPaymentData();
+      // Also trigger sync to update course fees
+      await fetch('/api/payments/sync', { method: 'POST' });
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    }
+  }
 
   // Export logic using selectedRows and filteredRecords
   // escapeCSV: Escapes values for CSV export
@@ -138,17 +117,15 @@ export default function PaymentStatusPage() {
           </div>
           <div className="flex gap-2">
             <div className="tooltip-container">
-              <StudentManualPayment 
-                students={records}
-                onSubmit={handleStudentManualPayment}
-              />
-              <div className="tooltip">Manual Payment</div>
-            </div>
-            <div className="tooltip-container">
-              <PayslipButton 
-                students={records} 
-              />
-              <div className="tooltip">Generate Payslip</div>
+              <Button
+                onClick={handleRefreshData}
+                variant="outline"
+                className="border-[#9234ea] text-[#9234ea] hover:bg-[#9234ea] hover:text-white"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Data
+              </Button>
+              <div className="tooltip">Refresh payment data from database</div>
             </div>
             <div className="tooltip-container">
               <Button
@@ -232,6 +209,7 @@ export default function PaymentStatusPage() {
                       filteredRecords={filteredRecords}
                       isColumnVisible={isColumnVisible}
                       onUpdateRecord={handleUpdateRecord}
+                      refreshPaymentData={refreshPaymentData}
                       selectedRows={selectedRows}
                       setSelectedRows={setSelectedRows}
                     />
