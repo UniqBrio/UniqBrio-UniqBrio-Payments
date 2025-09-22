@@ -19,6 +19,7 @@ export type StudentManualPaymentPayload = {
   notes?: string
   receiverName: string
   receiverId: string
+  paymentTypes: ("course" | "studentRegistration" | "courseRegistration" | "confirmationFee")[] // Multiple payment types
 }
 interface StudentManualPaymentProps {
   student: PaymentRecord
@@ -40,6 +41,7 @@ export function StudentManualPayment({ student, onSubmit, open, onOpenChange }: 
         notes: payload.notes,
         receiverName: payload.receiverName,
         receiverId: payload.receiverId,
+        paymentTypes: payload.paymentTypes,
       })}
       prefillAmount={student.balancePayment > 0 ? student.balancePayment : undefined}
       studentInfo={{
@@ -49,6 +51,7 @@ export function StudentManualPayment({ student, onSubmit, open, onOpenChange }: 
         courseType: student.courseType ?? '-',
         category: student.category ?? '-',
         activity: student.activity ?? '-',
+        registrationFees: student.registrationFees,
       }}
     />
   )
@@ -68,6 +71,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/components/ui/use-toast"
 
 export type ManualPaymentPayload = {
@@ -77,6 +81,7 @@ export type ManualPaymentPayload = {
   notes?: string
   receiverName: string
   receiverId: string
+  paymentTypes: ("course" | "studentRegistration" | "courseRegistration" | "confirmationFee")[]
 }
 
 export function ManualPaymentDialog({
@@ -92,30 +97,83 @@ export function ManualPaymentDialog({
   onSubmit: (payload: ManualPaymentPayload) => void
   defaultMode?: ManualPaymentPayload["mode"]
   prefillAmount?: number
-  studentInfo?: { id: string; name: string; balancePayment?: number; courseType?: string; category?: string; activity?: string }
+  studentInfo?: { id: string; name: string; balancePayment?: number; courseType?: string; category?: string; activity?: string; registrationFees?: any }
 }) {
   const [amount, setAmount] = useState<string>("")
   const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10))
   const [mode, setMode] = useState<ManualPaymentPayload["mode"]>(defaultMode)
   const [notes, setNotes] = useState<string>("")
+  const [paymentTypes, setPaymentTypes] = useState<ManualPaymentPayload["paymentTypes"]>(["course"])
   const [receiverName, setReceiverName] = useState<string>("");
   const [receiverId, setReceiverId] = useState<string>("");
 
-  // Auto-fill amount with balance when dialog opens
-  useEffect(() => {
-    if (open) {
-      // Prefer studentInfo.balancePayment, fallback to prefillAmount
-      let balanceAmount = studentInfo?.balancePayment;
-      if (balanceAmount === undefined && prefillAmount !== undefined) {
-        balanceAmount = prefillAmount;
+  // Check if registration fees are already paid
+  const isRegistrationPaid = studentInfo?.registrationFees?.paid;
+  
+  // Get available payment options based on registration status
+  const getAvailablePaymentOptions = () => {
+    const options = [
+      { value: "course", label: "Course Payment", amount: studentInfo?.balancePayment || 0 }
+    ];
+    
+    if (!isRegistrationPaid && studentInfo?.registrationFees) {
+      if (studentInfo.registrationFees.studentRegistration) {
+        options.push({
+          value: "studentRegistration",
+          label: "Student Registration Fee",
+          amount: studentInfo.registrationFees.studentRegistration
+        });
       }
-      if (balanceAmount !== undefined) {
-        setAmount(balanceAmount.toString());
-      } else {
-        setAmount("");
+      if (studentInfo.registrationFees.courseRegistration) {
+        options.push({
+          value: "courseRegistration", 
+          label: "Course Registration Fee",
+          amount: studentInfo.registrationFees.courseRegistration
+        });
+      }
+      if (studentInfo.registrationFees.confirmationFee) {
+        options.push({
+          value: "confirmationFee",
+          label: "Advance/Confirmation Fee", 
+          amount: studentInfo.registrationFees.confirmationFee
+        });
       }
     }
-  }, [open, prefillAmount, studentInfo?.balancePayment]);
+    
+    return options;
+  };
+
+  // Auto-fill amount based on selected payment types when dialog opens
+  useEffect(() => {
+    if (open && studentInfo) {
+      // If registration is already paid, default to course payment only
+      if (isRegistrationPaid) {
+        setPaymentTypes(["course"]);
+        setAmount((studentInfo.balancePayment || 0).toString());
+      } else {
+        // Reset to course payment by default
+        setPaymentTypes(["course"]);
+        setAmount((studentInfo.balancePayment || 0).toString());
+      }
+    }
+  }, [open, studentInfo, isRegistrationPaid]);
+
+  // Calculate total amount when payment types change
+  useEffect(() => {
+    if (studentInfo) {
+      let totalAmount = 0;
+      const options = getAvailablePaymentOptions();
+      
+      paymentTypes.forEach(type => {
+        const option = options.find(opt => opt.value === type);
+        if (option) {
+          totalAmount += option.amount;
+        }
+      });
+      
+      setAmount(totalAmount.toString());
+    }
+  }, [paymentTypes, studentInfo]);
 
 
   const handleSubmit = () => {
@@ -145,6 +203,7 @@ export function ManualPaymentDialog({
       notes: notes.trim() || undefined,
       receiverName: receiverName.trim(),
       receiverId: receiverId.trim(),
+      paymentTypes,
     });
     
     setAmount("");
@@ -169,12 +228,58 @@ export function ManualPaymentDialog({
               <p><strong>Category:</strong> {studentInfo.category || '-'}</p>
               <p><strong>Activity:</strong> {studentInfo.activity || '-'}</p>
               <p><strong>Balance Payment:</strong> ₹{(studentInfo.balancePayment ?? 0).toLocaleString()}</p>
+              
+              {studentInfo.registrationFees && (
+                <div className="mt-2 pt-2 border-t">
+                  <p className="font-medium">Registration Fees:</p>
+                  {studentInfo.registrationFees.studentRegistration && (
+                    <p><strong>Student Reg:</strong> ₹{studentInfo.registrationFees.studentRegistration.toLocaleString()}</p>
+                  )}
+                  {studentInfo.registrationFees.courseRegistration && (
+                    <p><strong>Course Reg:</strong> ₹{studentInfo.registrationFees.courseRegistration.toLocaleString()}</p>
+                  )}
+                  {studentInfo.registrationFees.confirmationFee && (
+                    <p><strong>Advance Fee:</strong> ₹{studentInfo.registrationFees.confirmationFee.toLocaleString()}</p>
+                  )}
+                  <p><strong>Status:</strong> {studentInfo.registrationFees.paid ? "✔ Paid" : "Pending"}</p>
+                </div>
+              )}
+              
               <p><strong>Payment Receiver Name:</strong> {receiverName || '-'}</p>
               <p><strong>Payment Receiver ID:</strong> {receiverId || '-'}</p>
             </div>
           )}
         </DialogHeader>
         <div className="grid gap-3 py-2">
+          {!isRegistrationPaid && getAvailablePaymentOptions().length > 1 && (
+            <div className="grid gap-2">
+              <RequiredLabel>Payment Types (Select Multiple)</RequiredLabel>
+              <div className="border rounded-md p-3 space-y-2 bg-white">
+                {getAvailablePaymentOptions().map((option) => (
+                  <label key={option.value} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={paymentTypes.includes(option.value as any)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setPaymentTypes([...paymentTypes, option.value as any]);
+                        } else {
+                          setPaymentTypes(paymentTypes.filter(type => type !== option.value));
+                        }
+                      }}
+                      className="rounded border-gray-300"
+                    />
+                    <span>{option.label}</span>
+                    <span className="text-gray-500 ml-auto">₹{option.amount.toLocaleString()}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-gray-600">
+                Select multiple payment types to pay together. Amount will be calculated automatically.
+              </p>
+            </div>
+          )}
+          
           <div className="grid gap-1">
             <RequiredLabel htmlFor="mp-amount">Payment Amount</RequiredLabel>
             <Input
@@ -245,7 +350,7 @@ export function ManualPaymentDialog({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit}>Record</Button>
+          <Button onClick={handleSubmit} className="bg-[#9234ea] hover:bg-[#9234ea]/90">Save payment</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

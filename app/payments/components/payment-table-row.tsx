@@ -6,12 +6,56 @@ import { TableCell, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { toast } from "@/components/ui/use-toast"
 import { StudentManualPayment, StudentManualPaymentPayload } from "./student-manual-payment"
 import { PaymentRecord } from './payment-types'
 import { Send, QrCode, Smartphone, Link, Edit, Save, X, CreditCard, Mail } from "lucide-react"
-import { generatePayslipPDF } from "./generate-payslip-pdf"
+import { useReminderActions } from "./reminder-actions"
+import { usePaymentActions } from "./payment-actions"
+import { EmailPreviewDialog } from "./email-preview-dialog"
 import QRCodeLib from 'qrcode'
+
+// Utility function for formatting currency
+const formatCurrency = (amount: number, currency: string = "INR") => {
+  const numericAmount = isNaN(amount) ? 0 : amount
+  const formattedNumber = new Intl.NumberFormat('en-IN').format(numericAmount)
+  return `${formattedNumber} ${currency}`
+}
+
+
+
+// Since payment-utils is missing, let's define these functions here temporarily
+const formatDate = (dateString: string | null) => {
+  if (!dateString || dateString === 'N/A') return 'N/A'
+  try {
+    const date = new Date(dateString)
+    const day = date.getDate()
+    const month = date.toLocaleDateString('en-US', { month: 'short' })
+    const year = date.getFullYear().toString().slice(-2)
+    return `${day} ${month} ${year}`
+  } catch {
+    return 'Invalid'
+  }
+}
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'Paid':
+      return 'bg-green-100 text-green-800 border-green-300'
+    case 'Pending':
+      return 'bg-orange-100 text-orange-800 border-orange-300'
+    case 'Overdue':
+      return 'bg-red-100 text-red-800 border-red-300'
+    default:
+      return 'bg-gray-100 text-gray-800 border-gray-300'
+  }
+}
+
+const getCurrencyName = (currency: string) => {
+  const currencyNames = { USD: "US Dollar", INR: "Indian Rupee", GBP: "British Pound", EUR: "Euro" }
+  return currencyNames[currency as keyof typeof currencyNames] || "Indian Rupee"
+}
 
 interface PaymentTableRowProps {
   record: PaymentRecord
@@ -25,11 +69,26 @@ interface PaymentTableRowProps {
 
 export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refreshPaymentData, selectable, selected, onSelectRow }: PaymentTableRowProps) {
   const [editingText, setEditingText] = useState<{ id: string; text: string } | null>(null)
-  const [manualPaymentOpen, setManualPaymentOpen] = useState(false)
   const [qrCodeOpen, setQrCodeOpen] = useState(false)
   const [emailPreviewOpen, setEmailPreviewOpen] = useState(false)
   const [generatedQR, setGeneratedQR] = useState<string>('')
-  const [emailContent, setEmailContent] = useState({ subject: '', body: '' })
+
+  // Use extracted hooks
+  const { handleSendReminder } = useReminderActions({ record })
+  const {
+    manualPaymentOpen,
+    setManualPaymentOpen,
+    alreadyPaidAlertOpen,
+    setAlreadyPaidAlertOpen,
+    isFullyPaid,
+    handlePaymentButtonClick,
+    handleManualPayment,
+    generatePayslip
+  } = usePaymentActions({ record, onUpdateRecord, refreshPaymentData })
+
+  // Check if payments are completed (for display purposes)
+  const isRegistrationPaid = record.registrationFees?.paid || false
+  const isCoursePaid = record.balancePayment === 0
 
   // Generate QR code when dialog opens
   useEffect(() => {
@@ -90,187 +149,6 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
     return currency || 'INR'
   }
 
-  const sendReminder = (record: PaymentRecord) => {
-    // Check if it's email mode - show preview popup
-    if (record.reminderMode === "Email") {
-      showEmailPreview(record)
-      return
-    }
-
-    // Prepare payment details for the reminder
-    const paymentDetails = {
-      qrCode: record.paymentDetails.qrCode,
-      upiId: record.paymentDetails.upiId,
-      paymentLink: record.paymentDetails.paymentLink,
-      amount: record.balancePayment,
-      studentName: record.name,
-      courseName: record.activity,
-      dueDate: record.nextPaymentDate
-    }
-
-    // Send reminder with payment details based on communication mode
-    if (record.reminderMode === "SMS") {
-      sendSMSReminder(record, paymentDetails)
-    } else if (record.reminderMode === "WhatsApp") {
-      sendWhatsAppReminder(record, paymentDetails)
-    }
-
-    toast({
-      title: "✔ Reminder Sent",
-      description: `Payment reminder with ${record.reminderMode === 'SMS' ? 'UPI/Link' : 'UPI/Link'} sent to ${record.name} via ${record.reminderMode}`,
-    })
-  }
-
-  // SMS Reminder with UPI ID and Payment Link
-  const sendSMSReminder = (record: PaymentRecord, paymentDetails: any) => {
-    const message = `Hi ${paymentDetails.studentName}, 
-    
-Payment reminder for ${paymentDetails.courseName}
-Amount Due: ₹${paymentDetails.amount}
-Due Date: ${new Date(paymentDetails.dueDate).toLocaleDateString()}
-
-Payment Options:
-${paymentDetails.upiId ? `UPI ID: ${paymentDetails.upiId}` : ''}
-${paymentDetails.paymentLink ? `Payment Link: ${paymentDetails.paymentLink}` : ''}
-
-Pay now to avoid late fees.
-- UniqBrio Team`
-
-    // Here you would integrate with SMS API
-    console.log("SMS Reminder:", message)
-  }
-
-  // WhatsApp Reminder with UPI ID and Payment Link
-  const sendWhatsAppReminder = (record: PaymentRecord, paymentDetails: any) => {
-    const message = `Hi ${paymentDetails.studentName}! 🎓
-
-Your payment reminder for *${paymentDetails.courseName}*
-💰 Amount Due: ₹${paymentDetails.amount}
-📅 Due Date: ${new Date(paymentDetails.dueDate).toLocaleDateString()}
-
-*Payment Options:*
-${paymentDetails.upiId ? `📱 UPI ID: ${paymentDetails.upiId}` : ''}
-${paymentDetails.paymentLink ? `🔗 Payment Link: ${paymentDetails.paymentLink}` : ''}
-
-Please complete your payment to continue your course.
-
-Best regards,
-UniqBrio Team ✨`
-
-    // Here you would integrate with WhatsApp API
-    console.log("WhatsApp Reminder:", message)
-  }
-
-  // Email Preview and Send Function
-  const showEmailPreview = async (record: PaymentRecord) => {
-    // Generate QR code if not already generated
-    if (!generatedQR && record.paymentDetails.upiId) {
-      try {
-        const upiString = `upi://pay?pa=${record.paymentDetails.upiId}&pn=UniqBrio&am=${record.balancePayment}&cu=INR&tn=Payment for ${record.activity}`
-        const qrCodeDataURL = await QRCodeLib.toDataURL(upiString, {
-          width: 256,
-          margin: 2,
-          color: {
-            dark: '#000000',
-            light: '#FFFFFF'
-          }
-        })
-        setGeneratedQR(qrCodeDataURL)
-      } catch (error) {
-        console.error('QR Code generation failed:', error)
-      }
-    }
-
-    const subject = `Payment Reminder - ${record.activity} | ${record.cohort} - UniqBrio`
-    const body = `Dear ${record.name},
-
-${record.communicationText}
-
-COHORT & COURSE DETAILS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Course: ${record.activity}
-• Cohort: ${record.cohort || 'Not Assigned'}
-• Batch: ${record.batch || 'Not Assigned'}
-• Instructor: ${record.instructor || 'TBD'}
-• Class Schedule: ${record.classSchedule || 'TBD'}
-• Course Type: ${record.courseType}
-• Category: ${record.category}
-• Course Start Date: ${formatDate(record.courseStartDate)}
-
-PAYMENT SUMMARY:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Student ID: ${record.id}
-• Total Course Fee: ₹${record.finalPayment.toLocaleString()}
-• Amount Paid: ₹${record.totalPaidAmount.toLocaleString()}
-• Balance Due: ₹${record.balancePayment.toLocaleString()}
-• Payment Status: ${record.paymentStatus}
-• Due Date: ${formatDate(record.nextPaymentDate)}
-• Payment Frequency: ${record.paymentFrequency}
-
-COURSE-WISE SUMMARY:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-This payment is specifically for your enrollment in "${record.activity}".
-Your cohort "${record.cohort}" includes students with similar learning goals and schedule.
-
-Key Details:
-✓ Batch Timing: ${record.classSchedule || 'To be confirmed'}
-✓ Course Duration: As per curriculum guidelines  
-✓ Learning Mode: ${record.courseType} sessions
-✓ Support Level: ${record.category} student support
-
-PAYMENT OPTIONS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${record.paymentDetails.upiId ? `• UPI ID: ${record.paymentDetails.upiId}` : ''}
-${record.paymentDetails.paymentLink ? `• Payment Link: ${record.paymentDetails.paymentLink}` : ''}
-• QR Code: Available in attachment below
-• Payment Modes: UPI, Card, Bank Transfer
-
-IMPORTANT REMINDERS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Complete payment to secure your seat in ${record.cohort}
-• Late payments may affect your batch allocation
-• Contact support for payment assistance if needed
-• Keep your payment receipt for future reference
-
-We're excited to have you as part of the ${record.cohort} learning community!
-
-Best regards,
-UniqBrio Academic Team
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📧 Email: support@uniqbrio.com
-📱 Phone: +91 XXXXX XXXXX
-🌐 Website: www.uniqbrio.com`
-
-    setEmailContent({ subject, body })
-    setEmailPreviewOpen(true)
-  }
-
-  const sendEmailReminder = (record: PaymentRecord) => {
-    // Here you would integrate with your email service (SendGrid, Nodemailer, etc.)
-    console.log("Sending email with content:", emailContent)
-    
-    // For now, we'll show a success message
-    toast({
-      title: "✔ Email Sent",
-      description: `Payment reminder email sent to ${record.name}`,
-    })
-    
-    setEmailPreviewOpen(false)
-    
-    // In a real implementation, you would make an API call like:
-    // fetch('/api/send-email', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({
-    //     to: record.email, // You'd need email in the record
-    //     subject: emailContent.subject,
-    //     body: emailContent.body,
-    //     attachments: generatedQR ? [{ filename: 'qr-code.png', content: generatedQR }] : []
-    //   })
-    // })
-  }
-
   const startEditingText = (record: PaymentRecord) => {
     setEditingText({ id: record.id, text: record.communicationText })
   }
@@ -283,146 +161,6 @@ UniqBrio Academic Team
       title: "✔ Communication Updated",
       description: "Communication text has been updated successfully.",
     })
-  }
-
-  const handleManualPayment = async (payload: StudentManualPaymentPayload) => {
-    try {
-      console.log('Recording payment:', payload); // Debug log
-      
-      // Call the payments API to record the payment in the database
-      const response = await fetch('/api/payments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          studentId: record.id,
-          amount: payload.amount,
-          paymentMethod: payload.mode,
-          paymentType: "Course Fee",
-          paymentCategory: "Course Payment",
-          receiverName: payload.receiverName,
-          receiverId: payload.receiverId,
-          notes: payload.notes || "",
-          paymentDate: payload.date,
-          isManualPayment: true,
-          recordedBy: "Admin Dashboard"
-        })
-      });
-
-      console.log('API Response status:', response.status); // Debug log
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('API Response data:', result); // Debug log
-
-      if (result.success) {
-        // Calculate new values based on the payment
-        const newTotalPaid = record.totalPaidAmount + payload.amount;
-        const newBalance = Math.max(0, record.finalPayment - newTotalPaid);
-        const newStatus = newBalance === 0 ? 'Paid' : 'Pending'; // No "Partial" status - only Pending or Paid
-        
-        const updatedRecord: Partial<PaymentRecord> = {
-          totalPaidAmount: newTotalPaid,
-          balancePayment: newBalance,
-          paymentStatus: newStatus as "Paid" | "Pending",
-          paidDate: new Date().toISOString(),
-          paymentReminder: newBalance > 0 // Auto-disable reminders if fully paid
-        };
-
-        console.log('Updating record with:', updatedRecord); // Debug log
-        
-        // Update the record in the parent component immediately
-        onUpdateRecord(record.id, updatedRecord);
-        
-        // Show success message
-        toast({
-          title: "✔ Payment Recorded Successfully",
-          description: `Payment of ₹${payload.amount.toLocaleString()} recorded for ${record.name}. New balance: ₹${newBalance.toLocaleString()}`,
-        });
-
-        // Force refresh the payment data from database after a short delay
-        if (refreshPaymentData) {
-          console.log('Triggering payment data refresh...'); // Debug log
-          setTimeout(async () => {
-            try {
-              await refreshPaymentData();
-              console.log('Payment data refreshed successfully'); // Debug log
-            } catch (error) {
-              console.error('Error during refresh:', error);
-            }
-          }, 500); // Reduced delay
-        }
-      } else {
-        console.error('API returned error:', result);
-        throw new Error(result.error || 'Payment recording failed');
-      }
-    } catch (error) {
-      console.error('Payment recording error:', error);
-      toast({
-        title: "❌ Payment Recording Failed",
-        description: error instanceof Error ? error.message : "Failed to record payment in database",
-        variant: "destructive"
-      });
-    }
-    
-    setManualPaymentOpen(false);
-  }
-
-  const generatePayslip = async () => {
-    // Use the same HTML as in payslip-button.tsx for PDF content
-    const getCurrencySymbol = (currency: string) => {
-      const symbols: { [key: string]: string } = {
-        USD: "$", INR: "₹", GBP: "£", EUR: "€"
-      }
-      return symbols[currency] || "₹"
-    }
-    const payslipContent = `
-      <div style="max-width: 800px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif;">
-        <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px;">
-          <h1 style="color: #7c3aed; margin: 0;">UNIQBRIO</h1>
-          <p style="margin: 5px 0; color: #666;">Payment Receipt</p>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
-          <div>
-            <h3 style="color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Student Details</h3>
-            <p><strong>Name:</strong> ${record.name}</p>
-            <p><strong>ID:</strong> ${record.id}</p>
-            <p><strong>Course:</strong> ${record.activity}</p>
-            <p><strong>Category:</strong> ${record.category}</p>
-          </div>
-          <div>
-            <h3 style="color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Payment Details</h3>
-            <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-            <p><strong>Status:</strong> ${record.paymentStatus}</p>
-            <p><strong>Payment Mode:</strong> ${record.reminderMode}</p>
-          </div>
-        </div>
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
-          <h3 style="color: #333; margin-top: 0;">Payment Summary</h3>
-          <div style="display: flex; justify-content: space-between; margin: 10px 0;">
-            <span>Total Course Fee:</span>
-            <span>${getCurrencySymbol(record.currency)}${record.finalPayment.toLocaleString()}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; margin: 10px 0; color: #16a34a;">
-            <span>Amount Paid:</span>
-            <span>${getCurrencySymbol(record.currency)}${record.totalPaidAmount.toLocaleString()}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; margin: 10px 0; color: #dc2626; border-top: 1px solid #ddd; padding-top: 10px; font-weight: bold;">
-            <span>Balance Due:</span>
-            <span>${getCurrencySymbol(record.currency)}${record.balancePayment.toLocaleString()}</span>
-          </div>
-        </div>
-        <div style="text-align: center; color: #666; font-size: 12px; border-top: 1px solid #ddd; padding-top: 20px;">
-          <p>This is a computer generated receipt. No signature required.</p>
-          <p>For queries, contact: support@uniqbrio.com</p>
-        </div>
-      </div>
-    `;
-    await generatePayslipPDF(record, payslipContent);
   }
 
   return (
@@ -467,17 +205,17 @@ UniqBrio Academic Team
             <div className="space-y-1">
               {record.registrationFees.studentRegistration && (
                 <div className="text-[11px]">
-                  Student: {record.registrationFees.studentRegistration} {getCurrencyName(record.currency)}
+                  Student reg fee: {record.registrationFees.studentRegistration} {getCurrencyName(record.currency)}
                 </div>
               )}
               {record.registrationFees.courseRegistration && (
                 <div className="text-[11px]">
-                  Course: {record.registrationFees.courseRegistration} {getCurrencyName(record.currency)}
+                  Course reg fee: {record.registrationFees.courseRegistration} {getCurrencyName(record.currency)}
                 </div>
               )}
               {record.registrationFees.confirmationFee && (
                 <div className="text-[11px]">
-                  Confirmation: {record.registrationFees.confirmationFee} {getCurrencyName(record.currency)}
+                  Advance fee: {record.registrationFees.confirmationFee} {getCurrencyName(record.currency)}
                 </div>
               )}
               <Badge 
@@ -625,7 +363,7 @@ UniqBrio Academic Team
                     <Smartphone className="h-3 w-3" />
                     <span 
                       className="cursor-pointer text-blue-600 hover:underline"
-                      onClick={() => navigator.clipboard.writeText(record.paymentDetails.upiId)}
+                      onClick={() => navigator.clipboard.writeText(record.paymentDetails.upiId ?? "")}
                       title="Click to copy UPI ID"
                     >
                       {record.paymentDetails.upiId}
@@ -666,7 +404,7 @@ UniqBrio Academic Team
                     <Smartphone className="h-3 w-3" />
                     <span 
                       className="cursor-pointer text-blue-600 hover:underline"
-                      onClick={() => navigator.clipboard.writeText(record.paymentDetails.upiId)}
+                      onClick={() => navigator.clipboard.writeText(record.paymentDetails.upiId ?? "")}
                       title="Click to copy UPI ID"
                     >
                       {record.paymentDetails.upiId}
@@ -696,7 +434,7 @@ UniqBrio Academic Team
         <TableCell className="text-sm p-3">
           <Button
             size="sm"
-            onClick={() => setManualPaymentOpen(true)}
+            onClick={handlePaymentButtonClick}
             className="bg-[#9234ea] hover:bg-[#9234ea]/90 h-7 px-2 text-xs"
             title="Manual Payment"
           >
@@ -734,7 +472,13 @@ UniqBrio Academic Team
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => sendReminder(record)}
+                onClick={() => {
+                  if (record.reminderMode === "Email") {
+                    setEmailPreviewOpen(true)
+                  } else {
+                    handleSendReminder()
+                  }
+                }}
                 className="border-[#9234ea]/30 h-7 w-7 p-0"
                 title="Send Reminder"
               >
@@ -796,7 +540,7 @@ UniqBrio Academic Team
             )}
           </div>
           <div className="text-center space-y-2">
-            <p className="text-sm font-medium">Pay ₹{record.balancePayment.toLocaleString()}</p>
+            <p className="text-sm font-medium">Pay {formatCurrency(record.balancePayment, record.currency)}</p>
             <p className="text-xs text-gray-600">{record.name} - {record.activity}</p>
             {record.paymentDetails.upiId && (
               <p className="text-xs text-gray-500">UPI ID: {record.paymentDetails.upiId}</p>
@@ -814,110 +558,29 @@ UniqBrio Academic Team
     </Dialog>
 
     {/* Email Preview Dialog */}
-    <Dialog open={emailPreviewOpen} onOpenChange={setEmailPreviewOpen}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
-            Email Preview - {record.name}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          {/* Email Subject */}
-          <div>
-            <label className="text-sm font-medium">Subject:</label>
-            <div className="mt-1 p-2 bg-gray-50 rounded border text-sm">
-              {emailContent.subject}
-            </div>
-          </div>
+    <EmailPreviewDialog
+      record={record}
+      isOpen={emailPreviewOpen}
+      onClose={() => setEmailPreviewOpen(false)}
+      generatedQR={generatedQR}
+      setGeneratedQR={setGeneratedQR}
+    />
 
-          {/* Email Body */}
-          <div>
-            <label className="text-sm font-medium">Email Content:</label>
-            <Textarea
-              value={emailContent.body}
-              onChange={(e) => setEmailContent({ ...emailContent, body: e.target.value })}
-              className="mt-1 min-h-[300px] text-sm"
-              placeholder="Email content..."
-            />
-          </div>
-
-          {/* QR Code Preview */}
-          {generatedQR && (
-            <div>
-              <label className="text-sm font-medium">QR Code Attachment:</label>
-              <div className="mt-1 p-4 bg-white border rounded-lg flex justify-center">
-                <img 
-                  src={generatedQR} 
-                  alt="Payment QR Code" 
-                  className="w-32 h-32 object-contain"
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                This QR code will be attached to the email for easy payment.
-              </p>
-            </div>
-          )}
-
-          {/* Course & Cohort Details Summary */}
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <h4 className="font-medium text-sm mb-2">Course & Cohort Details:</h4>
-            <div className="text-sm space-y-1">
-              <p><strong>Student:</strong> {record.name} ({record.id})</p>
-              <p><strong>Course:</strong> {record.activity}</p>
-              <p><strong>Cohort:</strong> {record.cohort || 'Not Assigned'}</p>
-              <p><strong>Batch:</strong> {record.batch || 'Not Assigned'}</p>
-              <p><strong>Instructor:</strong> {record.instructor || 'TBD'}</p>
-              <p><strong>Schedule:</strong> {record.classSchedule || 'TBD'}</p>
-            </div>
-          </div>
-
-          {/* Payment Details Summary */}
-          <div className="bg-green-50 p-3 rounded-lg">
-            <h4 className="font-medium text-sm mb-2">Payment Summary:</h4>
-            <div className="text-sm space-y-1">
-              <p><strong>Total Course Fee:</strong> ₹{record.finalPayment.toLocaleString()}</p>
-              <p><strong>Amount Paid:</strong> ₹{record.totalPaidAmount.toLocaleString()}</p>
-              <p><strong>Balance Due:</strong> ₹{record.balancePayment.toLocaleString()}</p>
-              <p><strong>Status:</strong> {record.paymentStatus}</p>
-              <p><strong>Due Date:</strong> {formatDate(record.nextPaymentDate)}</p>
-              <p><strong>Frequency:</strong> {record.paymentFrequency}</p>
-            </div>
-          </div>
-
-          {/* Payment Options Summary */}
-          <div className="bg-purple-50 p-3 rounded-lg">
-            <h4 className="font-medium text-sm mb-2">Payment Options:</h4>
-            <div className="text-sm space-y-1">
-              {record.paymentDetails.upiId && (
-                <p><strong>UPI ID:</strong> {record.paymentDetails.upiId}</p>
-              )}
-              {record.paymentDetails.paymentLink && (
-                <p><strong>Payment Link:</strong> {record.paymentDetails.paymentLink}</p>
-              )}
-              <p><strong>QR Code:</strong> Available in email attachment</p>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              variant="outline"
-              onClick={() => setEmailPreviewOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => sendEmailReminder(record)}
-              className="bg-[#9234ea] hover:bg-[#9234ea]/90"
-            >
-              <Mail className="h-4 w-4 mr-2" />
-              Send Email
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <AlertDialog open={alreadyPaidAlertOpen} onOpenChange={setAlreadyPaidAlertOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Payment Already Completed</AlertDialogTitle>
+          <AlertDialogDescription>
+            You have already paid your fee amount. Both registration fees and course fees are fully paid.
+            {isRegistrationPaid && <div className="mt-2 text-green-600 font-medium">✔ Registration Fees: Paid</div>}
+            {isCoursePaid && <div className="text-green-600 font-medium">✔ Course Fees: Paid</div>}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogAction className="bg-[#9234ea] hover:bg-[#9234ea]/90">Okay</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   )
 }

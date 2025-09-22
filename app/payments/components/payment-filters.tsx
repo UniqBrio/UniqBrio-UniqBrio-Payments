@@ -30,6 +30,8 @@ interface PaymentFiltersProps {
   setSortOrder: (order: 'asc' | 'desc') => void
   onUpload?: () => void
   records?: any[]
+  filteredRecords?: any[]
+  totalRecords?: any[]
 }
 
 
@@ -53,12 +55,15 @@ export function PaymentFilters({
   setSortOrder,
   onUpload = () => {},
   records = [],
+  filteredRecords = [],
+  totalRecords = [],
 }: PaymentFiltersProps) {
 
-  // Generate dynamic filter options from actual data
-  const availableCourses = [...new Set(records.map(record => record.activity).filter(Boolean))]
-  const availableCategories = [...new Set(records.map(record => record.category).filter(Boolean))]
-  const availableStatuses = [...new Set(records.map(record => record.paymentStatus).filter(Boolean))]
+  // Use totalRecords or records for generating filter options (all available data)
+  const allRecords = totalRecords.length > 0 ? totalRecords : records
+  const availableCourses = [...new Set(allRecords.map(record => record.activity).filter(Boolean))]
+  const availableCategories = [...new Set(allRecords.map(record => record.category).filter(Boolean))]
+  const availableStatuses = [...new Set(allRecords.map(record => record.paymentStatus).filter(Boolean))]
 
   const [tempStatusFilters, setTempStatusFilters] = useState<string[]>(statusFilters)
   const [tempCategoryFilters, setTempCategoryFilters] = useState<string[]>(categoryFilters)
@@ -126,6 +131,10 @@ export function PaymentFilters({
 
 
   const hasRecords = records && records.length > 0;
+
+  // Calculate counts for display
+  const filteredCount = filteredRecords.length
+  const totalCount = totalRecords.length > 0 ? totalRecords.length : records.length
 
   return (
     <div className={`p-4 bg-white rounded-lg shadow-sm mb-4 ${hasRecords ? 'w-full' : ''}`}>
@@ -361,9 +370,9 @@ export function PaymentFilters({
         {/* Results Count */}
         {hasRecords && (
           <div className={`flex items-center gap-2 mt-2 px-4 py-2 bg-[#f6f3ff] border border-[#d1bfff] rounded-lg ${hasRecords ? 'w-full' : 'w-fit'}`}>
-            <div className="w-2 h-2 bg-[#9234ea] rounded-full"></div>
+            <Info className="h-4 w-4 text-[#9234ea]" />
             <span className="text-base text-[#9234ea] font-medium">
-              {Array.isArray(records) ? `${records.length} payment records found` : 'Payment records found'}
+              Showing {filteredCount} of {totalCount} payments
             </span>
           </div>
         )}

@@ -116,17 +116,7 @@ export default function PaymentStatusPage() {
             <p className="text-gray-600 mt-1">Track student payments, send reminders, and manage financial records</p>
           </div>
           <div className="flex gap-2">
-            <div className="tooltip-container">
-              <Button
-                onClick={handleRefreshData}
-                variant="outline"
-                className="border-[#9234ea] text-[#9234ea] hover:bg-[#9234ea] hover:text-white"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh Data
-              </Button>
-              <div className="tooltip">Refresh payment data from database</div>
-            </div>
+            
             <div className="tooltip-container">
               <Button
                 onClick={() => setShowCourseWisePopup(true)}
@@ -163,6 +153,8 @@ export default function PaymentStatusPage() {
           sortOrder={sortOrder}
           setSortOrder={setSortOrder}
           records={records}
+          filteredRecords={filteredRecords}
+          totalRecords={records}
         />
 
         {/* Loading and Error States */}

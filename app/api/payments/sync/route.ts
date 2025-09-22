@@ -20,6 +20,17 @@ export async function GET(request: NextRequest) {
       // Calculate totals with smart defaults for finalPayment
       const totalPaidAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
       
+      // Add registration fees to total received if paid
+      let registrationFeesReceived = 0;
+      if (student.registrationFees && student.registrationFees.paid) {
+        const regFees = student.registrationFees;
+        registrationFeesReceived = (regFees.studentRegistration || 0) + 
+                                  (regFees.courseRegistration || 0) + 
+                                  (regFees.confirmationFee || 0);
+      }
+      
+      const totalReceivedAmount = totalPaidAmount + registrationFeesReceived;
+      
       // Get final payment amount with intelligent defaults
       let totalCourseFee = student.finalPayment || 0;
       
@@ -56,7 +67,7 @@ export async function GET(request: NextRequest) {
         console.log(`Using default pricing for ${student.name} (${student.course || student.activity}): ₹${totalCourseFee}`);
       }
       
-      const balancePayment = Math.max(0, totalCourseFee - totalPaidAmount);
+      const balancePayment = Math.max(0, totalCourseFee - totalReceivedAmount);
       
       // Determine status
       let paymentStatus = 'Paid';
@@ -80,7 +91,7 @@ export async function GET(request: NextRequest) {
         classSchedule: student.classSchedule || 'Mon-Wed-Fri 10:00-12:00',
         currency: student.currency || 'INR',
         finalPayment: totalCourseFee, // Use calculated course fee
-        totalPaidAmount,
+        totalPaidAmount: totalReceivedAmount, // Include registration fees in total
         balancePayment,
         paymentStatus,
         paymentFrequency: student.paymentFrequency || 'Monthly',
@@ -115,7 +126,7 @@ export async function GET(request: NextRequest) {
         totalTransactions: payments.length,
         lastPaymentDate: latestPayment ? latestPayment.paymentDate : null,
         lastPaymentAmount: latestPayment ? latestPayment.amount : 0,
-        paymentHistory: payments.slice(0, 3).map(p => ({
+        paymentHistory: payments.slice(0, 1).map(p => ({
           id: p.transactionId,
           amount: p.amount,
           date: p.paymentDate,

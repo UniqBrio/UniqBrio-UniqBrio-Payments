@@ -65,7 +65,8 @@ export async function POST(request: NextRequest) {
       dueDate,
       paymentDate = new Date(),
       isManualPayment = true,
-      recordedBy = "Admin"
+      recordedBy = "Admin",
+      registrationPaymentType
     } = body;
 
     // Validate required fields
@@ -135,23 +136,43 @@ export async function POST(request: NextRequest) {
     const savedPayment = await payment.save();
     console.log('Payment saved with ID:', savedPayment._id);
 
+    // Prepare student update object
+    let studentUpdateFields: any = {};
+
     // Update student record with the new payment information
     const newTotalPaid = (student.totalPaidAmount || 0) + amount;
     const newStatus = newBalance === 0 ? 'Paid' : 'Pending'; // No "Partial" status - only Pending or Paid
     
+    // Basic payment fields
+    studentUpdateFields = {
+      totalPaidAmount: newTotalPaid,
+      balancePayment: newBalance,
+      paymentStatus: newStatus,
+      paidDate: new Date(),
+      paymentReminder: newBalance > 0, // Turn off reminders if fully paid
+      lastPaymentDate: new Date(),
+      lastPaymentAmount: amount
+    };
+
+    // Handle registration fee payments
+    if (registrationPaymentType && ["studentRegistration", "courseRegistration", "confirmationFee"].includes(registrationPaymentType)) {
+      console.log(`Processing registration fee payment: ${registrationPaymentType}`);
+      
+      // Update registration fees to mark as paid
+      const currentRegistrationFees = student.registrationFees || {};
+      studentUpdateFields.registrationFees = {
+        ...currentRegistrationFees,
+        paid: true,
+        status: "Paid",
+        paidDate: new Date()
+      };
+      
+      console.log('Updated registration fees:', studentUpdateFields.registrationFees);
+    }
+    
     const updateResult = await Student.updateOne(
       { studentId },
-      {
-        $set: {
-          totalPaidAmount: newTotalPaid,
-          balancePayment: newBalance,
-          paymentStatus: newStatus,
-          paidDate: new Date(),
-          paymentReminder: newBalance > 0, // Turn off reminders if fully paid
-          lastPaymentDate: new Date(),
-          lastPaymentAmount: amount
-        }
-      }
+      { $set: studentUpdateFields }
     );
 
     console.log('Student update result:', updateResult);
