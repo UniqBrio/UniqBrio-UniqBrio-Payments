@@ -99,27 +99,22 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-      <Button
-  variant="outline"
-  size="sm"
-  className="h-12 w-12 p-0 flex items-center justify-center bg-[#f4f0ff] border border-[#a78bfa] hover:bg-[#ede9fe] shadow-none"
-  title="Display columns"
->
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" className="h-7 w-7">
-    <rect x="8" y="8" width="64" height="64" rx="14" ry="14" fill="#f4f0ff" stroke="#a78bfa" strokeWidth="2.5"/>
-    <g fill="#7c3aed">
-      <rect x="28" y="28" width="6" height="6" rx="2"/>
-      <rect x="37" y="28" width="6" height="6" rx="2"/>
-      <rect x="46" y="28" width="6" height="6" rx="2"/>
-      <rect x="28" y="37" width="6" height="6" rx="2"/>
-      <rect x="37" y="37" width="6" height="6" rx="2"/>
-      <rect x="46" y="37" width="6" height="6" rx="2"/>
-      <rect x="28" y="46" width="6" height="6" rx="2"/>
-      <rect x="37" y="46" width="6" height="6" rx="2"/>
-      <rect x="46" y="46" width="6" height="6" rx="2"/>
-    </g>
-  </svg>
-</Button>
+      <button 
+        className="ml-4 px-3 py-2 bg-purple-100 text-purple-700 rounded border border-purple-300 hover:bg-purple-200 flex items-center justify-center" 
+        title="Displayed Columns"
+      >
+        <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="5" height="5" rx="1.5" fill="#7C3AED"></rect>
+          <rect x="10" y="3" width="5" height="5" rx="1.5" fill="#7C3AED"></rect>
+          <rect x="17" y="3" width="4" height="5" rx="1.5" fill="#7C3AED"></rect>
+          <rect x="3" y="10" width="5" height="5" rx="1.5" fill="#7C3AED"></rect>
+          <rect x="10" y="10" width="5" height="5" rx="1.5" fill="#7C3AED"></rect>
+          <rect x="17" y="10" width="4" height="5" rx="1.5" fill="#7C3AED"></rect>
+          <rect x="3" y="17" width="5" height="4" rx="1.5" fill="#7C3AED"></rect>
+          <rect x="10" y="17" width="5" height="4" rx="1.5" fill="#7C3AED"></rect>
+          <rect x="17" y="17" width="4" height="4" rx="1.5" fill="#7C3AED"></rect>
+        </svg>
+      </button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader className="pb-4">

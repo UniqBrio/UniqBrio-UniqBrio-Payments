@@ -140,7 +140,7 @@ export function PaymentFilters({
     <div className={`p-4 bg-white rounded-lg shadow-sm mb-4 ${hasRecords ? 'w-full' : ''}`}>
       <div className="flex flex-col gap-2 w-full">
         <div className="flex items-center gap-2 w-full">
-          <div className={`relative ${hasRecords ? 'flex-grow' : 'flex-1 min-w-[120px] max-w-[850px]'}`}>
+          <div className={`relative ${hasRecords ? 'flex-grow' : 'flex-1 min-w-[120px] max-w-[900px]'}`}>
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <input
                 type="text"
@@ -362,18 +362,21 @@ export function PaymentFilters({
             <Download className="h-4 w-4" />
           </TooltipButton>
 
-          <ColumnVisibility
-            columns={columns}
-            onColumnToggle={onColumnToggle}
-          />
+         
         </div>
         {/* Results Count */}
         {hasRecords && (
-          <div className={`flex items-center gap-2 mt-2 px-4 py-2 bg-[#f6f3ff] border border-[#d1bfff] rounded-lg ${hasRecords ? 'w-full' : 'w-fit'}`}>
-            <Info className="h-4 w-4 text-[#9234ea]" />
-            <span className="text-base text-[#9234ea] font-medium">
-              Showing {filteredCount} of {totalCount} payments
-            </span>
+          <div className={`flex items-center justify-between gap-2 mt-2 px-4 py-2 bg-[#f6f3ff]  rounded-lg ${hasRecords ? 'w-full' : 'w-fit'}`}>
+            <div className="flex items-center gap-2">
+              {/* <Info className="h-4 w-4 text-[#9234ea]" /> */}
+              <span className="text-base text-[#9234ea] font-medium">
+                Showing {filteredCount} of {totalCount} payments
+              </span>
+            </div>
+            <ColumnVisibility
+              columns={columns}
+              onColumnToggle={onColumnToggle}
+            />
           </div>
         )}
       </div>
