@@ -289,10 +289,50 @@ export function usePaymentLogic() {
   }, [searchTerm, statusFilters, categoryFilters, courseFilters, sortBy, sortOrder, records])
 
   const paymentSummary: PaymentSummary = {
-    receivedPayment: records.reduce((sum: number, record: PaymentRecord) => sum + record.totalPaidAmount, 0),
-    outstandingPayment: records.reduce((sum: number, record: PaymentRecord) => sum + record.balancePayment, 0),
-    totalPayment: records.reduce((sum: number, record: PaymentRecord) => sum + record.finalPayment, 0),
-    profit: records.reduce((sum: number, record: PaymentRecord) => sum + record.totalPaidAmount * 0.3, 0),
+    receivedPayment: records.reduce((sum: number, record: PaymentRecord) => {
+      // Calculate total registration fees
+      const registrationTotal = (record.registrationFees?.studentRegistration || 0) + 
+                               (record.registrationFees?.courseRegistration || 0) + 
+                               (record.registrationFees?.confirmationFee || 0)
+      
+      // Add registration fees to received payment if registration is paid
+      const registrationReceived = record.registrationFees?.paid ? registrationTotal : 0
+      
+      return sum + record.totalPaidAmount + registrationReceived
+    }, 0),
+    
+    outstandingPayment: records.reduce((sum: number, record: PaymentRecord) => {
+      // Calculate total registration fees
+      const registrationTotal = (record.registrationFees?.studentRegistration || 0) + 
+                               (record.registrationFees?.courseRegistration || 0) + 
+                               (record.registrationFees?.confirmationFee || 0)
+      
+      // Add registration fees to outstanding if not paid
+      const registrationOutstanding = !record.registrationFees?.paid ? registrationTotal : 0
+      
+      return sum + record.balancePayment + registrationOutstanding
+    }, 0),
+    
+    totalPayment: records.reduce((sum: number, record: PaymentRecord) => {
+      // Calculate total registration fees
+      const registrationTotal = (record.registrationFees?.studentRegistration || 0) + 
+                               (record.registrationFees?.courseRegistration || 0) + 
+                               (record.registrationFees?.confirmationFee || 0)
+      
+      return sum + record.finalPayment + registrationTotal
+    }, 0),
+    
+    profit: records.reduce((sum: number, record: PaymentRecord) => {
+      // Calculate total registration fees
+      const registrationTotal = (record.registrationFees?.studentRegistration || 0) + 
+                               (record.registrationFees?.courseRegistration || 0) + 
+                               (record.registrationFees?.confirmationFee || 0)
+      
+      // Add registration fees to profit calculation if paid
+      const registrationReceived = record.registrationFees?.paid ? registrationTotal : 0
+      
+      return sum + (record.totalPaidAmount + registrationReceived) * 0.3
+    }, 0),
   }
 
   const handleUpdateRecord = (id: string, updates: Partial<PaymentRecord>) => {
