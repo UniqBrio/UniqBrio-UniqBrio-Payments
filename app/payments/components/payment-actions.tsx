@@ -23,7 +23,13 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
   const [manualPaymentOpen, setManualPaymentOpen] = useState(false)
   const [alreadyPaidAlertOpen, setAlreadyPaidAlertOpen] = useState(false)
 
-  const isFullyPaid = record.paymentStatus === 'Paid' && record.balancePayment === 0
+  const isRegistrationPaid = record.registrationFees?.paid || false;
+  const hasRegistrationFees = !!(record.registrationFees && (
+    record.registrationFees.studentRegistration ||
+    record.registrationFees.courseRegistration ||
+    record.registrationFees.confirmationFee
+  ));
+  const isFullyPaid = record.paymentStatus === 'Paid' && record.balancePayment === 0 && (!hasRegistrationFees || isRegistrationPaid);
 
   const handlePaymentButtonClick = () => {
     if (isFullyPaid) {
