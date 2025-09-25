@@ -7,8 +7,11 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB();
     
+    console.log('Fetching students for payment sync...');
+    
     // Aggregate all payments and update student records with latest balances
     const students = await Student.find({}).lean();
+    console.log(`Found ${students.length} students in database`);
     
     const updatedStudents = await Promise.all(students.map(async (student) => {
       // Get all completed payments for this student
@@ -136,6 +139,8 @@ export async function GET(request: NextRequest) {
       };
     }));
     
+    console.log(`Returning ${updatedStudents.length} synchronized payment records`);
+    
     return NextResponse.json({
       success: true,
       data: updatedStudents,
@@ -146,6 +151,24 @@ export async function GET(request: NextRequest) {
     console.error('Payment sync error:', error);
     return NextResponse.json(
       { success: false, error: "Failed to sync payment data" },
+      { status: 500 }
+    );
+  }
+}
+
+// Add POST method to manually trigger sync
+export async function POST(request: NextRequest) {
+  try {
+    console.log('Manual sync triggered');
+    
+    // Force refresh by calling GET method
+    const result = await GET(request);
+    return result;
+    
+  } catch (error) {
+    console.error('Manual sync error:', error);
+    return NextResponse.json(
+      { success: false, error: "Failed to manually sync payment data" },
       { status: 500 }
     );
   }

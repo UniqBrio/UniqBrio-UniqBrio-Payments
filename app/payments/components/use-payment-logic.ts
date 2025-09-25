@@ -107,6 +107,40 @@ export function usePaymentLogic() {
     setFilteredRecords(filtered);
   }
 
+  // Auto-refresh every 30 seconds to catch new students
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('Auto-refreshing payment data...');
+      refreshPaymentData();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto-refresh every second to detect new students (read-only polling)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        // Silently check for new students without disturbing UI
+        const response = await fetch('/api/students', {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' }
+        })
+        const result = await response.json()
+        
+        if (result.success) {
+          // Always refresh to get latest data, even if count is same (data might have changed)
+          console.log('Auto-refreshing payment data...')
+          refreshPaymentData()
+        }
+      } catch (error) {
+        console.log('Auto-refresh check failed:', error)
+      }
+    }, 1000) // Check every 1 second
+
+    return () => clearInterval(interval)
+  }, []) // No dependencies - always run
+
   // Fetch students from database with synchronized payment data
   useEffect(() => {
     const fetchStudents = async () => {
@@ -342,16 +376,37 @@ export function usePaymentLogic() {
   }
 
   const refreshPaymentData = async () => {
-    console.log('Refreshing payment data...'); // Debug log
+    console.log('Auto-refreshing payment data...'); // Debug log
     try {
-      setLoading(true)
+      // Don't show loading for auto-refresh to avoid UI flickering
+      // setLoading(true)
+      
+      // Store current count for comparison
+      const previousCount = records.length;
       
       // Try to fetch updated data from sync endpoint first
-      let response = await fetch('/api/payments/sync')
+      let response = await fetch('/api/payments/sync', {
+        cache: 'no-store', // Force fresh data
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      })
       let result = await response.json()
       
       if (result.success && result.data && result.data.length > 0) {
         console.log('Payment data refreshed from sync:', result.data.length, 'records'); // Debug log
+        
+        // Check if new students were added
+        if (result.data.length > previousCount) {
+          const newStudentCount = result.data.length - previousCount;
+          console.log(`New students detected: ${newStudentCount} students added`);
+          
+          // Show toast notification for new students
+          if (typeof window !== 'undefined') {
+            console.log(`✅ ${newStudentCount} new student${newStudentCount > 1 ? 's' : ''} added to payment system`);
+          }
+        }
+        
         setRecords(result.data)
         setError(null)
       } else {
@@ -435,10 +490,12 @@ export function usePaymentLogic() {
         }
       }
     } catch (err) {
-      console.error('Refresh error:', err)
-      setError('Failed to refresh payment data')
+      console.error('Auto-refresh error:', err)
+      // Don't set error state for auto-refresh to avoid disturbing UI
+      // setError('Failed to refresh payment data')
     } finally {
-      setLoading(false)
+      // Don't set loading false for auto-refresh
+      // setLoading(false)
     }
   }
 

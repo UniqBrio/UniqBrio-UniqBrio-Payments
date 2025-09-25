@@ -5,7 +5,7 @@ import MainLayout from "@/components/main-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/use-toast"
-import { FileText, RefreshCw } from "lucide-react"
+import { FileText } from "lucide-react"
 
 // Payment components
 import { PaymentFilters } from './components/payment-filters'
@@ -51,17 +51,6 @@ export default function PaymentStatusPage() {
 
   // Selected rows state lifted up
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
-
-  // Handle refresh data
-  const handleRefreshData = async () => {
-    try {
-      await refreshPaymentData();
-      // Also trigger sync to update course fees
-      await fetch('/api/payments/sync', { method: 'POST' });
-    } catch (error) {
-      console.error('Error refreshing data:', error);
-    }
-  }
 
   // Export logic using selectedRows and filteredRecords
   // escapeCSV: Escapes values for CSV export
@@ -116,7 +105,6 @@ export default function PaymentStatusPage() {
             <p className="text-gray-600 mt-1">Track student payments, send reminders, and manage financial records</p>
           </div>
           <div className="flex gap-2">
-            
             <div className="tooltip-container">
               <Button
                 onClick={() => setShowCourseWisePopup(true)}
