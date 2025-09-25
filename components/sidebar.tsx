@@ -180,6 +180,13 @@ export default function Sidebar({ position, collapsed, toggleSidebar }: SidebarP
       tooltip: "Handle enquiries",
     },
     {
+      id: "register-student",
+      name: "Register Student",
+      icon: <UserPlus className="h-5 w-5" />,
+      href: "/register",
+      tooltip: "Register new student with automatic payment setup",
+    },
+    {
       id: "Payments",
       name: "Payments",
       icon: <CreditCard className="h-5 w-5" />,

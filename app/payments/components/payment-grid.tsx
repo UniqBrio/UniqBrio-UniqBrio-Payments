@@ -121,17 +121,17 @@ export function PaymentGrid({ filteredRecords, onUpdateRecord }: PaymentGridProp
                   {record.registrationFees.studentRegistration && (
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-600">Student:</span>
-                      <span>{getCurrencySymbol(record.currency)}{record.registrationFees.studentRegistration}</span>
+                      <span>{getCurrencySymbol(record.currency)}{record.registrationFees.studentRegistration.amount}</span>
                     </div>
                   )}
                   {record.registrationFees.courseRegistration && (
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-600">Course:</span>
-                      <span>{getCurrencySymbol(record.currency)}{record.registrationFees.courseRegistration}</span>
+                      <span>{getCurrencySymbol(record.currency)}{record.registrationFees.courseRegistration.amount}</span>
                     </div>
                   )}
-                  <Badge variant={record.registrationFees.paid ? "default" : "destructive"} className="text-xs">
-                    {record.registrationFees.paid ? "Paid" : "Pending"}
+                  <Badge variant={record.registrationFees.overall?.paid ? "default" : "destructive"} className="text-xs">
+                    {record.registrationFees.overall?.paid ? "Paid" : "Pending"}
                   </Badge>
                 </div>
               </div>

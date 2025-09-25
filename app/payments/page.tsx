@@ -25,6 +25,8 @@ export default function PaymentStatusPage() {
     setStatusFilters,
     categoryFilters,
     setCategoryFilters,
+    paymentCategoryFilters,
+    setPaymentCategoryFilters,
     courseFilters,
     setCourseFilters,
     sortBy,
@@ -54,8 +56,18 @@ export default function PaymentStatusPage() {
 
   // Export logic using selectedRows and filteredRecords
   // escapeCSV: Escapes values for CSV export
-  function escapeCSV(val: any) {
+  function escapeCSV(val: any, key?: string) {
     if (val == null) return '';
+    
+    // Handle special case for registration fees
+    if (key === 'registration' && typeof val === 'object' && val.registrationFees) {
+      const regFees = val.registrationFees;
+      const studentReg = regFees.studentRegistration ? `Student: ₹${regFees.studentRegistration.amount}${regFees.studentRegistration.paid ? ' (Paid)' : ''}` : '';
+      const courseReg = regFees.courseRegistration ? `Course: ₹${regFees.courseRegistration.amount}${regFees.courseRegistration.paid ? ' (Paid)' : ''}` : '';
+      const confirmation = regFees.confirmationFee ? `Confirmation: ₹${regFees.confirmationFee.amount}${regFees.confirmationFee.paid ? ' (Paid)' : ''}` : '';
+      return [studentReg, courseReg, confirmation].filter(Boolean).join('; ');
+    }
+    
     if (typeof val === 'object') return '"' + JSON.stringify(val).replace(/"/g, '""') + '"';
     const str = String(val);
     if (str.includes(',') || str.includes('"') || str.includes('\n')) {
@@ -75,7 +87,10 @@ export default function PaymentStatusPage() {
     const visibleKeys = allKeys.filter(isColumnVisible);
     const header = visibleKeys.join(',');
     const rows = selected.map(row =>
-      visibleKeys.map(key => escapeCSV((row as any)[key])).join(',')
+      visibleKeys.map(key => {
+        const value = key === 'registration' ? row : (row as any)[key];
+        return escapeCSV(value, key);
+      }).join(',')
     );
     const csv = [header, ...rows].join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -97,7 +112,7 @@ export default function PaymentStatusPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 payments-page">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -129,6 +144,8 @@ export default function PaymentStatusPage() {
           setStatusFilters={setStatusFilters}
           categoryFilters={categoryFilters}
           setCategoryFilters={setCategoryFilters}
+          paymentCategoryFilters={paymentCategoryFilters}
+          setPaymentCategoryFilters={setPaymentCategoryFilters}
           courseFilters={courseFilters}
           setCourseFilters={setCourseFilters}
           viewMode={viewMode}
@@ -166,7 +183,7 @@ export default function PaymentStatusPage() {
 
         {/* Payment View - Grid or Table */}
         {!loading && !error && (
-          <div className="w-full bg-white shadow-md rounded-lg p-4">
+          <div className="w-full bg-white shadow-md rounded-lg p-4" data-payment-container>
             {filteredRecords.length === 0 ? (
               <Card className="w-full">
                 <CardContent className="p-8 text-center">

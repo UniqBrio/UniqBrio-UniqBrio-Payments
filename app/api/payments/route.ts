@@ -3,7 +3,7 @@ import Payment from "@/models/payment";
 import Student from "@/models/student";
 import { NextRequest, NextResponse } from "next/server";
 
-// GET: Fetch all payments for a student or all payments
+// GET: Fetch payment documents (one per student) or specific student's payment data
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
@@ -12,30 +12,66 @@ export async function GET(request: NextRequest) {
     const studentId = searchParams.get('studentId');
     const limit = parseInt(searchParams.get('limit') || '50');
     const page = parseInt(searchParams.get('page') || '1');
-    const sortBy = searchParams.get('sortBy') || 'paymentDate';
+    const sortBy = searchParams.get('sortBy') || 'lastPaymentDate';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
     
-    const query = studentId ? { studentId } : {};
-    const skip = (page - 1) * limit;
-    
-    const payments = await Payment.find(query)
-      .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
-      .limit(limit)
-      .skip(skip)
-      .lean();
-    
-    const totalCount = await Payment.countDocuments(query);
-    
-    return NextResponse.json({
-      success: true,
-      data: payments,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(totalCount / limit),
-        totalRecords: totalCount,
-        limit
+    if (studentId) {
+      // Fetch specific student's payment document
+      const paymentDoc = await Payment.findOne({ studentId }).lean();
+      
+      if (!paymentDoc) {
+        return NextResponse.json({
+          success: true,
+          data: null,
+          message: "No payment record found for this student"
+        });
       }
-    });
+      
+      return NextResponse.json({
+        success: true,
+        data: paymentDoc,
+        message: `Found ${(paymentDoc as any).paymentRecords?.length || 0} payment records for student ${studentId}`
+      });
+    } else {
+      // Fetch all payment documents (one per student)
+      const skip = (page - 1) * limit;
+      
+      const payments = await Payment.find({})
+        .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+        .limit(limit)
+        .skip(skip)
+        .lean();
+      
+      const totalCount = await Payment.countDocuments({});
+      
+      // Transform data to include summary information
+      const transformedData = payments.map((doc: any) => ({
+        studentId: doc.studentId,
+        studentName: doc.studentName,
+        courseName: doc.courseName,
+        totalCourseFee: doc.totalCourseFee,
+        totalPaidAmount: doc.totalPaidAmount,
+        currentBalance: doc.currentBalance,
+        paymentStatus: doc.paymentStatus,
+        totalTransactions: doc.paymentRecords?.length || 0,
+        completedTransactions: doc.paymentRecords?.filter((r: any) => r.paymentStatus === 'Completed').length || 0,
+        lastPaymentDate: doc.lastPaymentDate,
+        currency: doc.currency,
+        createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt
+      }));
+      
+      return NextResponse.json({
+        success: true,
+        data: transformedData,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalCount / limit),
+          totalRecords: totalCount,
+          limit
+        }
+      });
+    }
   } catch (error) {
     console.error('Payment fetch error:', error);
     return NextResponse.json(
@@ -45,19 +81,20 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Create a new payment record
+// POST: Add payment record ONLY to payments collection - no other collections modified
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
+    console.log('=== PAYMENT CREATION START ===');
     
     const body = await request.json();
-    console.log('Received payment data:', body); // Debug log
+    console.log('Received payment data:', body);
     
     const {
       studentId,
       amount,
       paymentMethod = "Cash",
-      paymentType = "Course Fee",
+      paymentType = "Course Fee", 
       paymentCategory = "Course Payment",
       receiverName,
       receiverId,
@@ -66,140 +103,207 @@ export async function POST(request: NextRequest) {
       paymentDate = new Date(),
       isManualPayment = true,
       recordedBy = "Admin",
-      registrationPaymentType
+      finalPayment, // Get finalPayment from request body
+      registrationPaymentType // Track which registration fee was paid
     } = body;
 
     // Validate required fields
     if (!studentId || !amount || !receiverName || !receiverId) {
-      console.log('Validation failed:', { studentId, amount, receiverName, receiverId });
+      console.log('❌ Validation failed:', { studentId, amount, receiverName, receiverId });
       return NextResponse.json(
         { success: false, error: "Missing required fields: studentId, amount, receiverName, receiverId" },
         { status: 400 }
       );
     }
 
-    // Fetch student details
-    const student = await Student.findOne({ studentId });
-    console.log('Found student:', student ? student.name : 'Not found');
-    
-    if (!student) {
-      return NextResponse.json(
-        { success: false, error: "Student not found" },
-        { status: 404 }
-      );
-    }
+    console.log('✅ Validation passed');
 
-    // Calculate balances
-    const totalCourseFee = student.finalPayment || 0;
-    const previousBalance = student.balancePayment || totalCourseFee;
-    const newBalance = Math.max(0, previousBalance - amount);
-    
-    console.log('Balance calculation:', { totalCourseFee, previousBalance, amount, newBalance });
+    // Get student info for display purposes only (read-only)
+    const student = await Student.findOne({ studentId }).lean();
+    console.log('📖 Student info (read-only):', student ? student.name : 'Not found');
     
     // Generate transaction ID
     const timestamp = Date.now().toString(36);
     const random = Math.random().toString(36).substr(2, 5);
     const transactionId = `PAY_${timestamp}_${random}`.toUpperCase();
+    console.log('🔢 Generated transaction ID:', transactionId);
+
+    // ONLY WORK WITH PAYMENTS COLLECTION
+    let paymentDoc = await Payment.findOne({ studentId });
+    console.log('💾 Existing payment doc found:', !!paymentDoc);
     
-    console.log('Generated transaction ID:', transactionId);
-    
+    if (!paymentDoc) {
+      // Create new payment document - use finalPayment from request as totalCourseFee
+      let totalCourseFee = finalPayment || 0;
+      
+      // If finalPayment not provided in request, try student's finalPayment
+      if (totalCourseFee === 0) {
+        totalCourseFee = student?.finalPayment || 0;
+      }
+      
+      // If still 0, calculate from course type as fallback
+      if (totalCourseFee === 0) {
+        const courseName = (student?.course || student?.activity || '').toLowerCase();
+        const coursePricing: { [key: string]: number } = {
+          'art': 15000,
+          'photography': 12000,
+          'music': 10000,
+          'dance': 8000,
+          'craft': 6000,
+          'drama': 7000,
+          'digital art': 18000,
+          'singing': 9000,
+          'guitar': 11000,
+          'piano': 13000,
+          'painting': 14000,
+          'drawing': 8000,
+          'sculpture': 16000
+        };
+        
+        totalCourseFee = 25000; // Default base price
+        for (const [course, price] of Object.entries(coursePricing)) {
+          if (courseName.includes(course)) {
+            totalCourseFee = price;
+            break;
+          }
+        }
+      }
+      
+      console.log('💰 Total course fee set to:', totalCourseFee, '(from request finalPayment:', finalPayment, ')');
+      
+      paymentDoc = new Payment({
+        studentId,
+        studentName: student?.name || 'Unknown Student',
+        courseId: student?.course || student?.activity || "GENERAL",
+        courseName: student?.course || student?.activity || "General Course",
+        cohort: student?.cohort || `${new Date().getFullYear()}_Batch01`,
+        batch: student?.batch || "Morning Batch",
+        totalCourseFee,
+        currentBalance: totalCourseFee,
+        currency: student?.currency || "INR",
+        paymentRecords: []
+      });
+      
+      console.log('✨ Creating new payment document for student:', studentId, 'with totalCourseFee:', totalCourseFee);
+    } else {
+      // For existing payment documents, update totalCourseFee if it's 0 and we have finalPayment from request
+      if (paymentDoc.totalCourseFee === 0 && finalPayment && finalPayment > 0) {
+        paymentDoc.totalCourseFee = finalPayment;
+        paymentDoc.currentBalance = finalPayment - (paymentDoc.totalPaidAmount || 0);
+        console.log('🔄 Updated existing payment doc totalCourseFee to:', finalPayment);
+      }
+    }
+
+    // Calculate balance
+    const previousBalance = paymentDoc.currentBalance;
+    const newBalance = Math.max(0, previousBalance - amount);
+    console.log('💰 Balance calculation:', { previousBalance, amount, newBalance });
+
     // Create payment record
-    const payment = new Payment({
-      studentId,
-      studentName: student.name,
-      courseId: student.course || student.activity || "GENERAL",
-      courseName: student.course || student.activity || "General Course",
-      cohort: student.cohort || `${(student.course || '').replace(/\s+/g, '')}_${new Date().getFullYear()}_Batch01`,
-      batch: student.batch || "Morning Batch",
-      transactionId, // Explicitly set transaction ID
-      amount,
-      currency: student.currency || "INR",
+    const newPaymentRecord = {
+      transactionId,
+      amount: Number(amount),
+      currency: paymentDoc.currency,
       paymentType,
       paymentCategory,
       paymentMethod,
       paymentDate: new Date(paymentDate),
-      dueDate: dueDate ? new Date(dueDate) : null,
+      dueDate: dueDate ? new Date(dueDate) : undefined,
       receiverName,
       receiverId,
       notes,
       previousBalance,
       newBalance,
-      totalCourseFee,
       isManualPayment,
       recordedBy,
       ipAddress: request.headers.get('x-forwarded-for') || 'localhost',
-      userAgent: request.headers.get('user-agent') || 'Unknown'
-    });
-
-    console.log('Creating payment record:', payment.toObject());
-    
-    const savedPayment = await payment.save();
-    console.log('Payment saved with ID:', savedPayment._id);
-
-    // Prepare student update object
-    let studentUpdateFields: any = {};
-
-    // Update student record with the new payment information
-    const newTotalPaid = (student.totalPaidAmount || 0) + amount;
-    const newStatus = newBalance === 0 ? 'Paid' : 'Pending'; // No "Partial" status - only Pending or Paid
-    
-    // Basic payment fields
-    studentUpdateFields = {
-      totalPaidAmount: newTotalPaid,
-      balancePayment: newBalance,
-      paymentStatus: newStatus,
-      paidDate: new Date(),
-      paymentReminder: newBalance > 0, // Turn off reminders if fully paid
-      lastPaymentDate: new Date(),
-      lastPaymentAmount: amount
+      userAgent: request.headers.get('user-agent') || 'Unknown',
+      paymentStatus: 'Completed'
     };
 
     // Handle registration fee payments
-    if (registrationPaymentType && ["studentRegistration", "courseRegistration", "confirmationFee"].includes(registrationPaymentType)) {
-      console.log(`Processing registration fee payment: ${registrationPaymentType}`);
+    if (registrationPaymentType && ['studentRegistration', 'courseRegistration', 'confirmationFee'].includes(registrationPaymentType)) {
+      // Initialize registration fees if not exists
+      if (!paymentDoc.registrationFees) {
+        paymentDoc.registrationFees = {
+          studentRegistration: { amount: 500, paid: false },
+          courseRegistration: { amount: 1000, paid: false },
+          confirmationFee: { amount: 250, paid: false },
+          overall: { paid: false, status: 'Pending' }
+        };
+      }
+
+      // Update the specific registration fee
+      if (registrationPaymentType === 'studentRegistration') {
+        paymentDoc.registrationFees.studentRegistration.paid = true;
+        paymentDoc.registrationFees.studentRegistration.paidDate = new Date(paymentDate).toISOString();
+      } else if (registrationPaymentType === 'courseRegistration') {
+        paymentDoc.registrationFees.courseRegistration.paid = true;
+        paymentDoc.registrationFees.courseRegistration.paidDate = new Date(paymentDate).toISOString();
+      } else if (registrationPaymentType === 'confirmationFee') {
+        paymentDoc.registrationFees.confirmationFee.paid = true;
+        paymentDoc.registrationFees.confirmationFee.paidDate = new Date(paymentDate).toISOString();
+      }
+
+      // Update overall registration status
+      const allRegFeesPaid = 
+        paymentDoc.registrationFees.studentRegistration.paid &&
+        paymentDoc.registrationFees.courseRegistration.paid &&
+        paymentDoc.registrationFees.confirmationFee.paid;
       
-      // Update registration fees to mark as paid
-      const currentRegistrationFees = student.registrationFees || {};
-      studentUpdateFields.registrationFees = {
-        ...currentRegistrationFees,
-        paid: true,
-        status: "Paid",
-        paidDate: new Date()
-      };
-      
-      console.log('Updated registration fees:', studentUpdateFields.registrationFees);
+      paymentDoc.registrationFees.overall.paid = allRegFeesPaid;
+      paymentDoc.registrationFees.overall.status = allRegFeesPaid ? 'Paid' : 'Pending';
+
+      console.log('✅ Updated registration fee:', registrationPaymentType, 'to paid status');
     }
+
+    // Add payment record to array
+    paymentDoc.paymentRecords.push(newPaymentRecord);
+    paymentDoc.lastUpdatedBy = recordedBy;
     
-    const updateResult = await Student.updateOne(
-      { studentId },
-      { $set: studentUpdateFields }
-    );
+    console.log('📝 Adding payment record:', {
+      transactionId,
+      amount,
+      method: paymentMethod,
+      recordsCount: paymentDoc.paymentRecords.length
+    });
+    
+    // Save ONLY to payments collection
+    const savedPayment = await paymentDoc.save();
+    console.log('✅ Payment saved successfully to payments collection');
+    console.log('📊 Final summary:', {
+      totalPaid: savedPayment.totalPaidAmount,
+      balance: savedPayment.currentBalance,
+      status: savedPayment.paymentStatus,
+      totalRecords: savedPayment.paymentRecords.length
+    });
 
-    console.log('Student update result:', updateResult);
+    // Get the newly added record
+    const addedRecord = savedPayment.paymentRecords[savedPayment.paymentRecords.length - 1];
 
-    // Verify the student was updated
-    if (updateResult.matchedCount === 0) {
-      console.log('Warning: Student record not found for update');
-    } else if (updateResult.modifiedCount === 0) {
-      console.log('Warning: Student record was not modified');
-    } else {
-      console.log('Student record updated successfully');
-    }
+    console.log('=== PAYMENT CREATION END ===');
 
     return NextResponse.json({
       success: true,
       data: {
-        ...savedPayment.toObject(),
-        newBalance,
-        newTotalPaid,
-        newStatus,
-        studentUpdated: updateResult.modifiedCount > 0
+        studentId: savedPayment.studentId,
+        studentName: savedPayment.studentName,
+        transactionId,
+        paymentRecord: addedRecord,
+        summary: {
+          totalCourseFee: savedPayment.totalCourseFee,
+          totalPaidAmount: savedPayment.totalPaidAmount,
+          coursePaidAmount: savedPayment.coursePaidAmount,
+          currentBalance: savedPayment.currentBalance,
+          paymentStatus: savedPayment.paymentStatus,
+          totalTransactions: savedPayment.paymentRecords.length
+        }
       },
-      message: `Payment of ₹${amount.toLocaleString()} recorded successfully. New balance: ₹${newBalance.toLocaleString()}`
+      message: `✅ Payment of ₹${amount.toLocaleString()} recorded successfully in payments collection only. Balance: ₹${savedPayment.currentBalance.toLocaleString()}`
     }, { status: 201 });
 
   } catch (error) {
-    console.error('Payment creation error:', error);
+    console.error('❌ Payment creation error:', error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Failed to create payment record" },
       { status: 500 }

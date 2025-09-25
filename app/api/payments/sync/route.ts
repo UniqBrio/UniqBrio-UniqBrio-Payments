@@ -14,28 +14,34 @@ export async function GET(request: NextRequest) {
     console.log(`Found ${students.length} students in database`);
     
     const updatedStudents = await Promise.all(students.map(async (student) => {
-      // Get all completed payments for this student
-      const payments = await Payment.find({ 
-        studentId: student.studentId,
-        paymentStatus: 'Completed'
-      }).sort({ paymentDate: -1 });
+      // Get payment document for this student (new structure: one doc per student)
+      const paymentDoc = await Payment.findOne({ 
+        studentId: student.studentId 
+      });
       
-      // Calculate totals with smart defaults for finalPayment
-      const totalPaidAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
+      // Get completed payment records from the document
+      const paymentRecords = paymentDoc?.paymentRecords?.filter((record: any) => 
+        record.paymentStatus === 'Completed'
+      ) || [];
       
-      // Add registration fees to total received if paid
-      let registrationFeesReceived = 0;
-      if (student.registrationFees && student.registrationFees.paid) {
-        const regFees = student.registrationFees;
-        registrationFeesReceived = (regFees.studentRegistration || 0) + 
-                                  (regFees.courseRegistration || 0) + 
-                                  (regFees.confirmationFee || 0);
-      }
+      // Calculate totals - separate course payments from registration fee payments to avoid double counting
+      const coursePayments = paymentRecords.filter((payment: any) => 
+        payment.paymentCategory === 'Course Payment' || 
+        (!payment.paymentCategory && payment.paymentType === 'Course Fee')
+      );
       
-      const totalReceivedAmount = totalPaidAmount + registrationFeesReceived;
+      const registrationPayments = paymentRecords.filter((payment: any) => 
+        payment.paymentCategory && ['Student Registration', 'Course Registration', 'Confirmation Fee'].includes(payment.paymentCategory)
+      );
       
-      // Get final payment amount with intelligent defaults
-      let totalCourseFee = student.finalPayment || 0;
+      const totalCoursePaidAmount = coursePayments.reduce((sum: number, payment: any) => sum + payment.amount, 0);
+      const totalRegistrationPaidAmount = registrationPayments.reduce((sum: number, payment: any) => sum + payment.amount, 0);
+      
+      // Total received is course payments + registration payments (no double counting)
+      const totalReceivedAmount = totalCoursePaidAmount + totalRegistrationPaidAmount;
+      
+      // Get total course fee - prioritize payment doc, then student finalPayment, then defaults
+      let totalCourseFee = paymentDoc?.totalCourseFee || student.finalPayment || 0;
       
       // If finalPayment is 0 or not set, calculate from course/activity
       if (totalCourseFee === 0) {
@@ -69,8 +75,13 @@ export async function GET(request: NextRequest) {
         
         console.log(`Using default pricing for ${student.name} (${student.course || student.activity}): ₹${totalCourseFee}`);
       }
+
+      // Debug registration fees structure
+      if (student && student.registrationFees) {
+        console.log('🔍 Student registration fees for', student.name, ':', JSON.stringify(student.registrationFees, null, 2));
+      }
       
-      const balancePayment = Math.max(0, totalCourseFee - totalReceivedAmount);
+      const balancePayment = Math.max(0, totalCourseFee - totalCoursePaidAmount);
       
       // Determine status
       let paymentStatus = 'Paid';
@@ -80,7 +91,8 @@ export async function GET(request: NextRequest) {
       }
       
       // Get latest payment date
-      const latestPayment = payments.length > 0 ? payments[0] : null;
+      const latestPayment = paymentRecords.length > 0 ? 
+        paymentRecords.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())[0] : null;
       
       return {
         id: student.studentId,
@@ -94,7 +106,7 @@ export async function GET(request: NextRequest) {
         classSchedule: student.classSchedule || 'Mon-Wed-Fri 10:00-12:00',
         currency: student.currency || 'INR',
         finalPayment: totalCourseFee, // Use calculated course fee
-        totalPaidAmount: totalReceivedAmount, // Include registration fees in total
+        totalPaidAmount: paymentDoc?.totalPaidAmount || totalCoursePaidAmount, // Use payment document totalPaidAmount if available
         balancePayment,
         paymentStatus,
         paymentFrequency: student.paymentFrequency || 'Monthly',
@@ -110,12 +122,26 @@ export async function GET(request: NextRequest) {
         reminderMode: student.modeOfCommunication || student.reminderMode || 'Email',
         communicationText: student.communicationText || `Payment reminder for ${student.course || student.activity}. Amount due: ₹${balancePayment}.`,
         reminderDays: student.reminderDays || [7, 3, 1],
-        registrationFees: student.registrationFees || {
-          studentRegistration: 500,
-          courseRegistration: 1000,
-          confirmationFee: 250,
-          paid: false,
-          status: 'Pending'
+        registrationFees: paymentDoc?.registrationFees || {
+          studentRegistration: {
+            amount: 500,
+            paid: false,
+            paidDate: null
+          },
+          courseRegistration: {
+            amount: 1000,
+            paid: false,
+            paidDate: null
+          },
+          confirmationFee: {
+            amount: 250,
+            paid: false,
+            paidDate: null
+          },
+          overall: {
+            paid: false,
+            status: 'Pending'
+          }
         },
         paymentDetails: student.paymentDetails || {
           upiId: 'payment@uniqbrio.com',
@@ -125,11 +151,11 @@ export async function GET(request: NextRequest) {
         paymentModes: student.paymentModes || ['UPI', 'Card', 'Bank Transfer'],
         studentType: student.studentType || 'New',
         emiSplit: student.emiSplit || 1,
-        // Additional metadata from payments
-        totalTransactions: payments.length,
+        // Additional metadata from payment records
+        totalTransactions: paymentRecords.length,
         lastPaymentDate: latestPayment ? latestPayment.paymentDate : null,
         lastPaymentAmount: latestPayment ? latestPayment.amount : 0,
-        paymentHistory: payments.slice(0, 1).map(p => ({
+        paymentHistory: paymentRecords.slice(0, 1).map((p: any) => ({
           id: p.transactionId,
           amount: p.amount,
           date: p.paymentDate,

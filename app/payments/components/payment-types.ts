@@ -27,15 +27,30 @@ export interface PaymentRecord {
   emiSplit?: number
   reminderDays: number[]
   registrationFees?: {
-    studentRegistration?: number
-    courseRegistration?: number
-    confirmationFee?: number
-    paid: boolean
-    status?: "Paid" | "Pending"
+    studentRegistration?: {
+      amount: number
+      paid: boolean
+      paidDate?: string
+    }
+    courseRegistration?: {
+      amount: number
+      paid: boolean
+      paidDate?: string
+    }
+    confirmationFee?: {
+      amount: number
+      paid: boolean
+      paidDate?: string
+    }
+    overall: {
+      paid: boolean
+      status: "Paid" | "Pending"
+    }
   }
   paymentModes: string[]
   studentType: "New" | "Existing"
   courseStartDate?: string
+  paymentCategory?: "Student Registration" | "Course Registration" | "Confirmation Fee" | "Course Payment"
 }
 
 export interface PaymentSummary {

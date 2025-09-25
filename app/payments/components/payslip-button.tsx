@@ -82,7 +82,13 @@ export function PayslipButton({ students }: PayslipButtonProps) {
           <h3 style="color: #333; margin-top: 0;">Payment Summary</h3>
           <div style="display: flex; justify-content: space-between; margin: 10px 0;">
             <span>Total Course Fee:</span>
-            <span>${getCurrencySymbol(selectedStudent.currency)}${selectedStudent.finalPayment.toLocaleString()}</span>
+            <span>${getCurrencySymbol(selectedStudent.currency)}${(() => {
+              const courseFee = selectedStudent.finalPayment || 0;
+              const registrationTotal = (selectedStudent.registrationFees?.studentRegistration?.amount || 0) + 
+                                      (selectedStudent.registrationFees?.courseRegistration?.amount || 0) + 
+                                      (selectedStudent.registrationFees?.confirmationFee?.amount || 0);
+              return (courseFee + registrationTotal).toLocaleString();
+            })()}</span>
           </div>
           <div style="display: flex; justify-content: space-between; margin: 10px 0; color: #16a34a;">
             <span>Amount Paid:</span>
@@ -117,7 +123,11 @@ export function PayslipButton({ students }: PayslipButtonProps) {
     if (!selectedStudent) return
 
     const element = document.createElement('a')
-    const file = new Blob([`Payment Receipt - ${selectedStudent.name}\n\nStudent: ${selectedStudent.name}\nCourse: ${selectedStudent.activity}\nTotal Fee: ${getCurrencySymbol(selectedStudent.currency)}${selectedStudent.finalPayment}\nPaid: ${getCurrencySymbol(selectedStudent.currency)}${selectedStudent.totalPaidAmount}\nBalance: ${getCurrencySymbol(selectedStudent.currency)}${selectedStudent.balancePayment}`], {type: 'text/plain'})
+    const totalFeeWithRegistration = selectedStudent.finalPayment + 
+      (selectedStudent.registrationFees?.studentRegistration?.amount || 0) + 
+      (selectedStudent.registrationFees?.courseRegistration?.amount || 0) + 
+      (selectedStudent.registrationFees?.confirmationFee?.amount || 0);
+    const file = new Blob([`Payment Receipt - ${selectedStudent.name}\n\nStudent: ${selectedStudent.name}\nCourse: ${selectedStudent.activity}\nTotal Fee: ${getCurrencySymbol(selectedStudent.currency)}${totalFeeWithRegistration}\nPaid: ${getCurrencySymbol(selectedStudent.currency)}${selectedStudent.totalPaidAmount}\nBalance: ${getCurrencySymbol(selectedStudent.currency)}${selectedStudent.balancePayment}`], {type: 'text/plain'})
     element.href = URL.createObjectURL(file)
     element.download = `payslip-${selectedStudent.name}-${new Date().toISOString().split('T')[0]}.txt`
     document.body.appendChild(element)
@@ -164,7 +174,13 @@ export function PayslipButton({ students }: PayslipButtonProps) {
               <h4 className="font-medium mb-2">Student Found:</h4>
               <p><strong>Name:</strong> {selectedStudent.name}</p>
               <p><strong>Course:</strong> {selectedStudent.activity}</p>
-              <p><strong>Total Fee:</strong> {getCurrencySymbol(selectedStudent.currency)}{selectedStudent.finalPayment.toLocaleString()}</p>
+              <p><strong>Total Fee:</strong> {getCurrencySymbol(selectedStudent.currency)}{(() => {
+                const courseFee = selectedStudent.finalPayment || 0;
+                const registrationTotal = (selectedStudent.registrationFees?.studentRegistration?.amount || 0) + 
+                                        (selectedStudent.registrationFees?.courseRegistration?.amount || 0) + 
+                                        (selectedStudent.registrationFees?.confirmationFee?.amount || 0);
+                return (courseFee + registrationTotal).toLocaleString();
+              })()}</p>
               <p><strong>Paid:</strong> {getCurrencySymbol(selectedStudent.currency)}{selectedStudent.totalPaidAmount.toLocaleString()}</p>
               <p><strong>Balance:</strong> {getCurrencySymbol(selectedStudent.currency)}{selectedStudent.balancePayment.toLocaleString()}</p>
             </div>

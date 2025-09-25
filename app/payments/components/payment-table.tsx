@@ -41,7 +41,7 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord,
   return (
     <Card className="border-[#9234ea]/30">
       <CardContent className="p-0">
-        <div className="overflow-auto max-h-[80vh] relative">
+        <div className="overflow-auto max-h-[80vh] relative" data-payment-table>
           <Table className="min-w-[1500px] relative">
             <TableHeader className="sticky top-0 z-30">
               <TableRow className="bg-gray-100 border-[#9234ea]/20">

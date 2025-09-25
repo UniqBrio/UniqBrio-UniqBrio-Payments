@@ -11,67 +11,101 @@ export async function GET(request: NextRequest, { params }: { params: { studentI
     
     // Get student details
     const student = await Student.findOne({ studentId }).lean();
-    if (!student) {
+    if (!student || Array.isArray(student)) {
       return NextResponse.json(
         { success: false, error: "Student not found" },
         { status: 404 }
       );
     }
     
-    // Get all payments for this student
-    const payments = await Payment.find({ studentId })
-      .sort({ paymentDate: -1 })
-      .lean();
+    // Get payment document for this student
+    const paymentDoc = await Payment.findOne({ studentId }).lean();
     
-    // Calculate payment summary
-    const totalPaid = payments.reduce((sum, payment) => {
-      return payment.paymentStatus === 'Completed' ? sum + payment.amount : sum;
-    }, 0);
+    if (!paymentDoc) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          student: {
+            id: studentId,
+            name: student.name,
+            course: student.course || student.activity,
+            cohort: student.cohort,
+            batch: student.batch
+          },
+          financial: {
+            totalCourseFee: (student as any).finalPayment || 0,
+            totalPaid: 0,
+            balance: (student as any).finalPayment || 0,
+            paymentStatus: 'Pending',
+            currency: student.currency || 'INR'
+          },
+          analytics: {
+            totalTransactions: 0,
+            paymentByMethod: {},
+            monthlyPayments: {},
+            averagePaymentAmount: 0,
+            firstPaymentDate: null,
+            lastPaymentDate: null
+          },
+          recentPayments: [],
+          paymentRecords: []
+        },
+        message: "No payment records found for this student"
+      });
+    }
     
-    const totalCourseFee = student.finalPayment || 0;
-    const balance = Math.max(0, totalCourseFee - totalPaid);
+    // Filter completed payments for analytics
+    const completedPayments = paymentDoc.paymentRecords.filter(record => record.paymentStatus === 'Completed');
     
     // Payment method breakdown
-    const paymentByMethod = payments.reduce((acc, payment) => {
-      if (payment.paymentStatus === 'Completed') {
-        acc[payment.paymentMethod] = (acc[payment.paymentMethod] || 0) + payment.amount;
-      }
+    const paymentByMethod = completedPayments.reduce((acc, payment) => {
+      acc[payment.paymentMethod] = (acc[payment.paymentMethod] || 0) + payment.amount;
       return acc;
     }, {} as Record<string, number>);
     
     // Monthly payment trends
-    const monthlyPayments = payments.reduce((acc, payment) => {
-      if (payment.paymentStatus === 'Completed') {
-        const monthYear = new Date(payment.paymentDate).toISOString().slice(0, 7); // YYYY-MM
-        acc[monthYear] = (acc[monthYear] || 0) + payment.amount;
-      }
+    const monthlyPayments = completedPayments.reduce((acc, payment) => {
+      const monthYear = new Date(payment.paymentDate).toISOString().slice(0, 7); // YYYY-MM
+      acc[monthYear] = (acc[monthYear] || 0) + payment.amount;
       return acc;
     }, {} as Record<string, number>);
+    
+    // Sort payment records by date (newest first)
+    const sortedPayments = [...paymentDoc.paymentRecords].sort((a, b) => 
+      new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
+    );
     
     const summary = {
       student: {
         id: studentId,
-        name: student.name,
-        course: student.course || student.activity,
-        cohort: student.cohort,
-        batch: student.batch
+        name: paymentDoc.studentName,
+        course: paymentDoc.courseName,
+        cohort: paymentDoc.cohort,
+        batch: paymentDoc.batch
       },
       financial: {
-        totalCourseFee,
-        totalPaid,
-        balance,
-        paymentStatus: balance === 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Pending'),
-        currency: student.currency || 'INR'
+        totalCourseFee: paymentDoc.totalCourseFee,
+        totalPaid: paymentDoc.totalPaidAmount,
+        balance: paymentDoc.currentBalance,
+        paymentStatus: paymentDoc.paymentStatus,
+        currency: paymentDoc.currency
       },
       analytics: {
-        totalTransactions: payments.filter(p => p.paymentStatus === 'Completed').length,
+        totalTransactions: paymentDoc.paymentRecords.length,
+        completedTransactions: completedPayments.length,
         paymentByMethod,
         monthlyPayments,
-        averagePaymentAmount: totalPaid > 0 ? totalPaid / payments.filter(p => p.paymentStatus === 'Completed').length : 0,
-        firstPaymentDate: payments.length > 0 ? payments[payments.length - 1].paymentDate : null,
-        lastPaymentDate: payments.length > 0 ? payments[0].paymentDate : null
+        averagePaymentAmount: completedPayments.length > 0 ? paymentDoc.totalPaidAmount / completedPayments.length : 0,
+        firstPaymentDate: completedPayments.length > 0 ? completedPayments[completedPayments.length - 1].paymentDate : null,
+        lastPaymentDate: paymentDoc.lastPaymentDate
       },
-      recentPayments: payments.slice(0, 5) // Last 5 payments
+      recentPayments: sortedPayments.slice(0, 5), // Last 5 payments
+      paymentRecords: sortedPayments, // All payment records
+      documentInfo: {
+        createdAt: paymentDoc.createdAt,
+        updatedAt: paymentDoc.updatedAt,
+        lastUpdatedBy: paymentDoc.lastUpdatedBy
+      }
     };
     
     return NextResponse.json({

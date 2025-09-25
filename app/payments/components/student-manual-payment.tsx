@@ -107,36 +107,78 @@ export function ManualPaymentDialog({
   const [receiverName, setReceiverName] = useState<string>("");
   const [receiverId, setReceiverId] = useState<string>("");
 
+  // Helper function to safely extract fee data from actual database values
+  const getActualFeeData = (feeObj: any) => {
+    if (!feeObj) return null;
+    
+    // If it's already in the correct format with amount property
+    if (typeof feeObj === 'object' && feeObj.hasOwnProperty('amount')) {
+      return {
+        amount: typeof feeObj.amount === 'number' ? feeObj.amount : null,
+        paid: Boolean(feeObj.paid)
+      };
+    }
+    
+    // If it's a direct number (actual amount from database)
+    if (typeof feeObj === 'number') {
+      return { amount: feeObj, paid: false };
+    }
+    
+    // For other objects, try to extract meaningful data
+    if (typeof feeObj === 'object') {
+      const amount = feeObj.value || feeObj.fee || feeObj.cost || null;
+      if (amount && typeof amount === 'number') {
+        return { amount: amount, paid: Boolean(feeObj.paid) };
+      }
+    }
+    
+    return null; // Don't show if we can't determine the structure
+  };
+
   // Check if registration fees are already paid
-  const isRegistrationPaid = studentInfo?.registrationFees?.paid;
+  const isRegistrationPaid = studentInfo?.registrationFees?.overall?.paid;
   
-  // Get available payment options based on registration status
+  // Get available payment options
   const getAvailablePaymentOptions = () => {
+    const courseBalance = studentInfo?.balancePayment || 0;
     const options = [
-      { value: "course", label: "Course Payment", amount: studentInfo?.balancePayment || 0 }
+      { value: "course", label: "Course Payment", amount: courseBalance, paid: courseBalance <= 0 }
     ];
     
-    if (!isRegistrationPaid && studentInfo?.registrationFees) {
+    // Show registration fee options only if they exist in actual data
+    if (studentInfo?.registrationFees) {
       if (studentInfo.registrationFees.studentRegistration) {
-        options.push({
-          value: "studentRegistration",
-          label: "Student Registration Fee",
-          amount: studentInfo.registrationFees.studentRegistration
-        });
+        const studentRegData = getActualFeeData(studentInfo.registrationFees.studentRegistration);
+        if (studentRegData && studentRegData.amount !== null) {
+          options.push({
+            value: "studentRegistration",
+            label: "Student Registration Fee",
+            amount: studentRegData.amount,
+            paid: studentRegData.paid
+          });
+        }
       }
       if (studentInfo.registrationFees.courseRegistration) {
-        options.push({
-          value: "courseRegistration", 
-          label: "Course Registration Fee",
-          amount: studentInfo.registrationFees.courseRegistration
-        });
+        const courseRegData = getActualFeeData(studentInfo.registrationFees.courseRegistration);
+        if (courseRegData && courseRegData.amount !== null) {
+          options.push({
+            value: "courseRegistration", 
+            label: "Course Registration Fee",
+            amount: courseRegData.amount,
+            paid: courseRegData.paid
+          });
+        }
       }
       if (studentInfo.registrationFees.confirmationFee) {
-        options.push({
-          value: "confirmationFee",
-          label: "Advance/Confirmation Fee", 
-          amount: studentInfo.registrationFees.confirmationFee
-        });
+        const confirmationData = getActualFeeData(studentInfo.registrationFees.confirmationFee);
+        if (confirmationData && confirmationData.amount !== null) {
+          options.push({
+            value: "confirmationFee",
+            label: "Advance/Confirmation Fee", 
+            amount: confirmationData.amount,
+            paid: confirmationData.paid
+          });
+        }
       }
     }
     
@@ -146,17 +188,31 @@ export function ManualPaymentDialog({
   // Auto-fill amount based on selected payment types when dialog opens
   useEffect(() => {
     if (open && studentInfo) {
-      // If registration is already paid, default to course payment only
-      if (isRegistrationPaid) {
-        setPaymentTypes(["course"]);
-        setAmount((studentInfo.balancePayment || 0).toString());
+      // Only set initial values when dialog first opens, not on every change
+      // Start with course payment if there's a balance, otherwise start with available unpaid registration fees
+      const options = getAvailablePaymentOptions();
+      const unpaidOptions = options.filter(opt => !opt.paid);
+      
+      if (unpaidOptions.length > 0) {
+        // Default to course payment if available and has balance, otherwise first unpaid option
+        const courseOption = unpaidOptions.find(opt => opt.value === "course");
+        const defaultType = (courseOption && courseOption.amount > 0) ? "course" : unpaidOptions[0].value;
+        setPaymentTypes([defaultType as any]);
+        
+        // Set amount based on selected default type
+        const selectedOption = options.find(opt => opt.value === defaultType);
+        setAmount((selectedOption?.amount || 0).toString());
       } else {
-        // Reset to course payment by default
-        setPaymentTypes(["course"]);
-        setAmount((studentInfo.balancePayment || 0).toString());
+        setPaymentTypes([]);
+        setAmount("0");
       }
+    } else if (!open) {
+      // Reset when dialog closes
+      setPaymentTypes([]);
+      setAmount("");
+      setNotes("");
     }
-  }, [open, studentInfo, isRegistrationPaid]);
+  }, [open]); // Remove studentInfo from dependency array
 
   // Calculate total amount when payment types change
   useEffect(() => {
@@ -166,7 +222,7 @@ export function ManualPaymentDialog({
       
       paymentTypes.forEach(type => {
         const option = options.find(opt => opt.value === type);
-        if (option) {
+        if (option && !option.paid) { // Only include unpaid fees in calculation
           totalAmount += option.amount;
         }
       });
@@ -232,16 +288,25 @@ export function ManualPaymentDialog({
               {studentInfo.registrationFees && (
                 <div className="mt-2 pt-2 border-t">
                   <p className="font-medium">Registration Fees:</p>
-                  {studentInfo.registrationFees.studentRegistration && (
-                    <p><strong>Student Reg:</strong> ₹{studentInfo.registrationFees.studentRegistration.toLocaleString()}</p>
-                  )}
-                  {studentInfo.registrationFees.courseRegistration && (
-                    <p><strong>Course Reg:</strong> ₹{studentInfo.registrationFees.courseRegistration.toLocaleString()}</p>
-                  )}
-                  {studentInfo.registrationFees.confirmationFee && (
-                    <p><strong>Advance Fee:</strong> ₹{studentInfo.registrationFees.confirmationFee.toLocaleString()}</p>
-                  )}
-                  <p><strong>Status:</strong> {studentInfo.registrationFees.paid ? "✔ Paid" : "Pending"}</p>
+                  {studentInfo.registrationFees.studentRegistration && (() => {
+                    const feeData = getActualFeeData(studentInfo.registrationFees.studentRegistration);
+                    return feeData?.amount ? (
+                      <p><strong>Student Reg:</strong> ₹{feeData.amount.toLocaleString()}</p>
+                    ) : null;
+                  })()}
+                  {studentInfo.registrationFees.courseRegistration && (() => {
+                    const feeData = getActualFeeData(studentInfo.registrationFees.courseRegistration);
+                    return feeData?.amount ? (
+                      <p><strong>Course Reg:</strong> ₹{feeData.amount.toLocaleString()}</p>
+                    ) : null;
+                  })()}
+                  {studentInfo.registrationFees.confirmationFee && (() => {
+                    const feeData = getActualFeeData(studentInfo.registrationFees.confirmationFee);
+                    return feeData?.amount ? (
+                      <p><strong>Advance Fee:</strong> ₹{feeData.amount.toLocaleString()}</p>
+                    ) : null;
+                  })()}
+                  <p><strong>Status:</strong> {studentInfo.registrationFees.overall?.paid ? "✔ Paid" : "Pending"}</p>
                 </div>
               )}
               
@@ -251,28 +316,65 @@ export function ManualPaymentDialog({
           )}
         </DialogHeader>
         <div className="grid gap-3 py-2">
-          {!isRegistrationPaid && getAvailablePaymentOptions().length > 1 && (
+          {getAvailablePaymentOptions().length > 1 && (
             <div className="grid gap-2">
               <RequiredLabel>Payment Types (Select Multiple)</RequiredLabel>
               <div className="border rounded-md p-3 space-y-2 bg-white">
-                {getAvailablePaymentOptions().map((option) => (
-                  <label key={option.value} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={paymentTypes.includes(option.value as any)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setPaymentTypes([...paymentTypes, option.value as any]);
-                        } else {
-                          setPaymentTypes(paymentTypes.filter(type => type !== option.value));
-                        }
-                      }}
-                      className="rounded border-gray-300"
-                    />
-                    <span>{option.label}</span>
-                    <span className="text-gray-500 ml-auto">₹{option.amount.toLocaleString()}</span>
-                  </label>
-                ))}
+                {getAvailablePaymentOptions().map((option) => {
+                  // Check if this specific fee is already paid or if course balance is 0
+                  const isFeePaid = (() => {
+                    if (option.value === "course") return option.amount <= 0; // Disable if balance is 0 or negative
+                    if (option.value === "studentRegistration") {
+                      const feeData = getActualFeeData(studentInfo?.registrationFees?.studentRegistration);
+                      return feeData?.paid || false;
+                    }
+                    if (option.value === "courseRegistration") {
+                      const feeData = getActualFeeData(studentInfo?.registrationFees?.courseRegistration);
+                      return feeData?.paid || false;
+                    }
+                    if (option.value === "confirmationFee") {
+                      const feeData = getActualFeeData(studentInfo?.registrationFees?.confirmationFee);
+                      return feeData?.paid || false;
+                    }
+                    return false;
+                  })();
+
+                  const getStatusText = () => {
+                    if (option.value === "course" && option.amount <= 0) {
+                      return <span className="text-green-600 font-medium">(✓ Fully Paid)</span>;
+                    }
+                    if (isFeePaid && option.value !== "course") {
+                      return <span className="text-green-600 font-medium">(✓ Paid)</span>;
+                    }
+                    return null;
+                  };
+
+                  return (
+                    <div key={option.value} className={`flex items-center gap-2 text-sm ${isFeePaid ? 'opacity-50' : 'cursor-pointer'}`}>
+                      <Checkbox
+                        id={`payment-${option.value}`}
+                        checked={paymentTypes.includes(option.value as any)}
+                        disabled={isFeePaid}
+                        onCheckedChange={(checked) => {
+                          if (isFeePaid) return; // Prevent changes for paid/completed fees
+                          console.log('Checkbox clicked:', option.value, 'checked:', checked);
+                          const currentTypes = [...paymentTypes];
+                          if (checked === true) {
+                            if (!currentTypes.includes(option.value as any)) {
+                              setPaymentTypes([...currentTypes, option.value as any]);
+                            }
+                          } else {
+                            setPaymentTypes(currentTypes.filter(type => type !== option.value));
+                          }
+                        }}
+                      />
+                      <label htmlFor={`payment-${option.value}`} className={`flex-1 ${!isFeePaid ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+                        <span>{option.label} {getStatusText()}</span>
+                        <span className="text-gray-500 ml-auto">₹{option.amount.toLocaleString()}</span>
+                      </label>
+                    </div>
+                  );
+                })}
               </div>
               <p className="text-xs text-gray-600">
                 Select multiple payment types to pay together. Amount will be calculated automatically.

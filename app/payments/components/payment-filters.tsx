@@ -19,6 +19,8 @@ interface PaymentFiltersProps {
   setCategoryFilters: (categories: string[]) => void
   courseFilters: string[]
   setCourseFilters: (courses: string[]) => void
+  paymentCategoryFilters?: string[]
+  setPaymentCategoryFilters?: (categories: string[]) => void
   viewMode: "grid" | "list"
   setViewMode: (mode: "grid" | "list") => void
   onExport: () => void
@@ -44,6 +46,8 @@ export function PaymentFilters({
   setCategoryFilters,
   courseFilters,
   setCourseFilters,
+  paymentCategoryFilters = [],
+  setPaymentCategoryFilters = () => {},
   viewMode,
   setViewMode,
   onExport,
@@ -64,10 +68,19 @@ export function PaymentFilters({
   const availableCourses = [...new Set(allRecords.map(record => record.activity).filter(Boolean))]
   const availableCategories = [...new Set(allRecords.map(record => record.category).filter(Boolean))]
   const availableStatuses = [...new Set(allRecords.map(record => record.paymentStatus).filter(Boolean))]
+  
+  // Payment Categories from payment records (Student Registration, Course Registration, etc.)
+  const availablePaymentCategories = [
+    "Student Registration",
+    "Course Registration", 
+    "Confirmation Fee",
+    "Course Payment"
+  ]
 
   const [tempStatusFilters, setTempStatusFilters] = useState<string[]>(statusFilters)
   const [tempCategoryFilters, setTempCategoryFilters] = useState<string[]>(categoryFilters)
   const [tempCourseFilters, setTempCourseFilters] = useState<string[]>(courseFilters)
+  const [tempPaymentCategoryFilters, setTempPaymentCategoryFilters] = useState<string[]>(paymentCategoryFilters)
   const [isClearing, setIsClearing] = useState(false)
 
   const handleStatusChange = (status: string, checked: boolean) => {
@@ -94,11 +107,20 @@ export function PaymentFilters({
     }
   }
 
+  const handlePaymentCategoryChange = (paymentCategory: string, checked: boolean) => {
+    if (checked) {
+      setTempPaymentCategoryFilters([...tempPaymentCategoryFilters, paymentCategory])
+    } else {
+      setTempPaymentCategoryFilters(tempPaymentCategoryFilters.filter(c => c !== paymentCategory))
+    }
+  }
+
   const [filterPopoverOpen, setFilterPopoverOpen] = useState(false)
   const handleApply = () => {
     setStatusFilters(tempStatusFilters)
     setCategoryFilters(tempCategoryFilters)
     setCourseFilters(tempCourseFilters)
+    setPaymentCategoryFilters(tempPaymentCategoryFilters)
     setFilterPopoverOpen(false)
     setIsClearing(false)
   }
@@ -110,16 +132,18 @@ export function PaymentFilters({
     setTempStatusFilters([])
     setTempCategoryFilters([])
     setTempCourseFilters([])
+    setTempPaymentCategoryFilters([])
     setStatusFilters([])
     setCategoryFilters([])
     setCourseFilters([])
+    setPaymentCategoryFilters([])
     setTimeout(() => {
       setIsClearing(false)
       setFilterPopoverOpen(false)
     }, 300)
   }
 
-  const hasActiveFilters = statusFilters.length > 0 || categoryFilters.length > 0 || courseFilters.length > 0
+  const hasActiveFilters = statusFilters.length > 0 || categoryFilters.length > 0 || courseFilters.length > 0 || paymentCategoryFilters.length > 0
 
   // Sorting state and options
   const SORT_FIELDS = [
@@ -144,7 +168,7 @@ export function PaymentFilters({
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <input
                 type="text"
-                className={`pl-10 pr-2 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300 w-full max-w-[850px]`}
+                className={`pl-10 pr-2 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300 w-full max-w-[1000px]`}
                 placeholder="Search courses, instructors, tags..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -155,24 +179,32 @@ export function PaymentFilters({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-10 px-3 gap-1 border border-gray-200 text-black hover:bg-gray-50 rounded-md shadow-sm flex items-center"
+                className="h-10 px-3 gap-1 border border-gray-200 text-black hover:bg-gray-50 rounded-md shadow-sm flex items-center relative"
                 title="Filter"
               >
-                <Filter className="h-5 w-5" />
-                {hasActiveFilters && !isClearing && (
-                  <span className="absolute top-1 right-2 flex items-center justify-center">
-                    <span className="bg-purple-500 rounded-full w-4 h-4 flex items-center justify-center shadow">
-                      <Check className="text-white h-2.5 w-2.5" />
-                    </span>
-                  </span>
-                )}
-                {isClearing && (
-                  <span className="absolute top-1 right-2 flex items-center justify-center">
-                    <span className="bg-red-500 rounded-full w-4 h-4 flex items-center justify-center shadow">
-                      <X className="text-white h-2.5 w-2.5" />
-                    </span>
-                  </span>
-                )}
+                <div className="relative flex items-center">
+                  <Filter className="h-5 w-5" />
+                  {hasActiveFilters && !isClearing && (
+                    <div className="absolute -top-3 -right-2 z-20">
+                      <svg width="9" height="9" viewBox="0 0 20 20" fill="none">
+                        <circle cx="10" cy="10" r="10" fill="#22C55E"></circle>
+                        <path d="M6 10.5l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
+                      </svg>
+                    </div>
+                  )}
+                  {isClearing && (
+                    <div className="absolute -top-3 -right-2 z-20">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="9" height="9">
+                        {/* Red circle */}
+                        <circle cx="25" cy="25" r="20" fill="#ef4444"/>
+                        
+                        {/* White X */}
+                        <path d="M17 17l16 16M33 17l-16 16" 
+                              stroke="white" strokeWidth="4" strokeLinecap="round"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80 bg-white rounded-lg shadow-lg border-none" align="start">
@@ -213,6 +245,29 @@ export function PaymentFilters({
                           />
                           <label htmlFor={`category-${category}`} className="text-sm text-gray-700 cursor-pointer">
                             {category}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Filter by Payment Category - Select Multiple */}
+                  <div className="space-y-2">
+                    <h4 className="font-bold text-xs text-gray-900">Payment Categories <span className="font-normal text-gray-500">(Select Multiple)</span></h4>
+                    <div className="grid grid-cols-1 gap-2">
+                      {availablePaymentCategories.map((paymentCategory) => (
+                        <div key={paymentCategory} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`payment-category-${paymentCategory}`}
+                            checked={tempPaymentCategoryFilters.includes(paymentCategory)}
+                            onCheckedChange={(checked) => handlePaymentCategoryChange(paymentCategory, checked as boolean)}
+                            className="h-4 w-4 data-[state=checked]:bg-[#9234ea] data-[state=checked]:border-[#9234ea] border-2 border-gray-300"
+                          />
+                          <label htmlFor={`payment-category-${paymentCategory}`} className="text-sm text-gray-700 cursor-pointer flex-1">
+                            {paymentCategory === "Student Registration" && "Student Registration Fee"}
+                            {paymentCategory === "Course Registration" && "Course Registration Fee"}
+                            {paymentCategory === "Confirmation Fee" && "Advance/Confirmation Fee"}
+                            {paymentCategory === "Course Payment" && "Course Payment"}
                           </label>
                         </div>
                       ))}

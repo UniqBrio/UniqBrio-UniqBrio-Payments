@@ -145,9 +145,11 @@
   background-clip: text;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - All browsers */
+/* Webkit browsers (Chrome, Safari, Edge) */
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -156,12 +158,140 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #8b5cf6 0%, #f97316 100%);
+  background: #8b8b8b;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #7c3aed 0%, #ea580c 100%);
+  background: #6b6b6b;
+}
+
+::-webkit-scrollbar-corner {
+  background: #f1f5f9;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #8b8b8b #f1f5f9;
+}
+
+/* For specific components with scrolling */
+.overflow-y-auto::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar,
+.overflow-auto::-webkit-scrollbar,
+div[style*="overflow"]::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb,
+.overflow-x-auto::-webkit-scrollbar-thumb,
+.overflow-auto::-webkit-scrollbar-thumb,
+div[style*="overflow"]::-webkit-scrollbar-thumb {
+  background: #8b8b8b;
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover,
+.overflow-x-auto::-webkit-scrollbar-thumb:hover,
+.overflow-auto::-webkit-scrollbar-thumb:hover,
+div[style*="overflow"]::-webkit-scrollbar-thumb:hover {
+  background: #6b6b6b;
+}
+
+/* Specific styling for payments page components */
+/* Payment table scrollbar */
+.overflow-auto::-webkit-scrollbar,
+.max-h-\[80vh\]::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.overflow-auto::-webkit-scrollbar-track,
+.max-h-\[80vh\]::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb,
+.max-h-\[80vh\]::-webkit-scrollbar-thumb {
+  background: #8b8b8b !important;
+  border-radius: 4px;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb:hover,
+.max-h-\[80vh\]::-webkit-scrollbar-thumb:hover {
+  background: #6b6b6b !important;
+}
+
+/* Payment page specific containers */
+[data-payment-table]::-webkit-scrollbar,
+[data-payment-container]::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+[data-payment-table]::-webkit-scrollbar-thumb,
+[data-payment-container]::-webkit-scrollbar-thumb {
+  background: #8b8b8b !important;
+  border-radius: 4px;
+}
+
+[data-payment-table]::-webkit-scrollbar-thumb:hover,
+[data-payment-container]::-webkit-scrollbar-thumb:hover {
+  background: #6b6b6b !important;
+}
+
+/* Payments page - ensure all scrollbars use #8b8b8b */
+.payments-page *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.payments-page *::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.payments-page *::-webkit-scrollbar-thumb {
+  background: #8b8b8b !important;
+  border-radius: 4px;
+}
+
+.payments-page *::-webkit-scrollbar-thumb:hover {
+  background: #6b6b6b !important;
+}
+
+/* Additional specific selectors for payment components */
+[class*="payment"]::-webkit-scrollbar-thumb,
+[id*="payment"]::-webkit-scrollbar-thumb {
+  background: #8b8b8b !important;
+}
+
+[class*="payment"]::-webkit-scrollbar-thumb:hover,
+[id*="payment"]::-webkit-scrollbar-thumb:hover {
+  background: #6b6b6b !important;
+}
+
+/* Custom scrollbar class used in payment filters */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #8b8b8b !important;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6b6b6b !important;
 }
 
 /* Enhanced card effects */

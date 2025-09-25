@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -14,6 +15,7 @@ import { Send, QrCode, Smartphone, Link, Edit, Save, X, CreditCard, Mail } from 
 import { useReminderActions } from "./reminder-actions"
 import { usePaymentActions } from "./payment-actions"
 import { EmailPreviewDialog } from "./email-preview-dialog"
+import { RegistrationFeesDisplay, calculateRegistrationStatus } from "./registration-fees-display"
 import QRCodeLib from 'qrcode'
 
 // Utility function for formatting currency
@@ -73,6 +75,25 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
   const [emailPreviewOpen, setEmailPreviewOpen] = useState(false)
   const [generatedQR, setGeneratedQR] = useState<string>('')
 
+  // Calculate dynamic payment status based on both course balance and registration fees
+  const calculateDynamicStatus = (): "Paid" | "Pending" => {
+    const courseFullyPaid = record.balancePayment <= 0;
+    const registrationStatus = calculateRegistrationStatus(record.registrationFees);
+    
+    // If course is fully paid (balance = 0) AND all registration fees paid
+    if (courseFullyPaid && registrationStatus === "Paid") {
+      return "Paid";
+    }
+    return "Pending";
+  };
+
+  const dynamicStatus = calculateDynamicStatus();
+  
+  // Show payment options only if course balance > 0 OR any registration fee is unpaid
+  const courseHasBalance = record.balancePayment > 0;
+  const registrationStatus = calculateRegistrationStatus(record.registrationFees);
+  const showPaymentOptions = courseHasBalance || registrationStatus === "Pending";
+
   // Use extracted hooks
   const { handleSendReminder } = useReminderActions({ record })
   const {
@@ -87,7 +108,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
   } = usePaymentActions({ record, onUpdateRecord, refreshPaymentData })
 
   // Check if payments are completed (for display purposes)
-  const isRegistrationPaid = record.registrationFees?.paid || false
+  const isRegistrationPaid = record.registrationFees?.overall?.paid || false
   const isCoursePaid = record.balancePayment === 0
 
   // Generate QR code when dialog opens
@@ -201,32 +222,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )}
       {isColumnVisible('registration') && (
         <TableCell className="text-sm p-3">
-          {record.registrationFees ? (
-            <div className="space-y-1">
-              {record.registrationFees.studentRegistration && (
-                <div className="text-[11px]">
-                  Student reg fee: {record.registrationFees.studentRegistration} {getCurrencyName(record.currency)}
-                </div>
-              )}
-              {record.registrationFees.courseRegistration && (
-                <div className="text-[11px]">
-                  Course reg fee: {record.registrationFees.courseRegistration} {getCurrencyName(record.currency)}
-                </div>
-              )}
-              {record.registrationFees.confirmationFee && (
-                <div className="text-[11px]">
-                  Advance fee: {record.registrationFees.confirmationFee} {getCurrencyName(record.currency)}
-                </div>
-              )}
-              <Badge 
-                className={`text-[11px] ${record.registrationFees.paid ? getStatusColor('paid') : getStatusColor(record.registrationFees.status || 'pending')}`}
-              >
-                {record.registrationFees.paid ? "✔ Paid" : (record.registrationFees.status || 'Pending')}
-              </Badge>
-            </div>
-          ) : (
-            <span className="text-gray-400">-</span>
-          )}
+          <RegistrationFeesDisplay record={record} />
         </TableCell>
       )}
       {isColumnVisible('finalPayment') && (
@@ -248,8 +244,8 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )}
       {isColumnVisible('status') && (
         <TableCell className="text-[11px] p-1">
-          <Badge className={`text-[11px] ${getStatusColor(record.paymentStatus)}`}>
-            {record.paymentStatus}
+          <Badge className={`text-[11px] ${getStatusColor(dynamicStatus)}`}>
+            {dynamicStatus}
           </Badge>
         </TableCell>
       )}
@@ -432,21 +428,29 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )}
       {isColumnVisible('manualPayment') && (
         <TableCell className="text-sm p-3">
-          <Button
-            size="sm"
-            onClick={handlePaymentButtonClick}
-            className="bg-[#9234ea] hover:bg-[#9234ea]/90 h-7 px-2 text-xs"
-            title="Manual Payment"
-          >
-            <CreditCard className="h-3 w-3 mr-1" />
-            Payment
-          </Button>
-          <StudentManualPayment
-            student={record}
-            onSubmit={handleManualPayment}
-            open={manualPaymentOpen}
-            onOpenChange={setManualPaymentOpen}
-          />
+          {showPaymentOptions ? (
+            <>
+              <Button
+                size="sm"
+                onClick={handlePaymentButtonClick}
+                className="bg-[#9234ea] hover:bg-[#9234ea]/90 h-7 px-2 text-xs"
+                title="Manual Payment"
+              >
+                <CreditCard className="h-3 w-3 mr-1" />
+                Payment
+              </Button>
+              <StudentManualPayment
+                student={record}
+                onSubmit={handleManualPayment}
+                open={manualPaymentOpen}
+                onOpenChange={setManualPaymentOpen}
+              />
+            </>
+          ) : (
+            <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">
+              Fully Paid
+            </Badge>
+          )}
         </TableCell>
       )}
       {isColumnVisible('payslip') && (

@@ -2,6 +2,8 @@ import { connectDB } from "@/lib/db";
 import Student from "@/models/student";
 import { NextResponse } from "next/server";
 
+// IMPORTANT: This is a MAINTENANCE endpoint that ONLY updates students collection
+// This is separate from payment creation which should ONLY update payments collection
 // Course pricing data - should ideally come from a Course model/API
 const coursePricing: Record<string, number> = {
   "Advanced React Development": 24999,
