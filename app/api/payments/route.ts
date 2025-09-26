@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     console.log('✅ Validation passed');
 
     // Get student info for display purposes only (read-only)
-    const student = await Student.findOne({ studentId }).lean();
+    const student = await Student.findOne({ studentId }).lean() as any;
     console.log('📖 Student info (read-only):', student ? student.name : 'Not found');
     
     // Generate transaction ID
@@ -133,16 +133,23 @@ export async function POST(request: NextRequest) {
     console.log('💾 Existing payment doc found:', !!paymentDoc);
     
     if (!paymentDoc) {
-      // Create new payment document - use finalPayment from request as totalCourseFee
-      let totalCourseFee = finalPayment || 0;
+      // Calculate totalCourseFee (ONLY course fee, excluding registration fees)
+      let totalCourseFee = 0;
       
-      // If finalPayment not provided in request, try student's finalPayment
-      if (totalCourseFee === 0) {
-        totalCourseFee = student?.finalPayment || 0;
+      // If finalPayment is provided, subtract standard registration fees to get course fee
+      if (finalPayment && finalPayment > 0) {
+        const standardRegistrationFees = 500 + 1000 + 250; // 1750
+        totalCourseFee = Math.max(0, finalPayment - standardRegistrationFees);
+        console.log('💰 Calculated course fee from finalPayment:', finalPayment, '- registration fees:', standardRegistrationFees, '= course fee:', totalCourseFee);
+      } 
+      // If no finalPayment, try student's finalPayment
+      else if (student?.finalPayment && student.finalPayment > 0) {
+        const standardRegistrationFees = 500 + 1000 + 250; // 1750
+        totalCourseFee = Math.max(0, student.finalPayment - standardRegistrationFees);
+        console.log('💰 Calculated course fee from student finalPayment:', student.finalPayment, '- registration fees:', standardRegistrationFees, '= course fee:', totalCourseFee);
       }
-      
       // If still 0, calculate from course type as fallback
-      if (totalCourseFee === 0) {
+      else {
         const courseName = (student?.course || student?.activity || '').toLowerCase();
         const coursePricing: { [key: string]: number } = {
           'art': 15000,
@@ -160,13 +167,14 @@ export async function POST(request: NextRequest) {
           'sculpture': 16000
         };
         
-        totalCourseFee = 25000; // Default base price
+        totalCourseFee = 10000; // Default course fee (excluding registration fees)
         for (const [course, price] of Object.entries(coursePricing)) {
           if (courseName.includes(course)) {
             totalCourseFee = price;
             break;
           }
         }
+        console.log('💰 Used fallback course fee pricing for', courseName, ':', totalCourseFee);
       }
       
       console.log('💰 Total course fee set to:', totalCourseFee, '(from request finalPayment:', finalPayment, ')');
@@ -186,11 +194,28 @@ export async function POST(request: NextRequest) {
       
       console.log('✨ Creating new payment document for student:', studentId, 'with totalCourseFee:', totalCourseFee);
     } else {
-      // For existing payment documents, update totalCourseFee if it's 0 and we have finalPayment from request
-      if (paymentDoc.totalCourseFee === 0 && finalPayment && finalPayment > 0) {
-        paymentDoc.totalCourseFee = finalPayment;
-        paymentDoc.currentBalance = finalPayment - (paymentDoc.totalPaidAmount || 0);
-        console.log('🔄 Updated existing payment doc totalCourseFee to:', finalPayment);
+      // For existing payment documents, recalculate totalCourseFee if needed
+      if (paymentDoc.totalCourseFee === 0 || paymentDoc.totalCourseFee > 20000) { // Recalculate if 0 or suspiciously high
+        let correctedCourseFee = 0;
+        
+        if (finalPayment && finalPayment > 0) {
+          const standardRegistrationFees = 500 + 1000 + 250; // 1750
+          correctedCourseFee = Math.max(0, finalPayment - standardRegistrationFees);
+        } else if (student?.finalPayment && student.finalPayment > 0) {
+          const standardRegistrationFees = 500 + 1000 + 250; // 1750
+          correctedCourseFee = Math.max(0, student.finalPayment - standardRegistrationFees);
+        } else {
+          correctedCourseFee = 10000; // Default course fee
+        }
+        
+        if (correctedCourseFee > 0) {
+          paymentDoc.totalCourseFee = correctedCourseFee;
+          // Recalculate balance based on course payments only
+          const coursePayments = paymentDoc.paymentRecords.filter((r: any) => r.paymentCategory === 'Course Payment' && r.paymentStatus === 'Completed');
+          const coursePaidAmount = coursePayments.reduce((sum: number, r: any) => sum + r.amount, 0);
+          paymentDoc.currentBalance = Math.max(0, correctedCourseFee - coursePaidAmount);
+          console.log('🔄 Corrected existing payment doc totalCourseFee to:', correctedCourseFee, 'balance:', paymentDoc.currentBalance);
+        }
       }
     }
 

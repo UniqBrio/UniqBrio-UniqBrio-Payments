@@ -40,10 +40,17 @@ export async function GET(request: NextRequest) {
       // Total received is course payments + registration payments (no double counting)
       const totalReceivedAmount = totalCoursePaidAmount + totalRegistrationPaidAmount;
       
-      // Get total course fee - prioritize payment doc, then student finalPayment, then defaults
-      let totalCourseFee = paymentDoc?.totalCourseFee || student.finalPayment || 0;
+      // Get total course fee (EXCLUDING registration fees) - prioritize payment doc, then calculate from student finalPayment
+      let totalCourseFee = paymentDoc?.totalCourseFee || 0;
       
-      // If finalPayment is 0 or not set, calculate from course/activity
+      // If payment doc doesn't have course fee, calculate from student finalPayment
+      if (totalCourseFee === 0 && student.finalPayment && student.finalPayment > 0) {
+        const standardRegistrationFees = 500 + 1000 + 250; // 1750
+        totalCourseFee = Math.max(0, student.finalPayment - standardRegistrationFees);
+        console.log('🧮 Calculated course fee for', student.name, ':', student.finalPayment, '- registration fees:', standardRegistrationFees, '= course fee:', totalCourseFee);
+      }
+      
+      // If still 0, calculate from course/activity
       if (totalCourseFee === 0) {
         const courseName = (student.course || student.activity || '').toLowerCase();
         
@@ -92,7 +99,7 @@ export async function GET(request: NextRequest) {
       
       // Get latest payment date
       const latestPayment = paymentRecords.length > 0 ? 
-        paymentRecords.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())[0] : null;
+        paymentRecords.sort((a: any, b: any) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())[0] : null;
       
       return {
         id: student.studentId,
@@ -105,8 +112,8 @@ export async function GET(request: NextRequest) {
         instructor: student.instructor || 'TBD',
         classSchedule: student.classSchedule || 'Mon-Wed-Fri 10:00-12:00',
         currency: student.currency || 'INR',
-        finalPayment: totalCourseFee, // Use calculated course fee
-        totalPaidAmount: paymentDoc?.totalPaidAmount || totalCoursePaidAmount, // Use payment document totalPaidAmount if available
+        finalPayment: totalCourseFee, // Course fee only (registration fees handled separately)
+        totalPaidAmount: paymentDoc?.coursePaidAmount || totalCoursePaidAmount, // Show ONLY course payments in Total Paid column
         balancePayment,
         paymentStatus,
         paymentFrequency: student.paymentFrequency || 'Monthly',

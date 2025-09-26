@@ -12,9 +12,15 @@ export async function GET() {
       data: students
     });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch students" },
-      { status: 500 }
-    );
+    console.error("Database connection failed:", error.message);
+    
+    // Return empty array instead of error when DB is unavailable
+    // This allows the UI to load without crashing
+    return NextResponse.json({
+      success: true,
+      data: [], // Empty students array
+      fallback: true,
+      message: "Database temporarily unavailable"
+    });
   }
 }

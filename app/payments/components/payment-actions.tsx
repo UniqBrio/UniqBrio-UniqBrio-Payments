@@ -105,7 +105,7 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
             isManualPayment: true,
             recordedBy: "Admin Dashboard",
             registrationPaymentType: paymentType,
-            finalPayment: record.finalPayment // Send finalPayment from record to be stored as totalCourseFee
+            finalPayment: record.finalPayment // Send course fee (registration fees handled separately)
           })
         });
 
