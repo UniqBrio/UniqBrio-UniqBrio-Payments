@@ -8,85 +8,24 @@ export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('🚀 VERCEL DEBUG: Starting payments sync...');
-    console.log('🌍 Environment:', process.env.NODE_ENV);
-    console.log('🔗 MongoDB URI exists:', !!process.env.MONGODB_URI);
-    
-    try {
-      await connectDB();
-      console.log('✅ VERCEL DEBUG: Database connection successful');
-    } catch (error) {
-      console.error('❌ VERCEL DEBUG: Database connection failed:', error);
-      return NextResponse.json({
-        success: false,
-        error: 'Database connection failed',
-        details: (error as any).message,
-        data: []
-      }, { status: 200 });
-    }
-    
-    console.log('Fetching students for payment sync...');
-    
-    // Aggregate all payments and update student records with latest balances
-    let students;
-    try {
-      students = await Student.find({}).lean();
-      console.log(`📊 VERCEL DEBUG: Found ${students.length} students in database`);
-    } catch (error) {
-      console.error('❌ VERCEL DEBUG: Failed to fetch students:', error);
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to fetch students',
-        details: (error as any).message,
-        data: []
-      }, { status: 200 });
-    }
-    
+    await connectDB();
+    let students = await Student.find({}).lean();
     const updatedStudents = await Promise.all(students.map(async (student) => {
-      console.log(`💰 VERCEL DEBUG: Processing student ${student.studentId} - ${student.name}`);
-      
-      // Get payment document for this student (new structure: one doc per student)
-      const paymentDoc = await Payment.findOne({ 
-        studentId: student.studentId 
-      });
-      
-      console.log(`📄 VERCEL DEBUG: Payment doc exists for ${student.name}:`, !!paymentDoc);
-      if (paymentDoc) {
-        console.log(`📊 VERCEL DEBUG: Payment records count for ${student.name}:`, paymentDoc.paymentRecords?.length || 0);
-      }
-      
-      // Get completed payment records from the document
-      const paymentRecords = paymentDoc?.paymentRecords?.filter((record: any) => 
-        record.paymentStatus === 'Completed'
-      ) || [];
-      
-      console.log(`✅ VERCEL DEBUG: Completed payments for ${student.name}:`, paymentRecords.length);
-      
-      // Calculate totals - separate course payments from registration fee payments to avoid double counting
-      // Dynamically calculate total paid from paymentDoc or sum all paymentRecords amounts
+      const paymentDoc = await Payment.findOne({ studentId: student.studentId });
+      const paymentRecords = paymentDoc?.paymentRecords?.filter((record: any) => record.paymentStatus === 'Completed') || [];
       let totalPaidAmount = 0;
       if (paymentDoc && typeof paymentDoc.totalPaidAmount === 'number') {
         totalPaidAmount = paymentDoc.totalPaidAmount;
       } else {
         totalPaidAmount = paymentRecords.reduce((sum: number, payment: any) => sum + (payment.amount || 0), 0);
       }
-      // ...existing code...
-      
-      // Get total course fee (EXCLUDING registration fees) - prioritize payment doc, then calculate from student finalPayment
       let totalCourseFee = paymentDoc?.totalCourseFee || 0;
-      
-      // If payment doc doesn't have course fee, calculate from student finalPayment
       if (totalCourseFee === 0 && student.finalPayment && student.finalPayment > 0) {
-        const standardRegistrationFees = 500 + 1000 + 250; // 1750
+        const standardRegistrationFees = 500 + 1000 + 250;
         totalCourseFee = Math.max(0, student.finalPayment - standardRegistrationFees);
-        console.log('🧮 Calculated course fee for', student.name, ':', student.finalPayment, '- registration fees:', standardRegistrationFees, '= course fee:', totalCourseFee);
       }
-      
-      // If still 0, calculate from course/activity
       if (totalCourseFee === 0) {
         const courseName = (student.course || student.activity || '').toLowerCase();
-        
-        // Default course pricing based on activity/course
         const coursePricing: { [key: string]: number } = {
           'art': 15000,
           'photography': 12000,
@@ -102,42 +41,21 @@ export async function GET(request: NextRequest) {
           'drawing': 8000,
           'sculpture': 16000
         };
-        
-        // Find matching course price
-        totalCourseFee = 10000; // Default base price
+        totalCourseFee = 10000;
         for (const [course, price] of Object.entries(coursePricing)) {
           if (courseName.includes(course)) {
             totalCourseFee = price;
             break;
           }
         }
-        
-        console.log(`Using default pricing for ${student.name} (${student.course || student.activity}): ₹${totalCourseFee}`);
       }
-
-      // Debug registration fees structure
-      if (student && student.registrationFees) {
-        console.log('🔍 Student registration fees for', student.name, ':', JSON.stringify(student.registrationFees, null, 2));
-      }
-      
-  const balancePayment = Math.max(0, totalCourseFee - totalPaidAmount);
-      
-  console.log(`💵 VERCEL DEBUG: For ${student.name} - Course Fee: ₹${totalCourseFee}, Total Paid: ₹${totalPaidAmount}, Balance: ₹${balancePayment}`);
-      
-      // Determine status
+      const balancePayment = Math.max(0, totalCourseFee - totalPaidAmount);
       let paymentStatus = 'Paid';
       if (balancePayment > 0) {
-        // Always show Pending if there's any balance remaining
         paymentStatus = 'Pending';
-        console.log(`❌ VERCEL DEBUG: ${student.name} marked as PENDING (balance: ₹${balancePayment})`);
-      } else {
-        console.log(`✅ VERCEL DEBUG: ${student.name} marked as PAID (fully paid)`);
       }
-      
-      // Get latest payment date
       const latestPayment = paymentRecords.length > 0 ? 
         paymentRecords.sort((a: any, b: any) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())[0] : null;
-      
       return {
         id: student.studentId,
         name: student.name,
@@ -149,8 +67,8 @@ export async function GET(request: NextRequest) {
         instructor: student.instructor || 'TBD',
         classSchedule: student.classSchedule || 'Mon-Wed-Fri 10:00-12:00',
         currency: student.currency || 'INR',
-  finalPayment: totalCourseFee, // Course fee only (registration fees handled separately)
-  totalPaidAmount: totalPaidAmount, // Always dynamic from payments collection
+        finalPayment: totalCourseFee,
+        totalPaidAmount: totalPaidAmount,
         balancePayment,
         paymentStatus,
         paymentFrequency: student.paymentFrequency || 'Monthly',
@@ -204,7 +122,6 @@ export async function GET(request: NextRequest) {
         paymentModes: student.paymentModes || ['UPI', 'Card', 'Bank Transfer'],
         studentType: student.studentType || 'New',
         emiSplit: student.emiSplit || 1,
-        // Additional metadata from payment records
         totalTransactions: paymentRecords.length,
         lastPaymentDate: latestPayment ? latestPayment.paymentDate : null,
         lastPaymentAmount: latestPayment ? latestPayment.amount : 0,
@@ -217,15 +134,12 @@ export async function GET(request: NextRequest) {
         }))
       };
     }));
-    
-    console.log(`Returning ${updatedStudents.length} synchronized payment records`);
-    
+    console.log('GET /api/payments/sync 200');
     return NextResponse.json({
       success: true,
       data: updatedStudents,
       message: `Synchronized payment data for ${updatedStudents.length} students`
     });
-    
   } catch (error) {
     console.error('Payment sync error:', error);
     return NextResponse.json(
@@ -238,12 +152,9 @@ export async function GET(request: NextRequest) {
 // Add POST method to manually trigger sync
 export async function POST(request: NextRequest) {
   try {
-    console.log('Manual sync triggered');
-    
-    // Force refresh by calling GET method
     const result = await GET(request);
+    console.log('POST /api/payments/sync 200');
     return result;
-    
   } catch (error) {
     console.error('Manual sync error:', error);
     return NextResponse.json(
