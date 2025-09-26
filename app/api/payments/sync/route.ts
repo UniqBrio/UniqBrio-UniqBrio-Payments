@@ -3,42 +3,74 @@ import Payment from "@/models/payment";
 import Student from "@/models/student";
 import { NextRequest, NextResponse } from "next/server";
 
+// Disable caching for Vercel
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   try {
-    await connectDB();
+    console.log('🚀 VERCEL DEBUG: Starting payments sync...');
+    console.log('🌍 Environment:', process.env.NODE_ENV);
+    console.log('🔗 MongoDB URI exists:', !!process.env.MONGODB_URI);
+    
+    try {
+      await connectDB();
+      console.log('✅ VERCEL DEBUG: Database connection successful');
+    } catch (error) {
+      console.error('❌ VERCEL DEBUG: Database connection failed:', error);
+      return NextResponse.json({
+        success: false,
+        error: 'Database connection failed',
+        details: (error as any).message,
+        data: []
+      }, { status: 200 });
+    }
     
     console.log('Fetching students for payment sync...');
     
     // Aggregate all payments and update student records with latest balances
-    const students = await Student.find({}).lean();
-    console.log(`Found ${students.length} students in database`);
+    let students;
+    try {
+      students = await Student.find({}).lean();
+      console.log(`📊 VERCEL DEBUG: Found ${students.length} students in database`);
+    } catch (error) {
+      console.error('❌ VERCEL DEBUG: Failed to fetch students:', error);
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to fetch students',
+        details: (error as any).message,
+        data: []
+      }, { status: 200 });
+    }
     
     const updatedStudents = await Promise.all(students.map(async (student) => {
+      console.log(`💰 VERCEL DEBUG: Processing student ${student.studentId} - ${student.name}`);
+      
       // Get payment document for this student (new structure: one doc per student)
       const paymentDoc = await Payment.findOne({ 
         studentId: student.studentId 
       });
+      
+      console.log(`📄 VERCEL DEBUG: Payment doc exists for ${student.name}:`, !!paymentDoc);
+      if (paymentDoc) {
+        console.log(`📊 VERCEL DEBUG: Payment records count for ${student.name}:`, paymentDoc.paymentRecords?.length || 0);
+      }
       
       // Get completed payment records from the document
       const paymentRecords = paymentDoc?.paymentRecords?.filter((record: any) => 
         record.paymentStatus === 'Completed'
       ) || [];
       
+      console.log(`✅ VERCEL DEBUG: Completed payments for ${student.name}:`, paymentRecords.length);
+      
       // Calculate totals - separate course payments from registration fee payments to avoid double counting
-      const coursePayments = paymentRecords.filter((payment: any) => 
-        payment.paymentCategory === 'Course Payment' || 
-        (!payment.paymentCategory && payment.paymentType === 'Course Fee')
-      );
-      
-      const registrationPayments = paymentRecords.filter((payment: any) => 
-        payment.paymentCategory && ['Student Registration', 'Course Registration', 'Confirmation Fee'].includes(payment.paymentCategory)
-      );
-      
-      const totalCoursePaidAmount = coursePayments.reduce((sum: number, payment: any) => sum + payment.amount, 0);
-      const totalRegistrationPaidAmount = registrationPayments.reduce((sum: number, payment: any) => sum + payment.amount, 0);
-      
-      // Total received is course payments + registration payments (no double counting)
-      const totalReceivedAmount = totalCoursePaidAmount + totalRegistrationPaidAmount;
+      // Dynamically calculate total paid from paymentDoc or sum all paymentRecords amounts
+      let totalPaidAmount = 0;
+      if (paymentDoc && typeof paymentDoc.totalPaidAmount === 'number') {
+        totalPaidAmount = paymentDoc.totalPaidAmount;
+      } else {
+        totalPaidAmount = paymentRecords.reduce((sum: number, payment: any) => sum + (payment.amount || 0), 0);
+      }
+      // ...existing code...
       
       // Get total course fee (EXCLUDING registration fees) - prioritize payment doc, then calculate from student finalPayment
       let totalCourseFee = paymentDoc?.totalCourseFee || 0;
@@ -88,13 +120,18 @@ export async function GET(request: NextRequest) {
         console.log('🔍 Student registration fees for', student.name, ':', JSON.stringify(student.registrationFees, null, 2));
       }
       
-      const balancePayment = Math.max(0, totalCourseFee - totalCoursePaidAmount);
+  const balancePayment = Math.max(0, totalCourseFee - totalPaidAmount);
+      
+  console.log(`💵 VERCEL DEBUG: For ${student.name} - Course Fee: ₹${totalCourseFee}, Total Paid: ₹${totalPaidAmount}, Balance: ₹${balancePayment}`);
       
       // Determine status
       let paymentStatus = 'Paid';
       if (balancePayment > 0) {
         // Always show Pending if there's any balance remaining
         paymentStatus = 'Pending';
+        console.log(`❌ VERCEL DEBUG: ${student.name} marked as PENDING (balance: ₹${balancePayment})`);
+      } else {
+        console.log(`✅ VERCEL DEBUG: ${student.name} marked as PAID (fully paid)`);
       }
       
       // Get latest payment date
@@ -112,8 +149,8 @@ export async function GET(request: NextRequest) {
         instructor: student.instructor || 'TBD',
         classSchedule: student.classSchedule || 'Mon-Wed-Fri 10:00-12:00',
         currency: student.currency || 'INR',
-        finalPayment: totalCourseFee, // Course fee only (registration fees handled separately)
-        totalPaidAmount: paymentDoc?.coursePaidAmount || totalCoursePaidAmount, // Show ONLY course payments in Total Paid column
+  finalPayment: totalCourseFee, // Course fee only (registration fees handled separately)
+  totalPaidAmount: totalPaidAmount, // Always dynamic from payments collection
         balancePayment,
         paymentStatus,
         paymentFrequency: student.paymentFrequency || 'Monthly',
