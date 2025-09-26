@@ -17,9 +17,7 @@ export type StudentManualPaymentPayload = {
   date: string // ISO date
   mode: "Cash" | "UPI" | "QR"
   notes?: string
-  receiverName: string
-  receiverId: string
-  paymentTypes: ("course" | "studentRegistration" | "courseRegistration" | "confirmationFee")[] // Multiple payment types
+  paymentTypes: ("course" | "studentRegistration" | "courseRegistration")[] // Multiple payment types
 }
 interface StudentManualPaymentProps {
   student: PaymentRecord
@@ -39,8 +37,6 @@ export function StudentManualPayment({ student, onSubmit, open, onOpenChange }: 
         date: payload.date,
         mode: payload.mode,
         notes: payload.notes,
-        receiverName: payload.receiverName,
-        receiverId: payload.receiverId,
         paymentTypes: payload.paymentTypes,
       })}
       prefillAmount={student.balancePayment > 0 ? student.balancePayment : undefined}
@@ -81,7 +77,7 @@ export type ManualPaymentPayload = {
   notes?: string
   receiverName: string
   receiverId: string
-  paymentTypes: ("course" | "studentRegistration" | "courseRegistration" | "confirmationFee")[]
+  paymentTypes: ("course" | "studentRegistration" | "courseRegistration")[]
 }
 
 export function ManualPaymentDialog({
@@ -104,13 +100,11 @@ export function ManualPaymentDialog({
   const [mode, setMode] = useState<ManualPaymentPayload["mode"]>(defaultMode)
   const [notes, setNotes] = useState<string>("")
   const [paymentTypes, setPaymentTypes] = useState<ManualPaymentPayload["paymentTypes"]>(["course"])
-  const [receiverName, setReceiverName] = useState<string>("");
-  const [receiverId, setReceiverId] = useState<string>("");
+  // Removed receiverName and receiverId state
 
   // Helper function to safely extract fee data from actual database values
   const getActualFeeData = (feeObj: any) => {
     if (!feeObj) return null;
-    
     // If it's already in the correct format with amount property
     if (typeof feeObj === 'object' && feeObj.hasOwnProperty('amount')) {
       return {
@@ -118,12 +112,10 @@ export function ManualPaymentDialog({
         paid: Boolean(feeObj.paid)
       };
     }
-    
     // If it's a direct number (actual amount from database)
     if (typeof feeObj === 'number') {
       return { amount: feeObj, paid: false };
     }
-    
     // For other objects, try to extract meaningful data
     if (typeof feeObj === 'object') {
       const amount = feeObj.value || feeObj.fee || feeObj.cost || null;
@@ -131,7 +123,6 @@ export function ManualPaymentDialog({
         return { amount: amount, paid: Boolean(feeObj.paid) };
       }
     }
-    
     return null; // Don't show if we can't determine the structure
   };
 
@@ -144,7 +135,6 @@ export function ManualPaymentDialog({
     const options = [
       { value: "course", label: "Course Payment", amount: courseBalance, paid: courseBalance <= 0 }
     ];
-    
     // Show registration fee options only if they exist in actual data
     if (studentInfo?.registrationFees) {
       if (studentInfo.registrationFees.studentRegistration) {
@@ -169,19 +159,7 @@ export function ManualPaymentDialog({
           });
         }
       }
-      if (studentInfo.registrationFees.confirmationFee) {
-        const confirmationData = getActualFeeData(studentInfo.registrationFees.confirmationFee);
-        if (confirmationData && confirmationData.amount !== null) {
-          options.push({
-            value: "confirmationFee",
-            label: "Advance/Confirmation Fee", 
-            amount: confirmationData.amount,
-            paid: confirmationData.paid
-          });
-        }
-      }
     }
-    
     return options;
   };
 
@@ -240,9 +218,7 @@ export function ManualPaymentDialog({
     if (
       isNaN(value) || value <= 0 ||
       !date ||
-      !mode ||
-      !receiverName.trim() ||
-      !receiverId.trim()
+      !mode
     ) {
       toast({
         title: "Required fields missing",
@@ -257,15 +233,11 @@ export function ManualPaymentDialog({
       date,
       mode,
       notes: notes.trim() || undefined,
-      receiverName: receiverName.trim(),
-      receiverId: receiverId.trim(),
       paymentTypes,
     });
     
     setAmount("");
     setNotes("");
-    setReceiverName("");
-    setReceiverId("");
     onClose();
   }
 
@@ -284,7 +256,6 @@ export function ManualPaymentDialog({
               <p><strong>Category:</strong> {studentInfo.category || '-'}</p>
               <p><strong>Activity:</strong> {studentInfo.activity || '-'}</p>
               <p><strong>Balance Payment:</strong> ₹{(studentInfo.balancePayment ?? 0).toLocaleString()}</p>
-              
               {studentInfo.registrationFees && (
                 <div className="mt-2 pt-2 border-t">
                   <p className="font-medium">Registration Fees:</p>
@@ -300,18 +271,9 @@ export function ManualPaymentDialog({
                       <p><strong>Course Reg:</strong> ₹{feeData.amount.toLocaleString()}</p>
                     ) : null;
                   })()}
-                  {studentInfo.registrationFees.confirmationFee && (() => {
-                    const feeData = getActualFeeData(studentInfo.registrationFees.confirmationFee);
-                    return feeData?.amount ? (
-                      <p><strong>Advance Fee:</strong> ₹{feeData.amount.toLocaleString()}</p>
-                    ) : null;
-                  })()}
                   <p><strong>Status:</strong> {studentInfo.registrationFees.overall?.paid ? "✔ Paid" : "Pending"}</p>
                 </div>
               )}
-              
-              <p><strong>Payment Receiver Name:</strong> {receiverName || '-'}</p>
-              <p><strong>Payment Receiver ID:</strong> {receiverId || '-'}</p>
             </div>
           )}
         </DialogHeader>
@@ -330,10 +292,6 @@ export function ManualPaymentDialog({
                     }
                     if (option.value === "courseRegistration") {
                       const feeData = getActualFeeData(studentInfo?.registrationFees?.courseRegistration);
-                      return feeData?.paid || false;
-                    }
-                    if (option.value === "confirmationFee") {
-                      const feeData = getActualFeeData(studentInfo?.registrationFees?.confirmationFee);
                       return feeData?.paid || false;
                     }
                     return false;
@@ -401,7 +359,7 @@ export function ManualPaymentDialog({
           </div>
           <div className="grid gap-1">
             <RequiredLabel>Mode</RequiredLabel>
-            <Select value={mode} onValueChange={(v) => setMode(v as ManualPaymentPayload["mode"])} required>
+            <Select value={mode} onValueChange={(v) => setMode(v as ManualPaymentPayload["mode"]) } required>
               <SelectTrigger>
                 <SelectValue placeholder="Select mode" />
               </SelectTrigger>
@@ -426,26 +384,6 @@ export function ManualPaymentDialog({
             <span className="text-xs text-gray-500">Upload payment screenshot or receipt for reference (optional).</span>
           </div>
         )}
-          <div className="grid gap-1">
-            <RequiredLabel htmlFor="mp-receiver-name">Payment Receiver Name</RequiredLabel>
-            <Input
-              id="mp-receiver-name"
-              value={receiverName}
-              onChange={(e) => setReceiverName(e.target.value)}
-              placeholder="Enter receiver name"
-              required
-            />
-          </div>
-          <div className="grid gap-1">
-            <RequiredLabel htmlFor="mp-receiver-id">Payment Receiver ID</RequiredLabel>
-            <Input
-              id="mp-receiver-id"
-              value={receiverId}
-              onChange={(e) => setReceiverId(e.target.value)}
-              placeholder="Enter receiver ID"
-              required
-            />
-          </div>
         </div>
         
         <DialogFooter>

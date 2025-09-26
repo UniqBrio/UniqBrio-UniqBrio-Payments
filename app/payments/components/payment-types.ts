@@ -51,6 +51,8 @@ export interface PaymentRecord {
   studentType: "New" | "Existing"
   courseStartDate?: string
   paymentCategory?: "Student Registration" | "Course Registration" | "Confirmation Fee" | "Course Payment"
+  /** Indicates finalPayment was computed client-side via fallback triple-rule (not from sync API). */
+  derivedFinalPayment?: boolean
 }
 
 export interface PaymentSummary {

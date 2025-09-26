@@ -59,34 +59,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Use default pricing if no course found
-    if (finalPayment === 0) {
-      const defaultPricing: { [key: string]: number } = {
-        'art': 15000,
-        'photography': 12000,
-        'music': 10000,
-        'dance': 8000,
-        'craft': 6000,
-        'drama': 7000,
-        'digital art': 18000,
-        'singing': 9000,
-        'guitar': 11000,
-        'piano': 13000,
-        'painting': 14000,
-        'drawing': 8000,
-        'sculpture': 16000
-      };
-      
-      const courseNameLower = (courseName || '').toLowerCase();
-      finalPayment = 10000; // Default base price
-      
-      for (const [courseKey, price] of Object.entries(defaultPricing)) {
-        if (courseNameLower.includes(courseKey)) {
-          finalPayment = price;
-          break;
-        }
-      }
-    }
+    // No fallback pricing - only use dynamic data from courses collection
+    // finalPayment remains 0 if no course found in DB
 
     // Calculate registration fees
     const registrationFees = student.registrationFees || {

@@ -31,7 +31,9 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord,
 
   // Count visible columns (excluding the checkbox column)
   const visibleColumns = [
-    'id', 'name', 'course', 'category', 'courseType', 'registration', 'finalPayment', 'totalPaid', 'balance', 'status',
+    'id', 'name', 'course', 'category', 'courseType', 'registration',
+    'courseRegFee', 'studentRegFee',
+    'finalPayment', 'totalPaid', 'balance', 'status',
     'frequency', 'paidDate', 'nextDue', 'courseStartDate', 'reminder', 'mode', 'communication', 'paymentDetails', 'manualPayment', 'payslip', 'actions'
   ].filter(isColumnVisible);
 
@@ -60,7 +62,9 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord,
                 {isColumnVisible('course') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Course</TableHead>}
                 {isColumnVisible('category') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Category</TableHead>}
                 {isColumnVisible('courseType') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Type</TableHead>}
-                {isColumnVisible('registration') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap min-w-[180px]">Registration</TableHead>}
+                {/* Registration column removed. Only show Course Reg Fee and Student Reg Fee */}
+                {isColumnVisible('courseRegFee') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Course Reg Fee</TableHead>}
+                {isColumnVisible('studentRegFee') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Student Reg Fee</TableHead>}
                 {isColumnVisible('finalPayment') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Final Payment</TableHead>}
                 {isColumnVisible('totalPaid') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Total Paid</TableHead>}
                 {isColumnVisible('balance') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Balance</TableHead>}

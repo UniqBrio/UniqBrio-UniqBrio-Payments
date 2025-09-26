@@ -113,11 +113,11 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
 
   // Generate QR code when dialog opens
   useEffect(() => {
-    if (qrCodeOpen && record.paymentDetails.upiId) {
+    if (qrCodeOpen && record.paymentDetails?.upiId) {
       const generateQR = async () => {
         try {
           // Create UPI payment string
-          const upiString = `upi://pay?pa=${record.paymentDetails.upiId}&pn=UniqBrio&am=${record.balancePayment}&cu=INR&tn=Payment for ${record.activity}`
+          const upiString = `upi://pay?pa=${record.paymentDetails?.upiId}&pn=UniqBrio&am=${record.balancePayment}&cu=INR&tn=Payment for ${record.activity}`
           const qrCodeDataURL = await QRCodeLib.toDataURL(upiString, {
             width: 256,
             margin: 2,
@@ -134,7 +134,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       }
       generateQR()
     }
-  }, [qrCodeOpen, record.paymentDetails.upiId, record.balancePayment, record.activity])
+  }, [qrCodeOpen, record.paymentDetails?.upiId, record.balancePayment, record.activity])
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-"
@@ -225,14 +225,39 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
           <RegistrationFeesDisplay record={record} />
         </TableCell>
       )}
+      {isColumnVisible('courseRegFee') && (
+        <TableCell className="text-[11px] p-1 font-medium">
+          {record.registrationFees?.courseRegistration?.amount?.toLocaleString() ?? '-'}
+          {record.registrationFees?.courseRegistration?.paid ? <span className="ml-1 text-green-600">✓</span> : ''}
+        </TableCell>
+      )}
+      {isColumnVisible('studentRegFee') && (
+        <TableCell className="text-[11px] p-1 font-medium">
+          {record.registrationFees?.studentRegistration?.amount?.toLocaleString() ?? '-'}
+          {record.registrationFees?.studentRegistration?.paid ? <span className="ml-1 text-green-600">✓</span> : ''}
+        </TableCell>
+      )}
       {isColumnVisible('finalPayment') && (
         <TableCell className="text-[11px] p-1 font-medium">
-          {record.finalPayment.toLocaleString()} {getCurrencyName(record.currency)}
+          {record.finalPayment > 0 
+            ? <span className="inline-flex items-center gap-1">
+                {record.finalPayment.toLocaleString()} {getCurrencyName(record.currency)}
+                {record.derivedFinalPayment && (
+                  <span
+                    title="Computed via client fallback triple-rule (sync API unavailable)"
+                    className="text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300"
+                  >F</span>
+                )}
+              </span>
+            : '-'}
         </TableCell>
       )}
       {isColumnVisible('totalPaid') && (
         <TableCell className="text-[11px] p-1 text-green-600 font-medium">
-          {record.totalPaidAmount.toLocaleString()} {getCurrencyName(record.currency)}
+          {/* Only show Course Registration Fee payments in Total Paid */}
+          {record.registrationFees?.courseRegistration?.paid
+            ? (record.registrationFees?.courseRegistration?.amount ?? 0).toLocaleString()
+            : '0'} {getCurrencyName(record.currency)}
         </TableCell>
       )}
       {isColumnVisible('balance') && (
@@ -271,7 +296,11 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         <TableCell className="text-[11px] p-1">
           <Badge 
             variant={record.paymentStatus === 'Paid' || !record.paymentReminder ? "secondary" : "default"} 
-            className={`text-[11px] ${record.paymentStatus !== 'Paid' ? 'cursor-pointer hover:opacity-80' : ''}`}
+            className={`text-[11px] ${record.paymentStatus !== 'Paid' ? 'cursor-pointer hover:opacity-80' : ''} ${
+              record.paymentStatus !== 'Paid' && record.paymentReminder 
+                ? 'bg-purple-600 text-white border-purple-600 hover:bg-[#9234ea]' 
+                : ''
+            }`}
             onClick={() => {
               if (record.paymentStatus !== 'Paid') {
                 const newReminderState = !record.paymentReminder;
@@ -354,23 +383,23 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
           <div className="flex flex-col gap-1">
             {record.reminderMode === "SMS" || record.reminderMode === "WhatsApp" ? (
               <>
-                {record.paymentDetails.upiId && (
+                {record.paymentDetails?.upiId && (
                   <div className="flex items-center gap-1 text-[11px]">
                     <Smartphone className="h-3 w-3" />
                     <span 
                       className="cursor-pointer text-blue-600 hover:underline"
-                      onClick={() => navigator.clipboard.writeText(record.paymentDetails.upiId ?? "")}
+                      onClick={() => navigator.clipboard.writeText(record.paymentDetails?.upiId ?? "")}
                       title="Click to copy UPI ID"
                     >
-                      {record.paymentDetails.upiId}
+                      {record.paymentDetails?.upiId}
                     </span>
                   </div>
                 )}
-                {record.paymentDetails.paymentLink && (
+                {record.paymentDetails?.paymentLink && (
                   <div className="flex items-center gap-1 text-[11px]">
                     <Link className="h-3 w-3" />
                     <a 
-                      href={record.paymentDetails.paymentLink} 
+                      href={record.paymentDetails?.paymentLink} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:underline"
@@ -383,7 +412,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
               </>
             ) : (
               <>
-                {record.paymentDetails.qrCode && (
+                {record.paymentDetails?.qrCode && (
                   <div className="flex items-center gap-1 text-[11px]">
                     <QrCode className="h-3 w-3" />
                     <span 
@@ -395,23 +424,23 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
                     </span>
                   </div>
                 )}
-                {record.paymentDetails.upiId && (
+                {record.paymentDetails?.upiId && (
                   <div className="flex items-center gap-1 text-[11px]">
                     <Smartphone className="h-3 w-3" />
                     <span 
                       className="cursor-pointer text-blue-600 hover:underline"
-                      onClick={() => navigator.clipboard.writeText(record.paymentDetails.upiId ?? "")}
+                      onClick={() => navigator.clipboard.writeText(record.paymentDetails?.upiId ?? "")}
                       title="Click to copy UPI ID"
                     >
-                      {record.paymentDetails.upiId}
+                      {record.paymentDetails?.upiId}
                     </span>
                   </div>
                 )}
-                {record.paymentDetails.paymentLink && (
+                {record.paymentDetails?.paymentLink && (
                   <div className="flex items-center gap-1 text-[11px]">
                     <Link className="h-3 w-3" />
                     <a 
-                      href={record.paymentDetails.paymentLink} 
+                      href={record.paymentDetails?.paymentLink} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:underline"
@@ -518,9 +547,9 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
                 alt="Payment QR Code" 
                 className="w-64 h-64 object-contain"
               />
-            ) : record.paymentDetails.qrCode && record.paymentDetails.qrCode !== 'QR_CODE_PLACEHOLDER' ? (
+            ) : record.paymentDetails?.qrCode && record.paymentDetails?.qrCode !== 'QR_CODE_PLACEHOLDER' ? (
               <img 
-                src={record.paymentDetails.qrCode} 
+                src={record.paymentDetails?.qrCode} 
                 alt="Payment QR Code" 
                 className="w-64 h-64 object-contain"
                 onError={(e) => {
@@ -546,8 +575,8 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
           <div className="text-center space-y-2">
             <p className="text-sm font-medium">Pay {formatCurrency(record.balancePayment, record.currency)}</p>
             <p className="text-xs text-gray-600">{record.name} - {record.activity}</p>
-            {record.paymentDetails.upiId && (
-              <p className="text-xs text-gray-500">UPI ID: {record.paymentDetails.upiId}</p>
+            {record.paymentDetails?.upiId && (
+              <p className="text-xs text-gray-500">UPI ID: {record.paymentDetails?.upiId}</p>
             )}
           </div>
           <Button 

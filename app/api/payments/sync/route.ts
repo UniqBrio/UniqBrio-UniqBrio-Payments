@@ -1,6 +1,7 @@
 import { connectDB } from "@/lib/db";
 import Payment from "@/models/payment";
 import Student from "@/models/student";
+import Course from "@/models/course";
 import { NextRequest, NextResponse } from "next/server";
 
 // Disable caching for Vercel
@@ -10,8 +11,17 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB();
     let students = await Student.find({}).lean();
-    const updatedStudents = await Promise.all(students.map(async (student) => {
-      const paymentDoc = await Payment.findOne({ studentId: student.studentId });
+    
+    // Limit to first 50 students for performance if there are too many
+    if (students.length > 50) {
+      students = students.slice(0, 50);
+    }
+    
+    // No pre-fetching needed - we'll fetch courses per student for accurate matching
+    
+    const updatedStudents = await Promise.all(students.map(async (student, index) => {
+      
+      const paymentDoc = await Payment.findOne({ studentId: student.studentId }).lean();
       const paymentRecords = paymentDoc?.paymentRecords?.filter((record: any) => record.paymentStatus === 'Completed') || [];
       let totalPaidAmount = 0;
       if (paymentDoc && typeof paymentDoc.totalPaidAmount === 'number') {
@@ -19,35 +29,49 @@ export async function GET(request: NextRequest) {
       } else {
         totalPaidAmount = paymentRecords.reduce((sum: number, payment: any) => sum + (payment.amount || 0), 0);
       }
-      let totalCourseFee = paymentDoc?.totalCourseFee || 0;
-      if (totalCourseFee === 0 && student.finalPayment && student.finalPayment > 0) {
-        const standardRegistrationFees = 500 + 1000 + 250;
-        totalCourseFee = Math.max(0, student.finalPayment - standardRegistrationFees);
-      }
-      if (totalCourseFee === 0) {
-        const courseName = (student.course || student.activity || '').toLowerCase();
-        const coursePricing: { [key: string]: number } = {
-          'art': 15000,
-          'photography': 12000,
-          'music': 10000,
-          'dance': 8000,
-          'craft': 6000,
-          'drama': 7000,
-          'digital art': 18000,
-          'singing': 9000,
-          'guitar': 11000,
-          'piano': 13000,
-          'painting': 14000,
-          'drawing': 8000,
-          'sculpture': 16000
-        };
-        totalCourseFee = 10000;
-        for (const [course, price] of Object.entries(coursePricing)) {
-          if (courseName.includes(course)) {
-            totalCourseFee = price;
-            break;
+      
+      // FINAL PAYMENT MATCHING LOGIC - THREE RULE VALIDATION
+      let totalCourseFee = 0;
+      
+      // Get student matching fields based on your rules
+      const studentActivity = student.activity; // Rule 1: Must match courses.courseId (courses.id)
+      const studentProgram = student.course; // Rule 2: Must match courses.name (using 'course' field as program)
+      const studentCategory = student.category; // Rule 3: Must match courses.level
+      
+      // Only proceed if all required student fields exist
+      if (studentActivity && studentProgram && studentCategory) {
+        let matchingCourse = null;
+        
+        // Fetch all courses and search for exact triple match
+        try {
+          const allCourses = await Course.find({ status: 'Active' }).lean();
+          
+          for (const course of allCourses) {
+            // Apply the three matching rules exactly as specified:
+            const rule1Match = studentActivity === course.id; // students.activity === courses.courseId (courses.id)
+            const rule2Match = studentProgram === course.name; // students.program === courses.name (using course field)
+            const rule3Match = studentCategory === course.level; // students.category === courses.level
+            
+            // ALL THREE rules must match exactly for a valid match
+            if (rule1Match && rule2Match && rule3Match) {
+              matchingCourse = course;
+              break; // Stop at first exact match
+            }
           }
+          
+          // Set final payment only if exact match found
+          if (matchingCourse && matchingCourse.priceINR) {
+            totalCourseFee = matchingCourse.priceINR;
+          } else {
+            totalCourseFee = 0; // No match found, set to 0
+          }
+        } catch (error) {
+          console.error('Error fetching courses for matching:', error);
+          totalCourseFee = 0;
         }
+      } else {
+        // Missing required fields, set to 0
+        totalCourseFee = 0;
       }
       const balancePayment = Math.max(0, totalCourseFee - totalPaidAmount);
       let paymentStatus = 'Paid';
@@ -56,72 +80,38 @@ export async function GET(request: NextRequest) {
       }
       const latestPayment = paymentRecords.length > 0 ? 
         paymentRecords.sort((a: any, b: any) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())[0] : null;
+
       return {
         id: student.studentId,
         name: student.name,
-        activity: student.course || student.activity || 'General Course',
-        category: student.category || 'Regular',
-        courseType: student.courseType || 'Individual',
-        cohort: student.cohort || `${student.course}_${new Date().getFullYear()}_Batch01`,
-        batch: student.batch || 'Morning Batch',
-        instructor: student.instructor || 'TBD',
-        classSchedule: student.classSchedule || 'Mon-Wed-Fri 10:00-12:00',
-        currency: student.currency || 'INR',
+        activity: student.activity || student.course,
+        category: student.category,
+        courseType: student.courseType,
+        cohort: student.cohort,
+        batch: student.batch,
+        instructor: student.instructor,
+        classSchedule: student.classSchedule,
+        currency: student.currency,
         finalPayment: totalCourseFee,
         totalPaidAmount: totalPaidAmount,
         balancePayment,
         paymentStatus,
-        paymentFrequency: student.paymentFrequency || 'Monthly',
+        paymentFrequency: student.paymentFrequency,
         paidDate: latestPayment ? latestPayment.paymentDate.toISOString() : 
           (student.paidDate ? (student.paidDate instanceof Date ? student.paidDate.toISOString() : new Date(student.paidDate).toISOString()) : null),
         nextPaymentDate: student.nextPaymentDate ? 
-          (student.nextPaymentDate instanceof Date ? student.nextPaymentDate.toISOString() : new Date(student.nextPaymentDate).toISOString()) : 
-          new Date(Date.now() + 30*24*60*60*1000).toISOString(),
+          (student.nextPaymentDate instanceof Date ? student.nextPaymentDate.toISOString() : new Date(student.nextPaymentDate).toISOString()) : null,
         courseStartDate: student.courseStartDate ? 
-          (student.courseStartDate instanceof Date ? student.courseStartDate.toISOString() : new Date(student.courseStartDate).toISOString()) : 
-          new Date().toISOString(),
-        paymentReminder: paymentStatus === 'Paid' ? false : (student.paymentReminder !== false),
-        reminderMode: student.modeOfCommunication || student.reminderMode || 'Email',
-        communicationText: student.communicationText || `Payment reminder for ${student.course || student.activity}. Amount due: ₹${balancePayment}.`,
-        reminderDays: student.reminderDays || [7, 3, 1],
-        registrationFees: paymentDoc?.registrationFees
-          ? {
-              ...paymentDoc.registrationFees,
-              advanceFee: paymentDoc.registrationFees.confirmationFee || {
-                amount: 250,
-                paid: false,
-                paidDate: null
-              }
-            }
-          : {
-              studentRegistration: {
-                amount: 500,
-                paid: false,
-                paidDate: null
-              },
-              courseRegistration: {
-                amount: 1000,
-                paid: false,
-                paidDate: null
-              },
-              advanceFee: {
-                amount: 250,
-                paid: false,
-                paidDate: null
-              },
-              overall: {
-                paid: false,
-                status: 'Pending'
-              }
-            },
-        paymentDetails: student.paymentDetails || {
-          upiId: 'payment@uniqbrio.com',
-          paymentLink: 'https://pay.uniqbrio.com',
-          qrCode: 'QR_CODE_PLACEHOLDER'
-        },
-        paymentModes: student.paymentModes || ['UPI', 'Card', 'Bank Transfer'],
-        studentType: student.studentType || 'New',
-        emiSplit: student.emiSplit || 1,
+          (student.courseStartDate instanceof Date ? student.courseStartDate.toISOString() : new Date(student.courseStartDate).toISOString()) : null,
+        paymentReminder: student.paymentReminder,
+        reminderMode: student.modeOfCommunication || student.reminderMode,
+        communicationText: student.communicationText,
+        reminderDays: student.reminderDays,
+        registrationFees: paymentDoc?.registrationFees,
+        paymentDetails: student.paymentDetails,
+        paymentModes: student.paymentModes,
+        studentType: student.studentType,
+        emiSplit: student.emiSplit,
         totalTransactions: paymentRecords.length,
         lastPaymentDate: latestPayment ? latestPayment.paymentDate : null,
         lastPaymentAmount: latestPayment ? latestPayment.amount : 0,
@@ -134,14 +124,13 @@ export async function GET(request: NextRequest) {
         }))
       };
     }));
-    console.log('GET /api/payments/sync 200');
+    
     return NextResponse.json({
       success: true,
       data: updatedStudents,
       message: `Synchronized payment data for ${updatedStudents.length} students`
     });
   } catch (error) {
-    console.error('Payment sync error:', error);
     return NextResponse.json(
       { success: false, error: "Failed to sync payment data" },
       { status: 500 }
@@ -149,14 +138,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Add POST method to manually trigger sync
 export async function POST(request: NextRequest) {
   try {
-    const result = await GET(request);
-    console.log('POST /api/payments/sync 200');
-    return result;
+    return await GET(request);
   } catch (error) {
-    console.error('Manual sync error:', error);
     return NextResponse.json(
       { success: false, error: "Failed to manually sync payment data" },
       { status: 500 }

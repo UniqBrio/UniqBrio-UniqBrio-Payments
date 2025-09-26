@@ -7,6 +7,7 @@ export function usePaymentLogic() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilters, setStatusFilters] = useState<string[]>([])
   const [categoryFilters, setCategoryFilters] = useState<string[]>([])
+  const [paymentCategoryFilters, setPaymentCategoryFilters] = useState<string[]>([])
   const [courseFilters, setCourseFilters] = useState<string[]>([])
   const [sortBy, setSortBy] = useState<string>("id")
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>("asc")
@@ -23,7 +24,8 @@ export function usePaymentLogic() {
     { key: 'course', label: 'Course', visible: true },
     { key: 'category', label: 'Category', visible: true },
     { key: 'courseType', label: 'Course Type', visible: true },
-    { key: 'registration', label: 'Registration', visible: false },
+    { key: 'courseRegFee', label: 'Course Reg Fee', visible: true },
+    { key: 'studentRegFee', label: 'Student Reg Fee', visible: true },
     { key: 'finalPayment', label: 'Final Payment', visible: true },
     { key: 'totalPaid', label: 'Total Paid', visible: true },
     { key: 'balance', label: 'Balance', visible: true },
@@ -62,6 +64,12 @@ export function usePaymentLogic() {
     if (categoryFilters.length > 0) {
       filtered = filtered.filter((record: PaymentRecord) => 
         categoryFilters.some(category => record.category.toLowerCase() === category.toLowerCase())
+      )
+    }
+
+    if (paymentCategoryFilters.length > 0) {
+      filtered = filtered.filter((record: PaymentRecord) => 
+        paymentCategoryFilters.some(category => record.paymentStatus.toLowerCase() === category.toLowerCase())
       )
     }
 
@@ -107,39 +115,105 @@ export function usePaymentLogic() {
     setFilteredRecords(filtered);
   }
 
-  // Auto-refresh every 30 seconds to catch new students
+  // Smart refresh - only refresh when new data is detected in collections
   useEffect(() => {
-    const interval = setInterval(() => {
-      console.log('Auto-refreshing payment data...');
-      refreshPaymentData();
-    }, 30000); // 30 seconds
-
+    let lastDataHash = '';
+    
+    const checkForNewData = async () => {
+      try {
+        // Get current data counts and latest records to create a hash
+        const [studentsRes, paymentsRes] = await Promise.all([
+          fetch('/api/students', { cache: 'no-store' }),
+          fetch('/api/payments/sync', { cache: 'no-store' })
+        ]);
+        
+        if (studentsRes.ok && paymentsRes.ok) {
+          const studentsData = await studentsRes.json();
+          const paymentsData = await paymentsRes.json();
+          
+          // Create a simple hash of the data to detect changes
+          const currentHash = JSON.stringify({
+            studentCount: studentsData.data?.length || 0,
+            paymentCount: paymentsData.data?.length || 0,
+            lastStudent: studentsData.data?.[0]?.studentId || '',
+            lastPayment: paymentsData.data?.[0]?.id || ''
+          });
+          
+          // Only refresh if data has actually changed
+          if (lastDataHash && currentHash !== lastDataHash) {
+            refreshPaymentData();
+          }
+          
+          lastDataHash = currentHash;
+        }
+      } catch (error) {
+        // Silently handle data check errors
+      }
+    };
+    
+    // Check for changes every 10 seconds (lightweight check)
+    const interval = setInterval(checkForNewData, 10000);
+    
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-refresh every second to detect new students (read-only polling)
+  // Enhanced change detection for courses and detailed data changes
   useEffect(() => {
-    const interval = setInterval(async () => {
+    let lastDetailedHash = '';
+    
+    const checkForDetailedChanges = async () => {
       try {
-        // Silently check for new students without disturbing UI
-        const response = await fetch('/api/students', {
-          cache: 'no-store',
-          headers: { 'Cache-Control': 'no-cache' }
-        })
-        const result = await response.json()
+        // Check for changes in courses, students, and payments with more detail
+        const [studentsRes, coursesRes] = await Promise.all([
+          fetch('/api/students', { cache: 'no-store' }),
+          fetch('/api/courses', { cache: 'no-store' }).catch(() => ({ ok: false }))
+        ]);
         
-        if (result.success) {
-          // Always refresh to get latest data, even if count is same (data might have changed)
-          console.log('Auto-refreshing payment data...')
-          refreshPaymentData()
+        if (studentsRes.ok) {
+          const studentsData = await studentsRes.json();
+          let coursesData = { data: [] };
+          
+          if (coursesRes.ok) {
+            try {
+              coursesData = await (coursesRes as Response).json();
+            } catch (error) {
+              // Silently handle parse errors
+            }
+          }
+          
+          // Create detailed hash including course pricing changes
+          const detailedHash = JSON.stringify({
+            students: studentsData.data?.map((s: any) => ({
+              id: s.studentId,
+              activity: s.activity,
+              course: s.course,
+              updatedAt: s.updatedAt || s.createdAt
+            })) || [],
+            courses: coursesData.data?.map((c: any) => ({
+              name: c.name,
+              priceINR: c.priceINR,
+              updatedAt: c.updatedAt || c.createdAt
+            })) || [],
+            timestamp: Date.now()
+          });
+          
+          // Refresh only if there are meaningful changes
+          if (lastDetailedHash && detailedHash !== lastDetailedHash) {
+            refreshPaymentData();
+          }
+          
+          lastDetailedHash = detailedHash;
         }
       } catch (error) {
-        console.log('Auto-refresh check failed:', error)
+        // Silently handle detailed check errors
       }
-    }, 1000) // Check every 1 second
-
-    return () => clearInterval(interval)
-  }, []) // No dependencies - always run
+    };
+    
+    // Check every 5 seconds for detailed changes
+    const interval = setInterval(checkForDetailedChanges, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // Fetch students from database with synchronized payment data
   useEffect(() => {
@@ -161,111 +235,61 @@ export function usePaymentLogic() {
           result = await response.json()
           
           if (result.success) {
-            // Process each student's payment record (legacy method)
+            // Fetch courses once for triple-rule matching (activity, course, category)
+            let courses: any[] = []
+            try {
+              const coursesResp = await fetch('/api/courses', { cache: 'no-store' })
+              if (coursesResp.ok) {
+                const cJson = await coursesResp.json()
+                courses = Array.isArray(cJson.data) ? cJson.data : []
+              }
+            } catch (_) {
+              // silently ignore
+            }
+
             const paymentRecords = await Promise.all(result.data.map(async (student: any) => {
-              // Get course pricing from multiple sources
-              let finalPayment = student.finalPayment || 0;
-              
-              // If finalPayment is not set or is 0, try to calculate it
-              if (finalPayment === 0) {
-                const courseName = student.course || student.activity || 'General Course';
-                
-                // First try to get from course pricing API
-                if (courseName) {
-                  try {
-                    const coursePrice = await getCoursePricing(
-                      courseName,
-                      student.level || 'Beginner',
-                      student.type || 'Individual'
-                    );
-                    if (coursePrice && coursePrice.priceINR > 0) {
-                      finalPayment = coursePrice.priceINR;
-                    }
-                  } catch (error) {
-                    console.log('Course pricing fetch failed, using defaults');
-                  }
-                }
-                
-                // If still no pricing found, use smart defaults based on course type
-                if (finalPayment === 0) {
-                  const courseNameLower = courseName.toLowerCase();
-                  const defaultPricing: { [key: string]: number } = {
-                    'art': 15000,
-                    'photography': 12000,
-                    'music': 10000,
-                    'dance': 8000,
-                    'craft': 6000,
-                    'drama': 7000,
-                    'digital art': 18000,
-                    'singing': 9000,
-                    'guitar': 11000,
-                    'piano': 13000,
-                    'painting': 14000,
-                    'drawing': 8000,
-                    'sculpture': 16000
-                  };
-                  
-                  // Find matching course price
-                  finalPayment = 10000; // Default base price
-                  for (const [course, price] of Object.entries(defaultPricing)) {
-                    if (courseNameLower.includes(course)) {
-                      finalPayment = price;
-                      break;
-                    }
-                  }
-                  
-                  console.log(`Using default pricing for ${courseName}: ₹${finalPayment}`);
-                }
+              // Triple rule logic (frontend fallback ONLY when sync API failed):
+              // Rule 1: student.activity === course.id
+              // Rule 2: student.course === course.name
+              // Rule 3: student.category === course.level
+              let matchedCourse = null as any
+              if (student.activity && student.course && student.category && courses.length) {
+                matchedCourse = courses.find(c => 
+                  student.activity === c.id &&
+                  student.course === c.name &&
+                  student.category === c.level
+                ) || null
               }
-              
-              const totalPaid = student.totalPaidAmount || 0;
-              const balance = Math.max(0, finalPayment - totalPaid);
-              
-              const courseName = student.course || student.activity || 'General Course';
-              
-              // Set proper course start date and next payment date
-              const courseStartDate = student.courseStartDate ? new Date(student.courseStartDate) : new Date();
-              const paidDate = student.paidDate ? new Date(student.paidDate) : courseStartDate;
-              const nextPaymentDate = student.nextPaymentDate ? new Date(student.nextPaymentDate) : 
-                new Date(courseStartDate.getTime() + 30*24*60*60*1000); // 30 days from start
-              
-              // Calculate smart payment status based on balance and due date
-              let paymentStatus = 'Paid';
-              let reminderEnabled = true; // Default reminder setting
-              
-              if (balance > 0) {
-                const today = new Date();
-                const daysUntilDue = Math.ceil((nextPaymentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                
-                // Always show Pending if there's any balance remaining
-                paymentStatus = 'Pending';
-              } else {
-                // If payment is fully paid, turn off reminders
-                reminderEnabled = false;
-              }
-              
-              // Apply same logic to registration fees
-              let registrationStatus = 'Paid';
+
+              const finalPayment = matchedCourse?.priceINR || 0
+              const totalPaid = student.totalPaidAmount || 0
+              const balance = Math.max(0, finalPayment - totalPaid)
+              const courseName = student.course || student.activity || 'General Course'
+
+              // Dates
+              const courseStartDate = student.courseStartDate ? new Date(student.courseStartDate) : new Date()
+              const paidDate = student.paidDate ? new Date(student.paidDate) : courseStartDate
+              const nextPaymentDate = student.nextPaymentDate ? new Date(student.nextPaymentDate) : new Date(courseStartDate.getTime() + 30*24*60*60*1000)
+
+              // Status
+              let paymentStatus = 'Paid'
+              if (balance > 0) paymentStatus = 'Pending'
+
+              // Registration fees (preserve existing structure)
               const registrationFees = student.registrationFees || {
                 studentRegistration: 500,
                 courseRegistration: 1000,
                 confirmationFee: 250,
                 paid: false
-              };
-              
+              }
               if (!registrationFees.paid) {
-                registrationStatus = 'Pending';
-                registrationFees.paid = false;
-                registrationFees.status = registrationStatus;
+                registrationFees.status = 'Pending'
               }
-              
-              // Generate default communication text based on payment status
-              let defaultCommunicationText = `Payment reminder for ${courseName}. Amount due: ₹${balance}. Please pay by ${nextPaymentDate.toLocaleDateString()}.`;
-              
-              if (paymentStatus === 'Pending') {
-                defaultCommunicationText = `Payment reminder for ${courseName}. Amount due: ₹${balance}. Due date: ${nextPaymentDate.toLocaleDateString()}. Please complete your payment to continue.`;
-              }
-              
+
+              const defaultCommunicationText = paymentStatus === 'Pending'
+                ? `Payment reminder for ${courseName}. Amount due: ₹${balance}. Due date: ${nextPaymentDate.toLocaleDateString()}. Please complete your payment.`
+                : `Payment for ${courseName} is complete. Thank you!`
+
               return {
                 id: student.studentId || student._id || `STU${Date.now()}`,
                 name: student.name || 'Unknown Student',
@@ -274,10 +298,10 @@ export function usePaymentLogic() {
                 courseType: student.courseType || 'Individual',
                 cohort: student.cohort || `${courseName.replace(/\s+/g, '')}_${new Date().getFullYear()}_Batch01`,
                 batch: student.batch || 'Morning Batch',
-                instructor: student.instructor || 'TBD',
+                instructor: student.instructor || matchedCourse?.instructor || 'TBD',
                 classSchedule: student.classSchedule || 'Mon-Wed-Fri 10:00-12:00',
                 currency: student.currency || 'INR',
-                finalPayment: finalPayment,
+                finalPayment,
                 totalPaidAmount: totalPaid,
                 balancePayment: balance,
                 paymentStatus: student.paymentStatus || paymentStatus,
@@ -288,8 +312,8 @@ export function usePaymentLogic() {
                 paymentReminder: paymentStatus === 'Paid' ? false : (student.paymentReminder !== false),
                 reminderMode: student.modeOfCommunication || student.reminderMode || 'Email',
                 communicationText: student.communicationText || defaultCommunicationText,
-                reminderDays: student.reminderDays || [7, 3, 1], // Default reminder days
-                registrationFees: registrationFees,
+                reminderDays: student.reminderDays || [7, 3, 1],
+                registrationFees,
                 paymentDetails: student.paymentDetails || {
                   upiId: student.upiId || 'payment@uniqbrio.com',
                   paymentLink: student.paymentLink || 'https://pay.uniqbrio.com',
@@ -297,7 +321,8 @@ export function usePaymentLogic() {
                 },
                 paymentModes: student.paymentModes || ['UPI', 'Card', 'Bank Transfer'],
                 studentType: student.studentType || 'New',
-                emiSplit: student.emiSplit || 1
+                emiSplit: student.emiSplit || 1,
+                derivedFinalPayment: !!matchedCourse // mark if computed
               }
             }))
             setRecords(paymentRecords)
@@ -320,7 +345,7 @@ export function usePaymentLogic() {
   // Automatically filter and sort when any parameter changes
   useEffect(() => {
     handleFilter()
-  }, [searchTerm, statusFilters, categoryFilters, courseFilters, sortBy, sortOrder, records])
+  }, [searchTerm, statusFilters, categoryFilters, paymentCategoryFilters, courseFilters, sortBy, sortOrder, records])
 
   const paymentSummary: PaymentSummary = {
     receivedPayment: records.reduce((sum: number, record: PaymentRecord) => {
@@ -376,7 +401,6 @@ export function usePaymentLogic() {
   }
 
   const refreshPaymentData = async () => {
-    console.log('Auto-refreshing payment data...'); // Debug log
     try {
       // Don't show loading for auto-refresh to avoid UI flickering
       // setLoading(true)
@@ -411,46 +435,34 @@ export function usePaymentLogic() {
         setError(null)
       } else {
         // Fallback to students API if sync fails
-        console.log('Sync failed, falling back to students API'); // Debug log
+        // Sync failed, falling back to students API
         response = await fetch('/api/students')
         result = await response.json()
         
         if (result.success) {
-          // Process student data into payment records (existing logic)
+          // Fetch courses for triple-rule matching fallback
+          let courses: any[] = []
+          try {
+            const coursesResp = await fetch('/api/courses', { cache: 'no-store' })
+            if (coursesResp.ok) {
+              const cJson = await coursesResp.json()
+              courses = Array.isArray(cJson.data) ? cJson.data : []
+            }
+          } catch (_) {}
+
           const paymentRecords = await Promise.all(result.data.map(async (student: any) => {
-            // Get course pricing from DB only, using student.course || student.activity
-            let finalPayment = 0;
-            const courseName = student.course || student.activity || 'General Course';
-            if (courseName) {
-              const coursePrice = await getCoursePricing(
-                courseName,
-                student.level || 'Beginner',
-                student.type || 'Individual'
-              );
-              if (coursePrice) {
-                finalPayment = coursePrice.priceINR;
-              } else {
-                finalPayment = 5000; // Default course fee if pricing not found
-              }
+            let matchedCourse = null as any
+            if (student.activity && student.course && student.category && courses.length) {
+              matchedCourse = courses.find(c => 
+                student.activity === c.id &&
+                student.course === c.name &&
+                student.category === c.level
+              ) || null
             }
-            
-            const totalPaid = student.totalPaidAmount || 0;
-            const balance = Math.max(0, finalPayment - totalPaid);
-            
-            // Calculate payment status
-            let paymentStatus = 'Paid';
-            if (balance > 0) {
-              const today = new Date();
-              const nextPaymentDate = student.nextPaymentDate ? new Date(student.nextPaymentDate) : 
-                new Date(Date.now() + 30*24*60*60*1000);
-              const daysUntilDue = Math.ceil((nextPaymentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-              
-              if (balance > 0) {
-                // Always show Pending if there's any balance remaining
-                paymentStatus = 'Pending';
-              }
-            }
-            
+            const finalPayment = matchedCourse?.priceINR || 0
+            const totalPaid = student.totalPaidAmount || 0
+            const balance = Math.max(0, finalPayment - totalPaid)
+            let paymentStatus: 'Paid' | 'Pending' = balance > 0 ? 'Pending' : 'Paid'
             return {
               id: student.studentId,
               name: student.name,
@@ -458,7 +470,7 @@ export function usePaymentLogic() {
               category: student.category || 'Regular',
               courseType: student.courseType || 'Individual',
               cohort: student.cohort || `${student.course}_${new Date().getFullYear()}_Batch01`,
-              paymentStatus: paymentStatus as "Paid" | "Pending",
+              paymentStatus,
               totalPaidAmount: totalPaid,
               finalPayment,
               balancePayment: balance,
@@ -473,18 +485,17 @@ export function usePaymentLogic() {
                 phoneNumber: student.phoneNumber || '+91 98765 43210'
               },
               currency: student.currency || 'INR',
-              // Additional required properties
               paymentFrequency: student.paymentFrequency || 'One-time',
               nextPaymentDate: student.nextPaymentDate || null,
               reminderDays: student.reminderDays || 3,
               paymentModes: student.paymentModes || ['UPI', 'Cash'],
-              studentType: student.studentType || 'Regular'
-            } as PaymentRecord;
-          }));
-          
-          console.log('Payment data refreshed from students API:', paymentRecords.length, 'records');
-          setRecords(paymentRecords);
-          setError(null);
+              studentType: student.studentType || 'Regular',
+              derivedFinalPayment: !!matchedCourse
+            } as PaymentRecord
+          }))
+          console.log('Payment data refreshed from students API (with fallback match):', paymentRecords.length, 'records')
+          setRecords(paymentRecords)
+          setError(null)
         } else {
           throw new Error('Failed to fetch data from both sync and students API');
         }
@@ -521,6 +532,8 @@ export function usePaymentLogic() {
     setStatusFilters,
     categoryFilters,
     setCategoryFilters,
+    paymentCategoryFilters,
+    setPaymentCategoryFilters,
     courseFilters,
     setCourseFilters,
     sortBy,

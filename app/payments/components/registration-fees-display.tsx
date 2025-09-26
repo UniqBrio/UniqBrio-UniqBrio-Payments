@@ -11,7 +11,6 @@ interface RegistrationFeesDisplayProps {
 
 export function RegistrationFeesDisplay({ record, className = "" }: RegistrationFeesDisplayProps) {
   const registrationFees = record.registrationFees;
-  
   if (!registrationFees) {
     return (
       <div className={`space-y-1 ${className}`}>
@@ -21,12 +20,8 @@ export function RegistrationFeesDisplay({ record, className = "" }: Registration
   }
 
   // Helper function to safely display fee data from actual database values
-  const getActualFeeData = (feeObj: any, label: string) => {
-    if (!feeObj) {
-      return null; // Don't show if no data exists
-    }
-    
-    // If it's already in the correct format with amount property
+  const getActualFeeData = (feeObj: any) => {
+    if (!feeObj) return null;
     if (typeof feeObj === 'object' && feeObj.hasOwnProperty('amount')) {
       return {
         amount: feeObj.amount,
@@ -34,59 +29,44 @@ export function RegistrationFeesDisplay({ record, className = "" }: Registration
         paidDate: feeObj.paidDate || null
       };
     }
-    
-    // If it's a direct number (actual amount from database)
     if (typeof feeObj === 'number') {
       return { amount: feeObj, paid: false, paidDate: null };
     }
-    
-    // For other objects, try to extract meaningful data
     if (typeof feeObj === 'object') {
-      // Look for common amount field names
       const amount = feeObj.value || feeObj.fee || feeObj.cost || null;
       if (amount && typeof amount === 'number') {
         return { amount: amount, paid: Boolean(feeObj.paid), paidDate: feeObj.paidDate || null };
       }
     }
-    
-    return null; // Don't display if we can't determine the structure
+    return null;
   };
 
-  const feeTypes = [
-    { key: 'studentRegistration' as const, label: "Student Reg Fee" },
-    { key: 'courseRegistration' as const, label: "Course Reg Fee" },
-  { key: 'advanceFee' as const, label: "Advance Fee" },
-  ];
-
-  const fees = feeTypes
-    .map(({ key, label }) => {
-      const feeData = getActualFeeData(registrationFees[key], label);
-      return feeData ? { label, ...feeData } : null;
-    })
-    .filter((fee): fee is NonNullable<typeof fee> => fee !== null); // Remove null entries with type guard
+  // Only show Student Reg Fee and Course Reg Fee
+  const studentReg = getActualFeeData(registrationFees.studentRegistration);
+  const courseReg = getActualFeeData(registrationFees.courseRegistration);
 
   return (
     <div className={`space-y-1 ${className}`}>
-      {fees.map((fee, index) => (
-        <div key={index} className="flex items-center justify-between text-xs">
-          <span className="text-gray-600">{fee.label}:</span>
-          <Badge 
-            variant={fee.paid ? "default" : "secondary"}
-            className={`
-              text-xs px-2 py-0.5 ml-2
-              ${fee.paid 
-                ? 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200' 
-                : 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200'
-              }
-            `}
-          >
-            ₹{typeof fee.amount === 'number' ? fee.amount : 'N/A'}
-            {fee.paid && (
-              <span className="ml-1 text-green-600">✓</span>
-            )}
-          </Badge>
-        </div>
-      ))}
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-gray-600">Student Reg Fee:</span>
+        <Badge
+          variant={studentReg?.paid ? "default" : "secondary"}
+          className={`text-xs px-2 py-0.5 ml-2 ${studentReg?.paid ? 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200' : 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200'}`}
+        >
+          ₹{typeof studentReg?.amount === 'number' ? studentReg.amount : 'N/A'}
+          {studentReg?.paid && <span className="ml-1 text-green-600">✓</span>}
+        </Badge>
+      </div>
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-gray-600">Course Reg Fee:</span>
+        <Badge
+          variant={courseReg?.paid ? "default" : "secondary"}
+          className={`text-xs px-2 py-0.5 ml-2 ${courseReg?.paid ? 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200' : 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200'}`}
+        >
+          ₹{typeof courseReg?.amount === 'number' ? courseReg.amount : 'N/A'}
+          {courseReg?.paid && <span className="ml-1 text-green-600">✓</span>}
+        </Badge>
+      </div>
     </div>
   );
 }
@@ -114,18 +94,12 @@ export function calculateRegistrationStatus(registrationFees?: PaymentRecord['re
   
   const studentRegPaid = isPaid(registrationFees.studentRegistration);
   const courseRegPaid = isPaid(registrationFees.courseRegistration);
-  const advancePaid = isPaid(registrationFees.advanceFee);
-  
-  // Check if all fees that exist are paid (not just any one fee)
-  const hasAnyFees = registrationFees.studentRegistration || registrationFees.courseRegistration || registrationFees.advanceFee;
+  const hasAnyFees = registrationFees.studentRegistration || registrationFees.courseRegistration;
   if (!hasAnyFees) return "Pending";
-  
-  // Only return "Paid" if ALL fees that exist are paid
-  const allExistingFeesPaid = 
+  // Only return "Paid" if BOTH fees that exist are paid
+  const allExistingFeesPaid =
     (!registrationFees.studentRegistration || studentRegPaid) &&
-    (!registrationFees.courseRegistration || courseRegPaid) &&
-  (!registrationFees.advanceFee || advancePaid);
-  
+    (!registrationFees.courseRegistration || courseRegPaid);
   return allExistingFeesPaid ? "Paid" : "Pending";
 }
 
@@ -143,47 +117,37 @@ export function getRegistrationSummary(registrationFees?: PaymentRecord['registr
   // Helper function to safely extract fee data from actual database values
   const getActualFeeAmount = (feeObj: any) => {
     if (!feeObj) return { amount: 0, paid: false };
-    
-    // If it's already in the correct format with amount property
     if (typeof feeObj === 'object' && feeObj.hasOwnProperty('amount')) {
       return {
         amount: typeof feeObj.amount === 'number' ? feeObj.amount : 0,
         paid: Boolean(feeObj.paid)
       };
     }
-    
-    // If it's a direct number (actual amount from database)
     if (typeof feeObj === 'number') {
       return { amount: feeObj, paid: false };
     }
-    
-    // For other objects, try to extract meaningful data
     if (typeof feeObj === 'object') {
       const amount = feeObj.value || feeObj.fee || feeObj.cost || 0;
       if (typeof amount === 'number') {
         return { amount: amount, paid: Boolean(feeObj.paid) };
       }
     }
-    
     return { amount: 0, paid: false };
   };
 
   const studentReg = getActualFeeAmount(registrationFees.studentRegistration);
   const courseReg = getActualFeeAmount(registrationFees.courseRegistration);
-  const advance = getActualFeeAmount(registrationFees.advanceFee);
 
-  const totalAmount = studentReg.amount + courseReg.amount + advance.amount;
-  const paidAmount = 
+  const totalAmount = studentReg.amount + courseReg.amount;
+  const paidAmount =
     (studentReg.paid ? studentReg.amount : 0) +
-    (courseReg.paid ? courseReg.amount : 0) +
-    (advance.paid ? advance.amount : 0);
-  
+    (courseReg.paid ? courseReg.amount : 0);
   const pendingAmount = totalAmount - paidAmount;
   const allPaid = totalAmount > 0 && pendingAmount === 0;
 
   return {
     totalAmount,
-    paidAmount, 
+    paidAmount,
     pendingAmount,
     allPaid
   };

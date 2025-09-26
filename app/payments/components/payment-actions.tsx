@@ -26,8 +26,7 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
   const isRegistrationPaid = record.registrationFees?.overall?.paid || false;
   const hasRegistrationFees = !!(record.registrationFees && (
   record.registrationFees?.studentRegistration ||
-  record.registrationFees.courseRegistration ||
-  record.registrationFees.advanceFee
+  record.registrationFees.courseRegistration
   ));
   const isFullyPaid = record.paymentStatus === 'Paid' && record.balancePayment === 0 && (!hasRegistrationFees || isRegistrationPaid);
 
@@ -52,41 +51,27 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
       
       // Process each payment type
       for (const paymentType of payload.paymentTypes) {
-        // Determine payment type and category based on paymentType
+        // Only handle course, studentRegistration, courseRegistration
         let paymentTypeLabel = "Course Fee";
         let paymentCategory = "Course Payment";
         let paymentAmount = 0;
-        
-        switch (paymentType) {
-          case "studentRegistration":
-            paymentTypeLabel = "Registration Fee";
-            paymentCategory = "Student Registration";
-            paymentAmount = record.registrationFees?.studentRegistration?.amount || 500;
-            break;
-          case "courseRegistration":
-            paymentTypeLabel = "Registration Fee";
-            paymentCategory = "Course Registration";
-            paymentAmount = record.registrationFees?.courseRegistration?.amount || 1000;
-            break;
-          case "advanceFee":
-            paymentTypeLabel = "Registration Fee";
-            paymentCategory = "Advance Fee";
-            paymentAmount = record.registrationFees?.advanceFee?.amount || 250;
-            break;
-          case "course":
-          default:
-            paymentTypeLabel = "Course Fee";
-            paymentCategory = "Course Payment";
-            paymentAmount = payload.amount; // For course payment, use the full amount
-            break;
+        if (paymentType === "studentRegistration") {
+          paymentTypeLabel = "Student Registration Fee";
+          paymentCategory = "Student Registration";
+          paymentAmount = record.registrationFees?.studentRegistration?.amount || 500;
+        } else if (paymentType === "courseRegistration") {
+          paymentTypeLabel = "Course Registration Fee";
+          paymentCategory = "Course Registration";
+          paymentAmount = record.registrationFees?.courseRegistration?.amount || 1000;
+        } else if (paymentType === "course") {
+          paymentTypeLabel = "Course Fee";
+          paymentCategory = "Course Payment";
+          paymentAmount = payload.amount;
+        } else {
+          continue; // skip any other types (advance/confirmation)
         }
-        
-        console.log(`💰 Processing ${paymentType} payment:`, {
-          paymentAmount: paymentType === "course" ? payload.amount : paymentAmount,
-          category: paymentCategory
-        });
 
-        // Call the payments API to record each payment type in the database
+        // Only Course Reg Fee and Course Fee update totalPaidAmount
         const response = await fetch('/api/payments', {
           method: 'POST',
           headers: {
@@ -94,36 +79,27 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
           },
           body: JSON.stringify({
             studentId: record.id,
-            amount: paymentType === "course" ? payload.amount : paymentAmount,
+            amount: paymentAmount,
             paymentMethod: payload.mode,
             paymentType: paymentTypeLabel,
             paymentCategory: paymentCategory,
-            receiverName: payload.receiverName,
-            receiverId: payload.receiverId,
             notes: payload.notes || "",
             paymentDate: payload.date,
             isManualPayment: true,
             recordedBy: "Admin Dashboard",
             registrationPaymentType: paymentType,
-            finalPayment: record.finalPayment // Send course fee (registration fees handled separately)
+            finalPayment: record.finalPayment
           })
         });
-
-        console.log(`API Response status for ${paymentType}:`, response.status);
 
         if (!response.ok) {
           throw new Error(`HTTP error for ${paymentType}! status: ${response.status}`);
         }
-
         const result = await response.json();
-        console.log(`API Response data for ${paymentType}:`, result);
-
         if (!result.success) {
           throw new Error(`Failed to record ${paymentType} payment`);
         }
-        
-        // Store course payment response for accurate totals
-        if (paymentType === "course") {
+        if (paymentType === "course" || paymentType === "courseRegistration") {
           coursePaymentResponse = result;
         }
       }
@@ -155,12 +131,10 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
       } 
       
       // Handle registration fee payments
-      if (payload.paymentTypes.some(type => ["studentRegistration", "courseRegistration", "advanceFee"].includes(type))) {
-        // Build registration fees object with explicit type structure
+      if (payload.paymentTypes.some(type => ["studentRegistration", "courseRegistration"].includes(type))) {
+        // Build registration fees object with explicit type structure (no advance)
         const studentReg = record.registrationFees?.studentRegistration || { amount: 500, paid: false };
         const courseReg = record.registrationFees?.courseRegistration || { amount: 1000, paid: false };
-        const advanceReg = record.registrationFees?.advanceFee || { amount: 250, paid: false };
-
         const updatedRegistrationFees = {
           studentRegistration: {
             amount: studentReg.amount,
@@ -172,26 +146,15 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
             paid: payload.paymentTypes.includes("courseRegistration") ? true : courseReg.paid,
             paidDate: payload.paymentTypes.includes("courseRegistration") ? new Date().toISOString() : courseReg.paidDate
           },
-          advanceFee: {
-            amount: advanceReg.amount,
-            paid: payload.paymentTypes.includes("advanceFee") ? true : advanceReg.paid,
-            paidDate: payload.paymentTypes.includes("advanceFee") ? new Date().toISOString() : advanceReg.paidDate
-          },
           overall: {
             paid: false, // Will be calculated below
             status: "Pending" as "Paid" | "Pending" // Will be calculated below
           }
         };
-
-        // Check if all registration fees are now paid
-        const allPaid = updatedRegistrationFees.studentRegistration.paid && 
-                       updatedRegistrationFees.courseRegistration.paid && 
-                       updatedRegistrationFees.advanceFee.paid;
-
-        // Update overall status
+        // Check if both registration fees are now paid
+        const allPaid = updatedRegistrationFees.studentRegistration.paid && updatedRegistrationFees.courseRegistration.paid;
         updatedRegistrationFees.overall.paid = allPaid;
         updatedRegistrationFees.overall.status = allPaid ? "Paid" : "Pending";
-
         if (payload.paymentTypes.includes("course")) {
           updatedRecord = {
             ...updatedRecord,
@@ -205,8 +168,7 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
           const paidTypes = payload.paymentTypes.filter(type => type !== "course").map(type => {
             switch(type) {
               case "studentRegistration": return "Student Registration";
-              case "courseRegistration": return "Course Registration";  
-              case "advanceFee": return "Advance";
+              case "courseRegistration": return "Course Registration";
               default: return type;
             }
           });
@@ -227,11 +189,9 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
 
         // Force refresh the payment data from database after a short delay
         if (refreshPaymentData) {
-          console.log('Triggering payment data refresh...'); // Debug log
           setTimeout(async () => {
             try {
               await Promise.resolve(refreshPaymentData());
-              console.log('Payment data refreshed successfully'); // Debug log
             } catch (refreshError) {
               console.error('Error refreshing payment data:', refreshError);
             }
@@ -280,8 +240,7 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
             <span>${(() => {
               const courseFee = record.finalPayment || 0;
               const registrationTotal = (record.registrationFees?.studentRegistration?.amount || 0) + 
-                                      (record.registrationFees?.courseRegistration?.amount || 0) + 
-                                      (record.registrationFees?.advanceFee?.amount || 0);
+                                      (record.registrationFees?.courseRegistration?.amount || 0);
               return formatCurrency(courseFee + registrationTotal, record.currency);
             })()}</span>
           </div>

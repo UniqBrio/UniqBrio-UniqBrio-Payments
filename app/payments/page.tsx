@@ -15,6 +15,7 @@ import { CourseWisePaymentPopup } from './components/course-wise-payment-popup'
 import { PaymentTable } from './components/payment-table'
 import { PaymentGrid } from './components/payment-grid'
 import { usePaymentLogic } from './components/use-payment-logic'
+import CourseMatchingComponent from '@/components/course-matching'
 
 // PaymentStatusPage: Main payment management page
 export default function PaymentStatusPage() {
@@ -50,6 +51,7 @@ export default function PaymentStatusPage() {
   } = usePaymentLogic()
 
   const [showCourseWisePopup, setShowCourseWisePopup] = useState(false)
+  const [showCourseMatching, setShowCourseMatching] = useState(false)
 
   // Selected rows state lifted up
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
@@ -180,6 +182,26 @@ export default function PaymentStatusPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Course Matching Section
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Course-Student Matching System
+              <Button 
+                variant="outline" 
+                onClick={() => setShowCourseMatching(!showCourseMatching)}
+              >
+                {showCourseMatching ? 'Hide' : 'Show'} Course Matching
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          {showCourseMatching && (
+            <CardContent>
+              <CourseMatchingComponent />
+            </CardContent>
+          )}
+        </Card> */}
 
         {/* Payment View - Grid or Table */}
         {!loading && !error && (

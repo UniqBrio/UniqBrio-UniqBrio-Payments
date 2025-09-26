@@ -85,10 +85,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
+
     console.log('=== PAYMENT CREATION START ===');
     
     const body = await request.json();
     console.log('Received payment data:', body);
+
     
     const {
       studentId,
@@ -121,6 +123,7 @@ export async function POST(request: NextRequest) {
     // Get student info for display purposes only (read-only)
     const student = await Student.findOne({ studentId }).lean() as any;
     console.log('📖 Student info (read-only):', student ? student.name : 'Not found');
+
     
     // Generate transaction ID
     const timestamp = Date.now().toString(36);
@@ -131,53 +134,10 @@ export async function POST(request: NextRequest) {
     // ONLY WORK WITH PAYMENTS COLLECTION
     let paymentDoc = await Payment.findOne({ studentId });
     console.log('💾 Existing payment doc found:', !!paymentDoc);
+
     
     if (!paymentDoc) {
-      // Calculate totalCourseFee (ONLY course fee, excluding registration fees)
-      let totalCourseFee = 0;
-      
-      // If finalPayment is provided, subtract standard registration fees to get course fee
-      if (finalPayment && finalPayment > 0) {
-        const standardRegistrationFees = 500 + 1000 + 250; // 1750
-        totalCourseFee = Math.max(0, finalPayment - standardRegistrationFees);
-        console.log('💰 Calculated course fee from finalPayment:', finalPayment, '- registration fees:', standardRegistrationFees, '= course fee:', totalCourseFee);
-      } 
-      // If no finalPayment, try student's finalPayment
-      else if (student?.finalPayment && student.finalPayment > 0) {
-        const standardRegistrationFees = 500 + 1000 + 250; // 1750
-        totalCourseFee = Math.max(0, student.finalPayment - standardRegistrationFees);
-        console.log('💰 Calculated course fee from student finalPayment:', student.finalPayment, '- registration fees:', standardRegistrationFees, '= course fee:', totalCourseFee);
-      }
-      // If still 0, calculate from course type as fallback
-      else {
-        const courseName = (student?.course || student?.activity || '').toLowerCase();
-        const coursePricing: { [key: string]: number } = {
-          'art': 15000,
-          'photography': 12000,
-          'music': 10000,
-          'dance': 8000,
-          'craft': 6000,
-          'drama': 7000,
-          'digital art': 18000,
-          'singing': 9000,
-          'guitar': 11000,
-          'piano': 13000,
-          'painting': 14000,
-          'drawing': 8000,
-          'sculpture': 16000
-        };
-        
-        totalCourseFee = 10000; // Default course fee (excluding registration fees)
-        for (const [course, price] of Object.entries(coursePricing)) {
-          if (courseName.includes(course)) {
-            totalCourseFee = price;
-            break;
-          }
-        }
-        console.log('💰 Used fallback course fee pricing for', courseName, ':', totalCourseFee);
-      }
-      
-      console.log('💰 Total course fee set to:', totalCourseFee, '(from request finalPayment:', finalPayment, ')');
+      // PAYMENT COLLECTION: Only for payment tracking, NO course fee calculation
       
       paymentDoc = new Payment({
         studentId,
@@ -186,43 +146,16 @@ export async function POST(request: NextRequest) {
         courseName: student?.course || student?.activity || "General Course",
         cohort: student?.cohort || `${new Date().getFullYear()}_Batch01`,
         batch: student?.batch || "Morning Batch",
-        totalCourseFee,
-        currentBalance: totalCourseFee,
+        totalCourseFee: 0, // Will be calculated dynamically from courses collection
+        currentBalance: 0, // Will be calculated dynamically from courses collection
         currency: student?.currency || "INR",
         paymentRecords: []
       });
-      
-      console.log('✨ Creating new payment document for student:', studentId, 'with totalCourseFee:', totalCourseFee);
-    } else {
-      // For existing payment documents, recalculate totalCourseFee if needed
-      if (paymentDoc.totalCourseFee === 0 || paymentDoc.totalCourseFee > 20000) { // Recalculate if 0 or suspiciously high
-        let correctedCourseFee = 0;
-        
-        if (finalPayment && finalPayment > 0) {
-          const standardRegistrationFees = 500 + 1000 + 250; // 1750
-          correctedCourseFee = Math.max(0, finalPayment - standardRegistrationFees);
-        } else if (student?.finalPayment && student.finalPayment > 0) {
-          const standardRegistrationFees = 500 + 1000 + 250; // 1750
-          correctedCourseFee = Math.max(0, student.finalPayment - standardRegistrationFees);
-        } else {
-          correctedCourseFee = 10000; // Default course fee
-        }
-        
-        if (correctedCourseFee > 0) {
-          paymentDoc.totalCourseFee = correctedCourseFee;
-          // Recalculate balance based on course payments only
-          const coursePayments = paymentDoc.paymentRecords.filter((r: any) => r.paymentCategory === 'Course Payment' && r.paymentStatus === 'Completed');
-          const coursePaidAmount = coursePayments.reduce((sum: number, r: any) => sum + r.amount, 0);
-          paymentDoc.currentBalance = Math.max(0, correctedCourseFee - coursePaidAmount);
-          console.log('🔄 Corrected existing payment doc totalCourseFee to:', correctedCourseFee, 'balance:', paymentDoc.currentBalance);
-        }
-      }
     }
 
-    // Calculate balance
-    const previousBalance = paymentDoc.currentBalance;
-    const newBalance = Math.max(0, previousBalance - amount);
-    console.log('💰 Balance calculation:', { previousBalance, amount, newBalance });
+    // Update payment totals (balance will be calculated dynamically from courses collection)
+    paymentDoc.totalPaidAmount = (paymentDoc.totalPaidAmount || 0) + amount;
+    console.log('💰 Payment recorded:', { amount, newTotalPaid: paymentDoc.totalPaidAmount });
 
     // Create payment record
     const newPaymentRecord = {
@@ -234,11 +167,9 @@ export async function POST(request: NextRequest) {
       paymentMethod,
       paymentDate: new Date(paymentDate),
       dueDate: dueDate ? new Date(dueDate) : undefined,
-      receiverName,
-      receiverId,
+      receiverName: receiverName || 'System',
+      receiverId: receiverId || 'AUTO',
       notes,
-      previousBalance,
-      newBalance,
       isManualPayment,
       recordedBy,
       ipAddress: request.headers.get('x-forwarded-for') || 'localhost',
@@ -292,16 +223,17 @@ export async function POST(request: NextRequest) {
       method: paymentMethod,
       recordsCount: paymentDoc.paymentRecords.length
     });
+
     
     // Save ONLY to payments collection
     const savedPayment = await paymentDoc.save();
     console.log('✅ Payment saved successfully to payments collection');
-    console.log('📊 Final summary:', {
+    console.log('📊 Payment collection summary:', {
       totalPaid: savedPayment.totalPaidAmount,
-      balance: savedPayment.currentBalance,
-      status: savedPayment.paymentStatus,
-      totalRecords: savedPayment.paymentRecords.length
+      totalRecords: savedPayment.paymentRecords.length,
+      note: 'Balance calculated dynamically from courses collection'
     });
+
 
     // Get the newly added record
     const addedRecord = savedPayment.paymentRecords[savedPayment.paymentRecords.length - 1];
@@ -316,15 +248,12 @@ export async function POST(request: NextRequest) {
         transactionId,
         paymentRecord: addedRecord,
         summary: {
-          totalCourseFee: savedPayment.totalCourseFee,
           totalPaidAmount: savedPayment.totalPaidAmount,
-          coursePaidAmount: savedPayment.coursePaidAmount,
-          currentBalance: savedPayment.currentBalance,
-          paymentStatus: savedPayment.paymentStatus,
-          totalTransactions: savedPayment.paymentRecords.length
+          totalTransactions: savedPayment.paymentRecords.length,
+          note: "Course fees and balances calculated dynamically from courses collection"
         }
       },
-      message: `✅ Payment of ₹${amount.toLocaleString()} recorded successfully in payments collection only. Balance: ₹${savedPayment.currentBalance.toLocaleString()}`
+      message: `✅ Payment of ₹${amount.toLocaleString()} recorded successfully in payments collection (course fees calculated dynamically)`
     }, { status: 201 });
 
   } catch (error) {

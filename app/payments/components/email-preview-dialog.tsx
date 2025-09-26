@@ -135,17 +135,7 @@ UniqBrio Academic Team
     
     onClose()
     
-    // In a real implementation, you would make an API call like:
-    // fetch('/api/send-email', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({
-    //     to: record.email, // You'd need email in the record
-    //     subject: emailContent.subject,
-    //     body: emailContent.body,
-    //     attachments: generatedQR ? [{ filename: 'qr-code.png', content: generatedQR }] : []
-    //   })
-    // })
+  
   }
 
   // Generate email content when dialog opens
@@ -196,7 +186,7 @@ UniqBrio Academic Team
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={sendEmailReminder}>
+            <Button onClick={sendEmailReminder} className="bg-[#9234ea] hover:bg-[#7a2cbe]">
               Send Email
             </Button>
           </div>
