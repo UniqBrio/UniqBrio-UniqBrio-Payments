@@ -55,7 +55,7 @@ export function RegistrationFeesDisplay({ record, className = "" }: Registration
   const feeTypes = [
     { key: 'studentRegistration' as const, label: "Student Reg Fee" },
     { key: 'courseRegistration' as const, label: "Course Reg Fee" },
-    { key: 'confirmationFee' as const, label: "Confirmation Fee" },
+  { key: 'advanceFee' as const, label: "Advance Fee" },
   ];
 
   const fees = feeTypes
@@ -114,17 +114,17 @@ export function calculateRegistrationStatus(registrationFees?: PaymentRecord['re
   
   const studentRegPaid = isPaid(registrationFees.studentRegistration);
   const courseRegPaid = isPaid(registrationFees.courseRegistration);
-  const confirmationPaid = isPaid(registrationFees.confirmationFee);
+  const advancePaid = isPaid(registrationFees.advanceFee);
   
   // Check if all fees that exist are paid (not just any one fee)
-  const hasAnyFees = registrationFees.studentRegistration || registrationFees.courseRegistration || registrationFees.confirmationFee;
+  const hasAnyFees = registrationFees.studentRegistration || registrationFees.courseRegistration || registrationFees.advanceFee;
   if (!hasAnyFees) return "Pending";
   
   // Only return "Paid" if ALL fees that exist are paid
   const allExistingFeesPaid = 
     (!registrationFees.studentRegistration || studentRegPaid) &&
     (!registrationFees.courseRegistration || courseRegPaid) &&
-    (!registrationFees.confirmationFee || confirmationPaid);
+  (!registrationFees.advanceFee || advancePaid);
   
   return allExistingFeesPaid ? "Paid" : "Pending";
 }
@@ -170,13 +170,13 @@ export function getRegistrationSummary(registrationFees?: PaymentRecord['registr
 
   const studentReg = getActualFeeAmount(registrationFees.studentRegistration);
   const courseReg = getActualFeeAmount(registrationFees.courseRegistration);
-  const confirmation = getActualFeeAmount(registrationFees.confirmationFee);
+  const advance = getActualFeeAmount(registrationFees.advanceFee);
 
-  const totalAmount = studentReg.amount + courseReg.amount + confirmation.amount;
+  const totalAmount = studentReg.amount + courseReg.amount + advance.amount;
   const paidAmount = 
     (studentReg.paid ? studentReg.amount : 0) +
     (courseReg.paid ? courseReg.amount : 0) +
-    (confirmation.paid ? confirmation.amount : 0);
+    (advance.paid ? advance.amount : 0);
   
   const pendingAmount = totalAmount - paidAmount;
   const allPaid = totalAmount > 0 && pendingAmount === 0;

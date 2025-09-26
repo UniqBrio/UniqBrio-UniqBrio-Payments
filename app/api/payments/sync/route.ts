@@ -166,27 +166,36 @@ export async function GET(request: NextRequest) {
         reminderMode: student.modeOfCommunication || student.reminderMode || 'Email',
         communicationText: student.communicationText || `Payment reminder for ${student.course || student.activity}. Amount due: ₹${balancePayment}.`,
         reminderDays: student.reminderDays || [7, 3, 1],
-        registrationFees: paymentDoc?.registrationFees || {
-          studentRegistration: {
-            amount: 500,
-            paid: false,
-            paidDate: null
-          },
-          courseRegistration: {
-            amount: 1000,
-            paid: false,
-            paidDate: null
-          },
-          confirmationFee: {
-            amount: 250,
-            paid: false,
-            paidDate: null
-          },
-          overall: {
-            paid: false,
-            status: 'Pending'
-          }
-        },
+        registrationFees: paymentDoc?.registrationFees
+          ? {
+              ...paymentDoc.registrationFees,
+              advanceFee: paymentDoc.registrationFees.confirmationFee || {
+                amount: 250,
+                paid: false,
+                paidDate: null
+              }
+            }
+          : {
+              studentRegistration: {
+                amount: 500,
+                paid: false,
+                paidDate: null
+              },
+              courseRegistration: {
+                amount: 1000,
+                paid: false,
+                paidDate: null
+              },
+              advanceFee: {
+                amount: 250,
+                paid: false,
+                paidDate: null
+              },
+              overall: {
+                paid: false,
+                status: 'Pending'
+              }
+            },
         paymentDetails: student.paymentDetails || {
           upiId: 'payment@uniqbrio.com',
           paymentLink: 'https://pay.uniqbrio.com',

@@ -25,9 +25,9 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
 
   const isRegistrationPaid = record.registrationFees?.overall?.paid || false;
   const hasRegistrationFees = !!(record.registrationFees && (
-    record.registrationFees.studentRegistration ||
-    record.registrationFees.courseRegistration ||
-    record.registrationFees.confirmationFee
+  record.registrationFees?.studentRegistration ||
+  record.registrationFees.courseRegistration ||
+  record.registrationFees.advanceFee
   ));
   const isFullyPaid = record.paymentStatus === 'Paid' && record.balancePayment === 0 && (!hasRegistrationFees || isRegistrationPaid);
 
@@ -68,10 +68,10 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
             paymentCategory = "Course Registration";
             paymentAmount = record.registrationFees?.courseRegistration?.amount || 1000;
             break;
-          case "confirmationFee":
+          case "advanceFee":
             paymentTypeLabel = "Registration Fee";
-            paymentCategory = "Confirmation Fee";
-            paymentAmount = record.registrationFees?.confirmationFee?.amount || 250;
+            paymentCategory = "Advance Fee";
+            paymentAmount = record.registrationFees?.advanceFee?.amount || 250;
             break;
           case "course":
           default:
@@ -155,12 +155,12 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
       } 
       
       // Handle registration fee payments
-      if (payload.paymentTypes.some(type => ["studentRegistration", "courseRegistration", "confirmationFee"].includes(type))) {
+      if (payload.paymentTypes.some(type => ["studentRegistration", "courseRegistration", "advanceFee"].includes(type))) {
         // Build registration fees object with explicit type structure
         const studentReg = record.registrationFees?.studentRegistration || { amount: 500, paid: false };
         const courseReg = record.registrationFees?.courseRegistration || { amount: 1000, paid: false };
-        const confirmReg = record.registrationFees?.confirmationFee || { amount: 250, paid: false };
-        
+        const advanceReg = record.registrationFees?.advanceFee || { amount: 250, paid: false };
+
         const updatedRegistrationFees = {
           studentRegistration: {
             amount: studentReg.amount,
@@ -172,26 +172,26 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
             paid: payload.paymentTypes.includes("courseRegistration") ? true : courseReg.paid,
             paidDate: payload.paymentTypes.includes("courseRegistration") ? new Date().toISOString() : courseReg.paidDate
           },
-          confirmationFee: {
-            amount: confirmReg.amount,
-            paid: payload.paymentTypes.includes("confirmationFee") ? true : confirmReg.paid,
-            paidDate: payload.paymentTypes.includes("confirmationFee") ? new Date().toISOString() : confirmReg.paidDate
+          advanceFee: {
+            amount: advanceReg.amount,
+            paid: payload.paymentTypes.includes("advanceFee") ? true : advanceReg.paid,
+            paidDate: payload.paymentTypes.includes("advanceFee") ? new Date().toISOString() : advanceReg.paidDate
           },
           overall: {
             paid: false, // Will be calculated below
             status: "Pending" as "Paid" | "Pending" // Will be calculated below
           }
         };
-        
+
         // Check if all registration fees are now paid
         const allPaid = updatedRegistrationFees.studentRegistration.paid && 
                        updatedRegistrationFees.courseRegistration.paid && 
-                       updatedRegistrationFees.confirmationFee.paid;
-        
+                       updatedRegistrationFees.advanceFee.paid;
+
         // Update overall status
         updatedRegistrationFees.overall.paid = allPaid;
         updatedRegistrationFees.overall.status = allPaid ? "Paid" : "Pending";
-        
+
         if (payload.paymentTypes.includes("course")) {
           updatedRecord = {
             ...updatedRecord,
@@ -206,7 +206,7 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
             switch(type) {
               case "studentRegistration": return "Student Registration";
               case "courseRegistration": return "Course Registration";  
-              case "confirmationFee": return "Advance";
+              case "advanceFee": return "Advance";
               default: return type;
             }
           });
@@ -281,7 +281,7 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
               const courseFee = record.finalPayment || 0;
               const registrationTotal = (record.registrationFees?.studentRegistration?.amount || 0) + 
                                       (record.registrationFees?.courseRegistration?.amount || 0) + 
-                                      (record.registrationFees?.confirmationFee?.amount || 0);
+                                      (record.registrationFees?.advanceFee?.amount || 0);
               return formatCurrency(courseFee + registrationTotal, record.currency);
             })()}</span>
           </div>
