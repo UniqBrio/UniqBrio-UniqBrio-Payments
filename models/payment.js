@@ -37,6 +37,11 @@ const PaymentRecordSchema = new mongoose.Schema({
   // Payment Details
   receiverName: { type: String, required: true },
   receiverId: { type: String, required: true },
+  receivedByName: { type: String }, // Person who received the payment
+  receivedByRole: { 
+    type: String, 
+    enum: ["instructor", "non-instructor", "admin", "superadmin"]
+  },
   notes: { type: String, default: "" },
   reference: { type: String, default: "" },
   

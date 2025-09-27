@@ -17,6 +17,8 @@ export type StudentManualPaymentPayload = {
   date: string // ISO date
   mode: "Cash" | "UPI" | "QR"
   notes?: string
+  receivedByName: string
+  receivedByRole: "instructor" | "non-instructor" | "admin" | "superadmin"
   paymentTypes: ("course" | "studentRegistration" | "courseRegistration")[] // Multiple payment types
 }
 interface StudentManualPaymentProps {
@@ -37,6 +39,8 @@ export function StudentManualPayment({ student, onSubmit, open, onOpenChange }: 
         date: payload.date,
         mode: payload.mode,
         notes: payload.notes,
+        receivedByName: payload.receivedByName,
+        receivedByRole: payload.receivedByRole,
         paymentTypes: payload.paymentTypes,
       })}
       prefillAmount={student.balancePayment > 0 ? student.balancePayment : undefined}
@@ -77,6 +81,8 @@ export type ManualPaymentPayload = {
   notes?: string
   receiverName: string
   receiverId: string
+  receivedByName: string
+  receivedByRole: "instructor" | "non-instructor" | "admin" | "superadmin"
   paymentTypes: ("course" | "studentRegistration" | "courseRegistration")[]
 }
 
@@ -100,6 +106,8 @@ export function ManualPaymentDialog({
   const [mode, setMode] = useState<ManualPaymentPayload["mode"]>(defaultMode)
   const [notes, setNotes] = useState<string>("")
   const [paymentTypes, setPaymentTypes] = useState<ManualPaymentPayload["paymentTypes"]>(["course"])
+  const [receivedByName, setReceivedByName] = useState<string>("")
+  const [receivedByRole, setReceivedByRole] = useState<ManualPaymentPayload["receivedByRole"]>("instructor")
   // Removed receiverName and receiverId state
 
   // Helper function to safely extract fee data from actual database values
@@ -189,6 +197,8 @@ export function ManualPaymentDialog({
       setPaymentTypes([]);
       setAmount("");
       setNotes("");
+      setReceivedByName("");
+      setReceivedByRole("instructor");
     }
   }, [open]); // Remove studentInfo from dependency array
 
@@ -218,11 +228,13 @@ export function ManualPaymentDialog({
     if (
       isNaN(value) || value <= 0 ||
       !date ||
-      !mode
+      !mode ||
+      !receivedByName.trim() ||
+      !receivedByRole
     ) {
       toast({
         title: "Required fields missing",
-        description: "Please fill all required fields and ensure amount is greater than 0.",
+        description: "Please fill all required fields including payment received by name and role.",
         variant: "destructive",
       });
       return;
@@ -233,11 +245,15 @@ export function ManualPaymentDialog({
       date,
       mode,
       notes: notes.trim() || undefined,
+      receivedByName: receivedByName.trim(),
+      receivedByRole,
       paymentTypes,
     });
     
     setAmount("");
     setNotes("");
+    setReceivedByName("");
+    setReceivedByRole("instructor");
     onClose();
   }
 
@@ -384,6 +400,44 @@ export function ManualPaymentDialog({
             <span className="text-xs text-gray-500">Upload payment screenshot or receipt for reference (optional).</span>
           </div>
         )}
+        
+        <div className="grid gap-1">
+          <RequiredLabel htmlFor="mp-received-by-name">Payment Received By (Name)</RequiredLabel>
+          <Input
+            id="mp-received-by-name"
+            type="text"
+            value={receivedByName}
+            required
+            onChange={(e) => setReceivedByName(e.target.value)}
+            placeholder="Enter name of person receiving payment"
+          />
+        </div>
+        
+        <div className="grid gap-1">
+          <RequiredLabel>Role</RequiredLabel>
+          <Select value={receivedByRole} onValueChange={(v) => setReceivedByRole(v as ManualPaymentPayload["receivedByRole"])} required>
+            <SelectTrigger>
+              <SelectValue placeholder="Select role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="instructor">Instructor</SelectItem>
+              <SelectItem value="non-instructor">Non-Instructor</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="superadmin">Super Admin</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="grid gap-1">
+          <Label htmlFor="mp-notes">Notes (Optional)</Label>
+          <Input
+            id="mp-notes"
+            type="text"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Add any additional notes"
+          />
+        </div>
         </div>
         
         <DialogFooter>

@@ -3,7 +3,7 @@ export interface PaymentRecord {
   name: string
   activity: string
   category: string
-  courseType: "Regular" | "Special" | "Ongoing"
+  courseType: "Individual" | "Group" | "Online" | "Hybrid" | "-"
   cohort?: string
   batch?: string
   instructor?: string
@@ -18,6 +18,10 @@ export interface PaymentRecord {
   paymentReminder: boolean
   reminderMode: "SMS" | "Email" | "WhatsApp"
   communicationText: string
+  communicationPreferences?: {
+    enabled: boolean
+    channels: string[]
+  }
   paymentDetails: {
     qrCode?: string
     upiId?: string
@@ -53,6 +57,12 @@ export interface PaymentRecord {
   paymentCategory?: "Student Registration" | "Course Registration" | "Confirmation Fee" | "Course Payment"
   /** Indicates finalPayment was computed client-side via fallback triple-rule (not from sync API). */
   derivedFinalPayment?: boolean
+  /** Timestamp (ISO) when finalPayment was last recomputed on client (for UI highlight). */
+  finalPaymentUpdatedAt?: string
+  /** ID of matched course when triple-rule (activity=id, course=name, category=level) succeeded (from sync API). */
+  matchedCourseId?: string
+  /** True if backend sync confirmed exact triple-rule match (authoritative server match). */
+  tripleRuleMatched?: boolean
 }
 
 export interface PaymentSummary {

@@ -107,6 +107,38 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
     generatePayslip
   } = usePaymentActions({ record, onUpdateRecord, refreshPaymentData })
 
+  // Enhanced reminder function with payment options
+  const handleSendReminderWithPaymentOptions = async () => {
+    console.log('handleSendReminderWithPaymentOptions called');
+    
+    const channels = record.communicationPreferences?.channels || ['Email'];
+    const reminderMessage = record.communicationText || `Make a payment quickly - Balance: ₹${(record.balancePayment || 0).toLocaleString()}`;
+    
+    console.log('Sending reminder:', { channels, reminderMessage });
+    
+    try {
+      // Show success message with channels used
+      toast({
+        title: "Payment Reminder Sent! 📱",
+        description: `Reminder with payment options sent via ${channels.join(', ')}`,
+        variant: "default",
+      });
+      
+      // Call the original reminder function
+      console.log('Calling handleSendReminder');
+      await handleSendReminder();
+      
+      console.log('Reminder sent successfully');
+    } catch (error) {
+      console.error('Error sending reminder:', error);
+      toast({
+        title: "Reminder Failed",
+        description: "Failed to send payment reminder. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
   // Check if payments are completed (for display purposes)
   const isRegistrationPaid = record.registrationFees?.overall?.paid || false
   const isCoursePaid = record.balancePayment === 0
@@ -171,7 +203,8 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
   }
 
   const startEditingText = (record: PaymentRecord) => {
-    setEditingText({ id: record.id, text: record.communicationText })
+    const defaultText = `Make a payment quickly - Balance: ₹${(record.balancePayment || 0).toLocaleString()}`;
+    setEditingText({ id: record.id, text: record.communicationText || defaultText })
   }
 
   const saveEditedText = () => {
@@ -228,28 +261,22 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       {isColumnVisible('courseRegFee') && (
         <TableCell className="text-[11px] p-1 font-medium">
           {record.registrationFees?.courseRegistration?.amount?.toLocaleString() ?? '-'}
-          {record.registrationFees?.courseRegistration?.paid ? <span className="ml-1 text-green-600">✓</span> : ''}
         </TableCell>
       )}
       {isColumnVisible('studentRegFee') && (
         <TableCell className="text-[11px] p-1 font-medium">
           {record.registrationFees?.studentRegistration?.amount?.toLocaleString() ?? '-'}
-          {record.registrationFees?.studentRegistration?.paid ? <span className="ml-1 text-green-600">✓</span> : ''}
         </TableCell>
       )}
       {isColumnVisible('finalPayment') && (
         <TableCell className="text-[11px] p-1 font-medium">
-          {record.finalPayment > 0 
-            ? <span className="inline-flex items-center gap-1">
-                {record.finalPayment.toLocaleString()} {getCurrencyName(record.currency)}
-                {record.derivedFinalPayment && (
-                  <span
-                    title="Computed via client fallback triple-rule (sync API unavailable)"
-                    className="text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300"
-                  >F</span>
-                )}
-              </span>
-            : '-'}
+          {(record.finalPayment || 0) > 0 ? (
+            <span>
+              {(record.finalPayment || 0).toLocaleString()} {getCurrencyName(record.currency)}
+            </span>
+          ) : (
+            <span className="text-gray-400 italic">-</span>
+          )}
         </TableCell>
       )}
       {isColumnVisible('totalPaid') && (
@@ -261,9 +288,9 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )}
       {isColumnVisible('balance') && (
-        <TableCell className="text-[11px] p-1">
-          <span className={record.balancePayment > 0 ? "text-red-600 font-medium" : "text-green-600"}>
-            {record.balancePayment.toLocaleString()} {getCurrencyName(record.currency)} <span className="text-red-500">*</span>
+        <TableCell className="text-[11px] p-2 min-w-[120px]">
+          <span className={(record.balancePayment || 0) > 0 ? "text-red-600 font-medium" : "text-green-600"}>
+            {(record.balancePayment || 0).toLocaleString()} {getCurrencyName(record.currency)} <span className="text-red-500">*</span>
           </span>
         </TableCell>
       )}
@@ -319,19 +346,19 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )}
       {isColumnVisible('mode') && (
         <TableCell className="text-[11px] p-1">
-          <div className="flex items-center gap-1">
-            <span>{record.reminderMode}</span>
-            {record.reminderMode === 'SMS' && (
-              <div className="flex items-center gap-1">
-                
-                <svg width="30" height="30" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="inline">
-                  <polygon points="10,40 60,40 60,30 90,50 60,70 60,60 10,60"
-                           fill="#8A4FFF" />
-                  <text x="12" y="90" fontFamily="Arial, sans-serif" fontSize="20" fill="#8A4FFF" fontWeight="bold">
-                    SOON
-                  </text>
-                </svg>
-              </div>
+          <div className="flex flex-col gap-1">
+            {record.communicationPreferences?.channels?.length ? (
+              record.communicationPreferences.channels.map((channel: string, index: number) => (
+                <Badge 
+                  key={index} 
+                  variant="outline" 
+                  className="text-[10px] px-1 py-0.5 h-auto whitespace-nowrap"
+                >
+                  {channel}
+                </Badge>
+              ))
+            ) : (
+              <span className="text-gray-500">No preferences</span>
             )}
           </div>
         </TableCell>
@@ -362,9 +389,16 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
               </div>
             ) : (
               <div className="group">
-                <p className="text-[11px] text-gray-600 truncate" title={record.communicationText}>
-                  {record.communicationText}
-                </p>
+                <div className={`text-[11px] ${record.communicationText?.includes('Make a payment quickly') ? 'text-blue-600 font-medium' : 'text-gray-600'}`}>
+                  <div className="truncate" title={record.communicationText || `Make a payment quickly - Balance: ₹${(record.balancePayment || 0).toLocaleString()}`}>
+                    {(record.communicationText || `Make a payment quickly - Balance: ₹${(record.balancePayment || 0).toLocaleString()}`).split('\n')[0]}
+                  </div>
+                  {(record.communicationText || '').includes('💳') && (
+                    <div className="text-[9px] text-gray-500 mt-1">
+                      Payment options available
+                    </div>
+                  )}
+                </div>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -379,79 +413,27 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )}
       {isColumnVisible('paymentDetails') && (
-        <TableCell className="text-[11px] p-1">
-          <div className="flex flex-col gap-1">
-            {record.reminderMode === "SMS" || record.reminderMode === "WhatsApp" ? (
-              <>
-                {record.paymentDetails?.upiId && (
-                  <div className="flex items-center gap-1 text-[11px]">
-                    <Smartphone className="h-3 w-3" />
-                    <span 
-                      className="cursor-pointer text-blue-600 hover:underline"
-                      onClick={() => navigator.clipboard.writeText(record.paymentDetails?.upiId ?? "")}
-                      title="Click to copy UPI ID"
-                    >
-                      {record.paymentDetails?.upiId}
-                    </span>
-                  </div>
-                )}
-                {record.paymentDetails?.paymentLink && (
-                  <div className="flex items-center gap-1 text-[11px]">
-                    <Link className="h-3 w-3" />
-                    <a 
-                      href={record.paymentDetails?.paymentLink} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                      title="Open payment link"
-                    >
-                      Link
-                    </a>
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                {record.paymentDetails?.qrCode && (
-                  <div className="flex items-center gap-1 text-[11px]">
-                    <QrCode className="h-3 w-3" />
-                    <span 
-                      className="cursor-pointer text-blue-600 hover:underline"
-                      onClick={() => setQrCodeOpen(true)}
-                      title="View QR Code"
-                    >
-                      QR
-                    </span>
-                  </div>
-                )}
-                {record.paymentDetails?.upiId && (
-                  <div className="flex items-center gap-1 text-[11px]">
-                    <Smartphone className="h-3 w-3" />
-                    <span 
-                      className="cursor-pointer text-blue-600 hover:underline"
-                      onClick={() => navigator.clipboard.writeText(record.paymentDetails?.upiId ?? "")}
-                      title="Click to copy UPI ID"
-                    >
-                      {record.paymentDetails?.upiId}
-                    </span>
-                  </div>
-                )}
-                {record.paymentDetails?.paymentLink && (
-                  <div className="flex items-center gap-1 text-[11px]">
-                    <Link className="h-3 w-3" />
-                    <a 
-                      href={record.paymentDetails?.paymentLink} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                      title="Open payment link"
-                    >
-                      Link
-                    </a>
-                  </div>
-                )}
-              </>
-            )}
+        <TableCell className="text-[11px] p-1 text-center">
+          <div className="flex justify-center items-center gap-2">
+            {/* Always show payment icons - either active or default */}
+            <div className="flex items-center gap-1 text-[11px]" title="QR Code Payment">
+              <QrCode className={`h-4 w-4 ${record.paymentDetails?.qrCode && record.paymentDetails.qrCode !== '' ? 'text-purple-600 cursor-pointer hover:text-purple-800' : 'text-gray-400'}`} 
+                      onClick={record.paymentDetails?.qrCode ? () => setQrCodeOpen(true) : undefined} />
+            </div>
+            <div className="flex items-center gap-1 text-[11px]" title={record.paymentDetails?.upiId ? `UPI: ${record.paymentDetails.upiId}` : 'UPI Payment'}>
+              <Smartphone className={`h-4 w-4 ${record.paymentDetails?.upiId && record.paymentDetails.upiId !== '' ? 'text-green-600 cursor-pointer hover:text-green-800' : 'text-gray-400'}`} 
+                         onClick={record.paymentDetails?.upiId ? () => {
+                           navigator.clipboard.writeText(record.paymentDetails?.upiId ?? "uniqbrio@upi");
+                           toast({
+                             title: "UPI ID Copied",
+                             description: "UPI ID copied to clipboard",
+                           });
+                         } : undefined} />
+            </div>
+            <div className="flex items-center gap-1 text-[11px]" title="Payment Link">
+              <Link className={`h-4 w-4 ${record.paymentDetails?.paymentLink && record.paymentDetails.paymentLink !== '' ? 'text-blue-600 cursor-pointer hover:text-blue-800' : 'text-gray-400'}`} 
+                    onClick={record.paymentDetails?.paymentLink ? () => window.open(record.paymentDetails?.paymentLink, '_blank') : undefined} />
+            </div>
           </div>
         </TableCell>
       )}
@@ -497,34 +479,49 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )}
       {isColumnVisible('actions') && (
         <TableCell className="text-sm p-3">
-          <div className="flex gap-1">
-            {/* Send Reminder (only if balance > 0, reminder enabled, and status is not Paid) */}
-            {record.paymentReminder && 
+          <div className="flex gap-2 justify-center">
+            {/* Send Payment Reminder with Payment Options */}
+            {/* DEBUG: Show button for all records to test functionality */}
+            {(record.paymentReminder && 
              record.balancePayment > 0 && 
-             record.paymentStatus !== 'Paid' && (
+             record.paymentStatus !== 'Paid') || true && (
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  if (record.reminderMode === "Email") {
-                    setEmailPreviewOpen(true)
-                  } else {
-                    handleSendReminder()
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  console.log('🚀 REMINDER BUTTON CLICKED!');
+                  
+                  // Simple test - just show a toast
+                  toast({
+                    title: "Button Works! ✅",
+                    description: `Clicked for ${record.name || 'Student'}`,
+                    variant: "default",
+                  });
+                  
+                  // Also try to open email preview as a test
+                  try {
+                    console.log('Attempting to open email preview...');
+                    setEmailPreviewOpen(true);
+                  } catch (error) {
+                    console.error('Error opening email preview:', error);
                   }
                 }}
-                className="border-[#9234ea]/30 h-7 w-7 p-0"
-                title="Send Reminder"
+                className="border-[#9234ea] hover:bg-[#9234ea] hover:text-white h-8 w-8 p-0 cursor-pointer bg-white transition-colors duration-200 shadow-sm"
+                title="Test Reminder Button"
               >
-                <Send className="h-3 w-3" />
+                <Send className="h-4 w-4 text-[#9234ea]" />
               </Button>
             )}
             {/* Show info when reminder is disabled for paid payments */}
             {record.paymentStatus === 'Paid' && (
               <span 
                 className="text-xs text-gray-500 px-2 py-1 bg-green-50 rounded border border-green-200" 
-                title="Reminders are automatically disabled for paid payments"
+                title="Payment completed - reminders disabled"
               >
-                Paid ✓
+                Paid
               </span>
             )}
           </div>

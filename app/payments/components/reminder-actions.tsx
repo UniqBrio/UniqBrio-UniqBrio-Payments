@@ -27,16 +27,22 @@ export function useReminderActions({ record, onReminderSent }: ReminderActionsPr
       dueDate: record.nextPaymentDate
     }
 
-    // Send reminder with payment details based on communication mode
-    if (record.reminderMode === "SMS") {
-      sendSMSReminder(record, paymentDetails)
-    } else if (record.reminderMode === "WhatsApp") {
-      sendWhatsAppReminder(record, paymentDetails)
-    }
+    // Send reminder with payment details based on communication preferences
+    const channels = record.communicationPreferences?.channels || [record.reminderMode || 'Email'];
+    
+    channels.forEach(channel => {
+      if (channel === "SMS") {
+        sendSMSReminder(record, paymentDetails)
+      } else if (channel === "WhatsApp") {
+        sendWhatsAppReminder(record, paymentDetails)
+      } else if (channel === "Email" || channel === "In App") {
+        // Email reminders are handled separately through EmailPreviewDialog
+      }
+    });
 
     toast({
-      title: "✔ Reminder Sent",
-      description: `Payment reminder with ${record.reminderMode === 'SMS' ? 'UPI/Link' : 'UPI/Link'} sent to ${record.name} via ${record.reminderMode}`,
+      title: "✔ Payment Reminder Sent",
+      description: `Reminder with payment options sent to ${record.name} via ${channels.join(', ')}`,
     })
 
     onReminderSent?.()

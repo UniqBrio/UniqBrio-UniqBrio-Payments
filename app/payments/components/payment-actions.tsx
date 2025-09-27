@@ -88,7 +88,9 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
             isManualPayment: true,
             recordedBy: "Admin Dashboard",
             registrationPaymentType: paymentType,
-            finalPayment: record.finalPayment
+            finalPayment: record.finalPayment,
+            receivedByName: payload.receivedByName,
+            receivedByRole: payload.receivedByRole
           })
         });
 

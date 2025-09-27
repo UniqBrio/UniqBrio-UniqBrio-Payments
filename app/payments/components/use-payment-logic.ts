@@ -1,3 +1,4 @@
+"use client"
 import { useState, useEffect } from "react"
 import { PaymentRecord, PaymentSummary } from './payment-types'
 import { ColumnConfig } from './column-visibility'
@@ -16,6 +17,8 @@ export function usePaymentLogic() {
   const [records, setRecords] = useState<PaymentRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Cache of courses to allow dynamic recomputation of fallback finalPayment values
+  const [coursesCache, setCoursesCache] = useState<any[]>([])
 
   // Column visibility configuration
   const [columns, setColumns] = useState<ColumnConfig[]>([
@@ -115,105 +118,105 @@ export function usePaymentLogic() {
     setFilteredRecords(filtered);
   }
 
-  // Smart refresh - only refresh when new data is detected in collections
+  // POLLING & CHANGE DETECTION STRATEGY (User requirement):
+  // - Students collection: poll every 30s regardless (baseline new student detection)
+  // - Payments & Courses: ONLY trigger refresh when their data actually changes
+  //   (hash comparison, no timestamp field to avoid false positives)
   useEffect(() => {
-    let lastDataHash = '';
-    
-    const checkForNewData = async () => {
-      try {
-        // Get current data counts and latest records to create a hash
-        const [studentsRes, paymentsRes] = await Promise.all([
-          fetch('/api/students', { cache: 'no-store' }),
-          fetch('/api/payments/sync', { cache: 'no-store' })
-        ]);
-        
-        if (studentsRes.ok && paymentsRes.ok) {
-          const studentsData = await studentsRes.json();
-          const paymentsData = await paymentsRes.json();
-          
-          // Create a simple hash of the data to detect changes
-          const currentHash = JSON.stringify({
-            studentCount: studentsData.data?.length || 0,
-            paymentCount: paymentsData.data?.length || 0,
-            lastStudent: studentsData.data?.[0]?.studentId || '',
-            lastPayment: paymentsData.data?.[0]?.id || ''
-          });
-          
-          // Only refresh if data has actually changed
-          if (lastDataHash && currentHash !== lastDataHash) {
-            refreshPaymentData();
-          }
-          
-          lastDataHash = currentHash;
-        }
-      } catch (error) {
-        // Silently handle data check errors
-      }
-    };
-    
-    // Check for changes every 10 seconds (lightweight check)
-    const interval = setInterval(checkForNewData, 10000);
-    
-    return () => clearInterval(interval);
-  }, []);
+    let studentInterval: any;
+    let monitorInterval: any;
+    let lastStudentHash = '';
+    let lastPaymentsCoursesHash = '';
 
-  // Enhanced change detection for courses and detailed data changes
-  useEffect(() => {
-    let lastDetailedHash = '';
-    
-    const checkForDetailedChanges = async () => {
+    const computeStudentHash = (students: any[]) =>
+      JSON.stringify(
+        students.map(s => ({ id: s.studentId, updated: s.updatedAt || s.createdAt }))
+      );
+
+    const computePaymentsCoursesHash = (payments: any[], courses: any[]) =>
+      JSON.stringify({
+        payments: payments.map(p => ({ id: p.id || p._id, updated: p.updatedAt || p.createdAt })),
+        courses: courses.map(c => ({ id: c.id || c._id, price: c.priceINR, updated: c.updatedAt || c.createdAt }))
+      });
+
+    // 1. Students polling every 30s
+    const pollStudents = async () => {
       try {
-        // Check for changes in courses, students, and payments with more detail
-        const [studentsRes, coursesRes] = await Promise.all([
-          fetch('/api/students', { cache: 'no-store' }),
+        const res = await fetch('/api/students', { cache: 'no-store' });
+        if (!res.ok) return;
+        const json = await res.json();
+        const data = Array.isArray(json.data) ? json.data : [];
+        const hash = computeStudentHash(data);
+        if (lastStudentHash && hash !== lastStudentHash) {
+          // Students changed -> full refresh (which prefers sync endpoint)
+          refreshPaymentData();
+        }
+        lastStudentHash = hash;
+      } catch (_) { /* silent */ }
+    };
+
+    // 2. Payments + Courses change detection every 15s (no unconditional refresh)
+    const monitorPaymentsAndCourses = async () => {
+      try {
+        const [paymentsRes, coursesRes] = await Promise.all([
+          fetch('/api/payments/sync', { cache: 'no-store' }).catch(() => ({ ok: false })),
           fetch('/api/courses', { cache: 'no-store' }).catch(() => ({ ok: false }))
         ]);
-        
-        if (studentsRes.ok) {
-          const studentsData = await studentsRes.json();
-          let coursesData = { data: [] };
-          
-          if (coursesRes.ok) {
-            try {
-              coursesData = await (coursesRes as Response).json();
-            } catch (error) {
-              // Silently handle parse errors
-            }
-          }
-          
-          // Create detailed hash including course pricing changes
-          const detailedHash = JSON.stringify({
-            students: studentsData.data?.map((s: any) => ({
-              id: s.studentId,
-              activity: s.activity,
-              course: s.course,
-              updatedAt: s.updatedAt || s.createdAt
-            })) || [],
-            courses: coursesData.data?.map((c: any) => ({
-              name: c.name,
-              priceINR: c.priceINR,
-              updatedAt: c.updatedAt || c.createdAt
-            })) || [],
-            timestamp: Date.now()
-          });
-          
-          // Refresh only if there are meaningful changes
-          if (lastDetailedHash && detailedHash !== lastDetailedHash) {
-            refreshPaymentData();
-          }
-          
-          lastDetailedHash = detailedHash;
+        if (!paymentsRes.ok && !coursesRes.ok) return; // nothing reachable
+        let payments: any[] = [];
+        let courses: any[] = [];
+        if ('ok' in paymentsRes && paymentsRes.ok && 'json' in paymentsRes) {
+          try { const p: any = await (paymentsRes as Response).json(); payments = Array.isArray(p.data) ? p.data : []; } catch { /* ignore */ }
         }
-      } catch (error) {
-        // Silently handle detailed check errors
-      }
+        if ('ok' in coursesRes && coursesRes.ok && 'json' in coursesRes) {
+          try { const c: any = await (coursesRes as Response).json(); courses = Array.isArray(c.data) ? c.data : []; } catch { /* ignore */ }
+        }
+        const hash = computePaymentsCoursesHash(payments, courses);
+        if (lastPaymentsCoursesHash && hash !== lastPaymentsCoursesHash) {
+          refreshPaymentData();
+          // Update local cache for dynamic recomputation
+          if (courses.length) setCoursesCache(courses);
+        }
+        lastPaymentsCoursesHash = hash;
+      } catch (_) { /* silent */ }
     };
-    
-    // Check every 5 seconds for detailed changes
-    const interval = setInterval(checkForDetailedChanges, 5000);
-    
-    return () => clearInterval(interval);
+
+    // Prime initial hashes (avoid immediate refresh storm)
+    pollStudents();
+    monitorPaymentsAndCourses();
+
+    studentInterval = setInterval(pollStudents, 30000); // 30s
+    monitorInterval = setInterval(monitorPaymentsAndCourses, 15000); // 15s
+
+    return () => {
+      clearInterval(studentInterval);
+      clearInterval(monitorInterval);
+    };
   }, []);
+
+  // Dynamic recomputation of finalPayment for derived (fallback) records when courses change
+  useEffect(() => {
+    if (!coursesCache.length) return;
+    setRecords(prev => {
+      let changed = false;
+  const nowISO = new Date().toISOString();
+  const updated = prev.map(r => {
+        // Only adjust records that were previously derived OR have 0 finalPayment (and not from sync)
+        if (!r || (!r.derivedFinalPayment && r.finalPayment > 0)) return r;
+        // We only stored one field for course in record.activity; we can't always know original student.course vs activity.
+        // So dynamic recompute limited: match by course id OR name + category/level.
+        const courseObj = coursesCache.find(c => (
+          (r.activity === c.id || r.activity === c.name) && r.category === c.level
+        ));
+        if (courseObj && courseObj.priceINR && courseObj.priceINR !== r.finalPayment) {
+          changed = true;
+          return { ...r, finalPayment: courseObj.priceINR, balancePayment: Math.max(0, courseObj.priceINR - r.totalPaidAmount), derivedFinalPayment: true, finalPaymentUpdatedAt: nowISO };
+        }
+        return r;
+      });
+      return changed ? updated : prev;
+    });
+  }, [coursesCache]);
 
   // Fetch students from database with synchronized payment data
   useEffect(() => {
@@ -253,12 +256,13 @@ export function usePaymentLogic() {
               // Rule 2: student.course === course.name
               // Rule 3: student.category === course.level
               let matchedCourse = null as any
-              if (student.activity && student.course && student.category && courses.length) {
-                matchedCourse = courses.find(c => 
+              const studentLevel = student.level || student.category
+              if (student.activity && student.course && studentLevel && courses.length) {
+                matchedCourse = courses.find(c => (
                   student.activity === c.id &&
                   student.course === c.name &&
-                  student.category === c.level
-                ) || null
+                  studentLevel === c.level
+                )) || null
               }
 
               const finalPayment = matchedCourse?.priceINR || 0
@@ -349,48 +353,27 @@ export function usePaymentLogic() {
 
   const paymentSummary: PaymentSummary = {
     receivedPayment: records.reduce((sum: number, record: PaymentRecord) => {
-      // Calculate total registration fees
-      const registrationTotal = (record.registrationFees?.studentRegistration?.amount || 0) + 
-                               (record.registrationFees?.courseRegistration?.amount || 0) + 
-                               (record.registrationFees?.confirmationFee?.amount || 0)
-      
-      // Add registration fees to received payment if registration is paid
-      const registrationReceived = record.registrationFees?.overall?.paid ? registrationTotal : 0
-      
-      return sum + record.totalPaidAmount + registrationReceived
+      // Safe number conversion to avoid NaN
+      const totalPaid = Number(record.totalPaidAmount) || 0
+      return sum + totalPaid
     }, 0),
     
     outstandingPayment: records.reduce((sum: number, record: PaymentRecord) => {
-      // Calculate total registration fees
-      const registrationTotal = (record.registrationFees?.studentRegistration?.amount || 0) + 
-                               (record.registrationFees?.courseRegistration?.amount || 0) + 
-                               (record.registrationFees?.confirmationFee?.amount || 0)
-      
-      // Add registration fees to outstanding if not paid
-      const registrationOutstanding = !record.registrationFees?.overall?.paid ? registrationTotal : 0
-      
-      return sum + record.balancePayment + registrationOutstanding
+      // Safe number conversion to avoid NaN
+      const balance = Number(record.balancePayment) || 0
+      return sum + balance
     }, 0),
     
     totalPayment: records.reduce((sum: number, record: PaymentRecord) => {
-      // Calculate total registration fees
-      const registrationTotal = (record.registrationFees?.studentRegistration?.amount || 0) + 
-                               (record.registrationFees?.courseRegistration?.amount || 0) + 
-                               (record.registrationFees?.confirmationFee?.amount || 0)
-      
-      return sum + record.finalPayment + registrationTotal
+      // Safe number conversion to avoid NaN
+      const finalPayment = Number(record.finalPayment) || 0
+      return sum + finalPayment
     }, 0),
     
     profit: records.reduce((sum: number, record: PaymentRecord) => {
-      // Calculate total registration fees
-      const registrationTotal = (record.registrationFees?.studentRegistration?.amount || 0) + 
-                               (record.registrationFees?.courseRegistration?.amount || 0) + 
-                               (record.registrationFees?.confirmationFee?.amount || 0)
-      
-      // Add registration fees to profit calculation if paid
-      const registrationReceived = record.registrationFees?.overall?.paid ? registrationTotal : 0
-      
-      return sum + (record.totalPaidAmount + registrationReceived) * 0.3
+      // Safe number conversion and profit calculation (30% of received payments)
+      const totalPaid = Number(record.totalPaidAmount) || 0
+      return sum + (totalPaid * 0.3)
     }, 0),
   }
 
@@ -452,12 +435,13 @@ export function usePaymentLogic() {
 
           const paymentRecords = await Promise.all(result.data.map(async (student: any) => {
             let matchedCourse = null as any
-            if (student.activity && student.course && student.category && courses.length) {
-              matchedCourse = courses.find(c => 
+            const studentLevel = student.level || student.category
+            if (student.activity && student.course && studentLevel && courses.length) {
+              matchedCourse = courses.find(c => (
                 student.activity === c.id &&
                 student.course === c.name &&
-                student.category === c.level
-              ) || null
+                studentLevel === c.level
+              )) || null
             }
             const finalPayment = matchedCourse?.priceINR || 0
             const totalPaid = student.totalPaidAmount || 0

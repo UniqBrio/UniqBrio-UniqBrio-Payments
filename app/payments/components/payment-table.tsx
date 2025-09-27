@@ -67,7 +67,7 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord,
                 {isColumnVisible('studentRegFee') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Student Reg Fee</TableHead>}
                 {isColumnVisible('finalPayment') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Final Payment</TableHead>}
                 {isColumnVisible('totalPaid') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Total Paid</TableHead>}
-                {isColumnVisible('balance') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Balance</TableHead>}
+                {isColumnVisible('balance') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap min-w-[120px]">Balance</TableHead>}
                 {isColumnVisible('status') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Status</TableHead>}
                 {isColumnVisible('frequency') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Frequency</TableHead>}
                 {isColumnVisible('paidDate') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap text-center">Paid Date</TableHead>}
@@ -79,7 +79,7 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord,
                 {isColumnVisible('paymentDetails') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Payment Details</TableHead>}
                 {isColumnVisible('manualPayment') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Manual Payment</TableHead>}
                 {isColumnVisible('payslip') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Payslip</TableHead>}
-                {isColumnVisible('actions') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap">Actions</TableHead>}
+                {isColumnVisible('actions') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap text-center">Send Reminder</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
