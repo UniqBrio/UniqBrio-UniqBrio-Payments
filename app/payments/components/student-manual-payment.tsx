@@ -428,16 +428,7 @@ export function ManualPaymentDialog({
           </Select>
         </div>
         
-        <div className="grid gap-1">
-          <Label htmlFor="mp-notes">Notes (Optional)</Label>
-          <Input
-            id="mp-notes"
-            type="text"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Add any additional notes"
-          />
-        </div>
+       
         </div>
         
         <DialogFooter>

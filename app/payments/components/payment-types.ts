@@ -16,11 +16,10 @@ export interface PaymentRecord {
   nextPaymentDate: string
   paidDate: string
   paymentReminder: boolean
-  reminderMode: "SMS" | "Email" | "WhatsApp"
   communicationText: string
-  communicationPreferences?: {
+  communicationPreferences: {
     enabled: boolean
-    channels: string[]
+    channels: ("SMS" | "Email" | "WhatsApp" | "In App" | "Push Notification")[]
   }
   paymentDetails: {
     qrCode?: string

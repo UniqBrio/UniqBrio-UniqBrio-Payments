@@ -16,55 +16,139 @@ export interface ReminderActionsProps {
 }
 
 export function useReminderActions({ record, onReminderSent }: ReminderActionsProps) {
-  const handleSendReminder = () => {
-    const paymentDetails = {
-      qrCode: record.paymentDetails.qrCode,
-      upiId: record.paymentDetails.upiId,
-      paymentLink: record.paymentDetails.paymentLink,
-      amount: record.balancePayment,
-      studentName: record.name,
-      courseName: record.activity,
-      dueDate: record.nextPaymentDate
-    }
-
-    // Send reminder with payment details based on communication preferences
-    const channels = record.communicationPreferences?.channels || [record.reminderMode || 'Email'];
+    const handleReminderSend = async (record: PaymentRecord, channels: string[]) => {
+    console.log(`Sending reminder to ${record.name} via:`, channels)
     
-    channels.forEach(channel => {
-      if (channel === "SMS") {
-        sendSMSReminder(record, paymentDetails)
-      } else if (channel === "WhatsApp") {
-        sendWhatsAppReminder(record, paymentDetails)
-      } else if (channel === "Email" || channel === "In App") {
-        // Email reminders are handled separately through EmailPreviewDialog
+    try {
+      // Show loading toast
+      const loadingToast = toast({
+        title: "📤 Sending Reminder...",
+        description: `Preparing to send reminder to ${record.name} via ${channels.join(', ')}`,
+      })
+
+      // Call the API to send actual reminders
+      console.log('🚀 SENDING TO API:', {
+        studentId: record.id,
+        communicationModes: channels,
+        recordData: { name: record.name, activity: record.activity }
+      });
+
+      const response = await fetch('/api/payments/send-reminder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          studentId: record.id,
+          communicationModes: channels
+        })
+      })
+
+      console.log('📡 API Response Status:', response.status);
+      
+      if (!response.ok) {
+        console.error('❌ API Response Error:', response.status, response.statusText);
+        throw new Error(`API request failed: ${response.status}`);
       }
-    });
 
-    toast({
-      title: "✔ Payment Reminder Sent",
-      description: `Reminder with payment options sent to ${record.name} via ${channels.join(', ')}`,
-    })
+      const result = await response.json()
 
-    onReminderSent?.()
+      if (result.success) {
+        toast({
+          title: "✅ Reminder Sent Successfully",
+          description: `${result.message} to ${result.studentName}`,
+        })
+
+        // Log successful channels
+        console.log('✅ Reminder sent successfully:', result)
+        
+        onReminderSent?.()
+      } else {
+        toast({
+          title: "⚠️ Partial Success",
+          description: result.message || 'Some reminders failed to send',
+          variant: "destructive"
+        })
+        
+        console.warn('⚠️ Partial reminder success:', result)
+      }
+
+    } catch (error) {
+      console.error('❌ Failed to send reminder:', error)
+      
+      toast({
+        title: "❌ Reminder Failed",
+        description: `Failed to send reminder to ${record.name}. Please try again.`,
+        variant: "destructive"
+      })
+    }
   }
 
-  // SMS Reminder with UPI ID and Payment Link
-  const sendSMSReminder = (record: PaymentRecord, paymentDetails: any) => {
-    const message = `Hi ${paymentDetails.studentName}, 
-    
+  // These functions are now handled by the unified API
+  // They serve as reference for message formats and can be used for previews
+  
+  // SMS Reminder Format (handled by API)
+  const getSMSPreview = (record: PaymentRecord, paymentDetails: any) => {
+    return `Hi ${paymentDetails.studentName}! 
+
 Payment reminder for ${paymentDetails.courseName}
 Amount Due: ${formatCurrency(paymentDetails.amount, record.currency)}
-Due Date: ${new Date(paymentDetails.dueDate).toLocaleDateString()}
+Due Date: ${new Date(paymentDetails.dueDate).toLocaleDateString('en-US')}
 
-Payment Options:
-${paymentDetails.upiId ? `UPI ID: ${paymentDetails.upiId}` : ''}
-${paymentDetails.paymentLink ? `Payment Link: ${paymentDetails.paymentLink}` : ''}
+${paymentDetails.upiId ? `UPI: ${paymentDetails.upiId}` : ''}
+${paymentDetails.paymentLink ? `Link: ${paymentDetails.paymentLink}` : ''}
 
-Pay now to avoid late fees.
+Complete payment to secure your seat.
 - UniqBrio Team`
+  }
 
-    // Here you would integrate with SMS API
-    console.log("SMS Reminder:", message)
+  // WhatsApp Reminder Format (handled by API)
+  const getWhatsAppPreview = (record: PaymentRecord, paymentDetails: any) => {
+    return `Hi ${paymentDetails.studentName}! 📚
+
+*Payment Reminder - ${paymentDetails.courseName}*
+
+💰 Amount Due: ${formatCurrency(paymentDetails.amount, record.currency)}
+📅 Due Date: ${new Date(paymentDetails.dueDate).toLocaleDateString('en-US')}
+
+*Payment Options:*
+${paymentDetails.upiId ? `🏦 UPI: ${paymentDetails.upiId}` : ''}
+${paymentDetails.paymentLink ? `💳 Link: ${paymentDetails.paymentLink}` : ''}
+
+Complete payment to secure enrollment! 🎓
+
+- UniqBrio Team 🚀`
+  }
+
+  // Email Reminder Format (handled by API and EmailPreviewDialog)
+  const getEmailPreview = (record: PaymentRecord, paymentDetails: any) => {
+    return {
+      subject: `Payment Reminder - ${paymentDetails.courseName} | ${record.cohort} - UniqBrio`,
+      body: `Dear ${paymentDetails.studentName},
+
+${record.communicationText}
+
+PAYMENT SUMMARY:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Course: ${paymentDetails.courseName}  
+• Amount Due: ${formatCurrency(paymentDetails.amount, record.currency)}
+• Due Date: ${new Date(paymentDetails.dueDate).toLocaleDateString('en-US')}
+• Status: ${record.paymentStatus}
+
+PAYMENT OPTIONS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${paymentDetails.upiId ? `• UPI ID: ${paymentDetails.upiId}` : ''}
+${paymentDetails.paymentLink ? `• Payment Link: ${paymentDetails.paymentLink}` : ''}
+• QR Code: Available in attachment
+
+Please complete your payment to secure your seat.
+
+Best regards,
+UniqBrio Academic Team
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📧 support@uniqbrio.com | 🌐 www.uniqbrio.com`
+    }
   }
 
   // WhatsApp Reminder with UPI ID and Payment Link
@@ -73,7 +157,7 @@ Pay now to avoid late fees.
 
 Your payment reminder for *${paymentDetails.courseName}*
 💰 Amount Due: ${formatCurrency(paymentDetails.amount, record.currency)}
-📅 Due Date: ${new Date(paymentDetails.dueDate).toLocaleDateString()}
+📅 Due Date: ${new Date(paymentDetails.dueDate).toLocaleDateString('en-US')}
 
 *Payment Options:*
 ${paymentDetails.upiId ? `📱 UPI ID: ${paymentDetails.upiId}` : ''}
@@ -89,6 +173,9 @@ UniqBrio Team ✨`
   }
 
   return {
-    handleSendReminder
+    handleSendReminder: handleReminderSend,
+    getSMSPreview,
+    getWhatsAppPreview,
+    getEmailPreview
   }
 }

@@ -204,8 +204,8 @@ export async function GET(request: NextRequest) {
         program: studentProgram || 'N/A', 
         category: studentCategory, // Direct category from student collection
         courseType: matchType === 'exact-triple-match' ? matchedCourseType : '-', // Show type only if all 3 fields match
-        finalPayment: matchType === 'exact-triple-match' ? finalPaymentAmount : '-', // Show final payment only if all 3 fields match  
-        balancePayment: matchType === 'exact-triple-match' ? balanceAmount : '-', // Show balance only if all 3 fields match
+        finalPayment: matchType === 'exact-triple-match' ? finalPaymentAmount : 0, // Show final payment only if all 3 fields match  
+        balancePayment: matchType === 'exact-triple-match' ? balanceAmount : 0, // Show balance only if all 3 fields match
         totalPaidAmount: coursePaidAmount,
         // Paid Date: Show last payment date or "-" if no payments
         paidDate: studentPaymentDoc && studentPaymentDoc.lastPaymentDate ? 
@@ -298,7 +298,19 @@ export async function GET(request: NextRequest) {
               required: false
             }
           }
-        }
+        },
+        courseStartDate: (() => {
+          const startDate = (student as any).courseStartDate;
+          if (startDate) {
+            return new Date(startDate).toISOString();
+          }
+          // Fallback: use createdAt if available, otherwise current date
+          const createdAt = (student as any).createdAt;
+          if (createdAt) {
+            return new Date(createdAt).toISOString();
+          }
+          return new Date().toISOString();
+        })()
       };
       
       processedStudents.push(studentResult);

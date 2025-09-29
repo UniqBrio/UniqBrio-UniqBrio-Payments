@@ -37,7 +37,7 @@ export function PaymentGrid({ filteredRecords, onUpdateRecord }: PaymentGridProp
   const sendReminder = (record: PaymentRecord) => {
     toast({
       title: "Reminder Sent",
-      description: `Payment reminder sent to ${record.name} via ${record.reminderMode}`,
+      description: `Payment reminder sent to ${record.name} via ${record.communicationPreferences?.channels?.join(', ') || 'Email'}`,
     })
   }
 
@@ -94,21 +94,21 @@ export function PaymentGrid({ filteredRecords, onUpdateRecord }: PaymentGridProp
             {/* Payment Information */}
             <div className="space-y-2">
               <div className="flex justify-between text-xs">
-                <span className="text-gray-600">Final Payment:</span>
+                <span className="text-gray-600">Course Fee (INR):</span>
                 <span className="font-medium">
-                  {getCurrencySymbol(record.currency)}{record.finalPayment.toLocaleString()}
+                  {record.finalPayment.toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-gray-600">Total Paid:</span>
+                <span className="text-gray-600">Total Paid (INR):</span>
                 <span className="font-medium text-green-600">
-                  {getCurrencySymbol(record.currency)}{record.totalPaidAmount.toLocaleString()}
+                  {record.totalPaidAmount.toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-gray-600">Balance:</span>
+                <span className="text-gray-600">Balance (INR):</span>
                 <span className={`font-medium ${record.balancePayment > 0 ? "text-red-600" : "text-green-600"}`}>
-                  {getCurrencySymbol(record.currency)}{record.balancePayment.toLocaleString()}
+                  {record.balancePayment.toLocaleString()}
                 </span>
               </div>
             </div>

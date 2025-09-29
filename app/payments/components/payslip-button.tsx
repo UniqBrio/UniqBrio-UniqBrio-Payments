@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
 import { FileText, Search, Download, Printer } from "lucide-react"
 import { PaymentRecord } from './payment-types'
+import { fetchLatestPaymentMethod } from '@/lib/payment-utils'
 
 interface PayslipButtonProps {
   students: PaymentRecord[]
@@ -52,14 +53,18 @@ export function PayslipButton({ students }: PayslipButtonProps) {
     }
   }
 
-  const generatePayslip = () => {
+  const generatePayslip = async () => {
     if (!selectedStudent) return
+
+    // Fetch latest payment method from payment records
+    const paymentMethod = await fetchLatestPaymentMethod(selectedStudent.id);
 
     const payslipContent = `
       <div style="max-width: 800px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif;">
-        <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px;">
-          <h1 style="color: #7c3aed; margin: 0;">UNIQBRIO</h1>
-          <p style="margin: 5px 0; color: #666;">Payment Receipt</p>
+        <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 30px; margin-bottom: 40px;">
+          <img src="/logo.png" alt="UniqBrio Logo" style="max-width: 250px; height: auto; margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto;" onerror="this.src='/uniqbrio-logo.svg'">
+          <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: bold; letter-spacing: 2px;">UNIQBRIO</h1>
+          <p style="margin: 10px 0 0 0; color: #666; font-size: 18px; font-weight: 500;">Payment Receipt</p>
         </div>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
@@ -74,7 +79,7 @@ export function PayslipButton({ students }: PayslipButtonProps) {
             <h3 style="color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Payment Details</h3>
             <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
             <p><strong>Status:</strong> ${selectedStudent.paymentStatus}</p>
-            <p><strong>Payment Mode:</strong> ${selectedStudent.reminderMode}</p>
+            <p><strong>Payment Mode:</strong> ${paymentMethod}</p>
           </div>
         </div>
 
@@ -85,8 +90,7 @@ export function PayslipButton({ students }: PayslipButtonProps) {
             <span>${getCurrencySymbol(selectedStudent.currency)}${(() => {
               const courseFee = selectedStudent.finalPayment || 0;
               const registrationTotal = (selectedStudent.registrationFees?.studentRegistration?.amount || 0) + 
-                                      (selectedStudent.registrationFees?.courseRegistration?.amount || 0) + 
-                                      (selectedStudent.registrationFees?.confirmationFee?.amount || 0);
+                                      (selectedStudent.registrationFees?.courseRegistration?.amount || 0) ;
               return (courseFee + registrationTotal).toLocaleString();
             })()}</span>
           </div>

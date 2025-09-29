@@ -13,6 +13,9 @@ import { StudentManualPayment, StudentManualPaymentPayload } from "./student-man
 import { PaymentRecord } from './payment-types'
 import { Send, QrCode, Smartphone, Link, Edit, Save, X, CreditCard, Mail } from "lucide-react"
 import { useReminderActions } from "./reminder-actions"
+import { formatDateToDisplay } from '@/lib/date-utils'
+import { ReminderPreviewDialog } from "./reminder-preview-dialog"
+import { CommunicationModeColumnCompact } from '@/components/communication-mode-column'
 import { usePaymentActions } from "./payment-actions"
 import { EmailPreviewDialog } from "./email-preview-dialog"
 import { RegistrationFeesDisplay, calculateRegistrationStatus } from "./registration-fees-display"
@@ -25,6 +28,67 @@ const formatCurrency = (amount: number, currency: string = "INR") => {
   return `${formattedNumber} ${currency}`
 }
 
+// Utility function to get available payment methods based on communication mode
+const getAvailablePaymentMethods = (communicationChannels: string[] | null) => {
+  // If no communication channels or empty array, show only "-"
+  if (!communicationChannels || communicationChannels.length === 0) {
+    return {
+      showQR: false,
+      showUPI: false,
+      showLink: false,
+      showEmail: false,
+      showDash: true
+    }
+  }
+  
+  // Check what channels are available
+  const hasEmail = communicationChannels.some(channel => channel.toLowerCase().includes('email'))
+  const hasSMS = communicationChannels.some(channel => channel.toLowerCase().includes('sms'))
+  const hasWhatsApp = communicationChannels.some(channel => channel.toLowerCase().includes('whatsapp'))
+  
+  // SMS mode: Show only UPI (avoid QR and email)
+  if (hasSMS && !hasWhatsApp && !hasEmail) {
+    return {
+      showQR: false,
+      showUPI: true,
+      showLink: false,
+      showEmail: false,
+      showDash: false
+    }
+  }
+  
+  // WhatsApp mode: Show link, QR, UPI 
+  if (hasWhatsApp) {
+    return {
+      showQR: true,
+      showUPI: true,
+      showLink: true,
+      showEmail: false,
+      showDash: false
+    }
+  }
+  
+  // Email mode: Show all options (email, QR, UPI, link)
+  if (hasEmail) {
+    return {
+      showQR: true,
+      showUPI: true,
+      showLink: true,
+      showEmail: true,
+      showDash: false
+    }
+  }
+  
+  // Default: show all options if channels exist but don't match specific patterns
+  return {
+    showQR: true,
+    showUPI: true,
+    showLink: true,
+    showEmail: false,
+    showDash: false
+  }
+}
+
 
 
 // Since payment-utils is missing, let's define these functions here temporarily
@@ -32,10 +96,10 @@ const formatDate = (dateString: string | null) => {
   if (!dateString || dateString === 'N/A') return 'N/A'
   try {
     const date = new Date(dateString)
+    const month = date.getMonth() + 1 // getMonth() returns 0-11
     const day = date.getDate()
-    const month = date.toLocaleDateString('en-US', { month: 'short' })
-    const year = date.getFullYear().toString().slice(-2)
-    return `${day} ${month} ${year}`
+    const year = date.getFullYear()
+    return `${month}/${day}/${year}`
   } catch {
     return 'Invalid'
   }
@@ -73,17 +137,19 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
   const [editingText, setEditingText] = useState<{ id: string; text: string } | null>(null)
   const [qrCodeOpen, setQrCodeOpen] = useState(false)
   const [emailPreviewOpen, setEmailPreviewOpen] = useState(false)
+  const [reminderPreviewOpen, setReminderPreviewOpen] = useState(false)
   const [generatedQR, setGeneratedQR] = useState<string>('')
+  const [communicationChannels, setCommunicationChannels] = useState<string[] | null>(null)
 
   // Calculate dynamic payment status based on final payment and balance
   const calculateDynamicStatus = (): "Paid" | "Pending" | "-" => {
-    // If final payment is "-" (unmatched students), show "-"
-    if (record.finalPayment === "-" || record.finalPayment === null || record.finalPayment === undefined || String(record.finalPayment) === "-") {
+    // If final payment is 0 (unmatched students), show "-"
+    if (record.finalPayment === 0 || record.finalPayment === null || record.finalPayment === undefined) {
       return "-";
     }
     
-    // If balance is 0 or "-", show "Paid"
-    if (record.balancePayment === 0 || record.balancePayment === "-" || String(record.balancePayment) === "-") {
+    // If balance is 0, show "Paid"
+    if (record.balancePayment === 0) {
       return "Paid";
     }
     
@@ -111,36 +177,10 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
     generatePayslip
   } = usePaymentActions({ record, onUpdateRecord, refreshPaymentData })
 
-  // Enhanced reminder function with payment options
-  const handleSendReminderWithPaymentOptions = async () => {
-    console.log('handleSendReminderWithPaymentOptions called');
-    
-    const channels = record.communicationPreferences?.channels || ['Email'];
-    const reminderMessage = record.communicationText || `Make a payment quickly - Balance: ₹${(record.balancePayment || 0).toLocaleString()}`;
-    
-    console.log('Sending reminder:', { channels, reminderMessage });
-    
-    try {
-      // Show success message with channels used
-      toast({
-        title: "Payment Reminder Sent! 📱",
-        description: `Reminder with payment options sent via ${channels.join(', ')}`,
-        variant: "default",
-      });
-      
-      // Call the original reminder function
-      console.log('Calling handleSendReminder');
-      await handleSendReminder();
-      
-      console.log('Reminder sent successfully');
-    } catch (error) {
-      console.error('Error sending reminder:', error);
-      toast({
-        title: "Reminder Failed",
-        description: "Failed to send payment reminder. Please try again.",
-        variant: "destructive",
-      });
-    }
+  // Enhanced reminder function with payment options using user's preferred communication mode
+  const handleSendReminderWithPaymentOptions = () => {
+    console.log('Opening reminder preview for:', record.name);
+    setReminderPreviewOpen(true);
   }
 
   // Check if payments are completed (for display purposes)
@@ -172,15 +212,47 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
     }
   }, [qrCodeOpen, record.paymentDetails?.upiId, record.balancePayment, record.activity])
 
+  // Fetch communication preferences for this student
+  useEffect(() => {
+    const fetchCommunicationPreferences = async () => {
+      if (!record.id) return
+      
+      try {
+        const response = await fetch(`/api/students/communication-preferences?studentId=${encodeURIComponent(record.id)}`)
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (data.communicationPreferences?.enabled && data.communicationPreferences?.channels) {
+            setCommunicationChannels(data.communicationPreferences.channels)
+          } else {
+            setCommunicationChannels([]) // No channels or disabled
+          }
+        } else {
+          setCommunicationChannels([]) // Failed to fetch, default to no channels
+        }
+      } catch (error) {
+        console.error('Error fetching communication preferences:', error)
+        setCommunicationChannels([]) // Error, default to no channels
+      }
+    }
+
+    fetchCommunicationPreferences()
+  }, [record.id])
+
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return "-"
+    if (!dateString || dateString === 'N/A') return "-"
     try {
+      // Handle ISO date strings like "2025-02-05T00:00:00.000+00:00"
       const date = new Date(dateString)
       // Check if date is valid before formatting
       if (isNaN(date.getTime())) return "-"
-      const month = date.toLocaleDateString('en-US', { month: 'short' })
-      const year = date.getFullYear().toString().slice(-2)
-      return `${month}'${year}`
+      
+      const month = (date.getMonth() + 1).toString().padStart(2, '0') // getMonth() returns 0-11
+      const day = date.getDate().toString().padStart(2, '0')
+      const year = date.getFullYear()
+      
+      // Return in MM/DD/YYYY format
+      return `${month}/${day}/${year}`
     } catch (error) {
       console.error("Date formatting error:", error)
       return "-"
@@ -240,6 +312,9 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       {isColumnVisible('name') && (
         <TableCell className="text-sm p-3">{record.name}</TableCell>
       )}
+      {isColumnVisible('program') && (
+        <TableCell className="text-sm p-3">{record.activity || 'N/A'}</TableCell>
+      )}
       {isColumnVisible('course') && (
         <TableCell className="text-sm p-3">{record.activity}</TableCell>
       )}
@@ -272,15 +347,11 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
           {record.registrationFees?.studentRegistration?.amount?.toLocaleString() ?? '-'}
         </TableCell>
       )}
-      {isColumnVisible('finalPayment') && (
-        <TableCell className="text-[11px] p-1 font-medium">
-          {(record.finalPayment || 0) > 0 ? (
-            <span>
-              {(record.finalPayment || 0).toLocaleString()} {getCurrencyName(record.currency)}
-            </span>
-          ) : (
-            <span className="text-gray-400 italic">-</span>
-          )}
+            {isColumnVisible('finalPayment') && (
+        <TableCell className="text-[11px] p-2 min-w-[120px]">
+          <span className="font-medium">
+            {(record.finalPayment || 0).toLocaleString()}
+          </span>
         </TableCell>
       )}
       {isColumnVisible('totalPaid') && (
@@ -288,13 +359,13 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
           {/* Show totalPaidAmount from payments collection */}
           {record.totalPaidAmount && record.totalPaidAmount > 0
             ? (record.totalPaidAmount).toLocaleString()
-            : '0'} {getCurrencyName(record.currency)}
+            : '0'}
         </TableCell>
       )}
       {isColumnVisible('balance') && (
         <TableCell className="text-[11px] p-2 min-w-[120px]">
           <span className={(record.balancePayment || 0) > 0 ? "text-red-600 font-medium" : "text-green-600"}>
-            {(record.balancePayment || 0).toLocaleString()} {getCurrencyName(record.currency)} <span className="text-red-500">*</span>
+            {(record.balancePayment || 0).toLocaleString()}
           </span>
         </TableCell>
       )}
@@ -316,7 +387,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         <TableCell className="text-[11px] p-1 text-center">
           {record.paidDate ? (
             <span title={`Raw date: ${record.paidDate}`}>
-              {formatDate(record.paidDate)}
+              {formatDateToDisplay(record.paidDate)}
             </span>
           ) : (
             <span className="text-gray-400 italic">-</span>
@@ -325,12 +396,12 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )}
       {isColumnVisible('nextDue') && (
         <TableCell className="text-[11px] p-1 text-center">
-          {record.nextPaymentDate ? formatDate(record.nextPaymentDate) : <span className="text-gray-400 italic">-</span>}
+          {record.nextPaymentDate ? formatDateToDisplay(record.nextPaymentDate) : <span className="text-gray-400 italic">-</span>}
         </TableCell>
       )}
       {isColumnVisible('courseStartDate') && (
         <TableCell className="text-[11px] p-1 text-center">
-          {formatDate(record.courseStartDate ?? null)}
+          {formatDateToDisplay(record.courseStartDate)}
         </TableCell>
       )}
       {isColumnVisible('reminder') && (
@@ -342,13 +413,35 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
                 ? 'bg-purple-600 text-white border-purple-600 hover:bg-[#9234ea]' 
                 : ''
             }`}
-            onClick={() => {
+            onClick={async () => {
+              console.log('🔄 Reminder toggle clicked for:', record.name);
+              console.log('📊 Current paymentStatus:', record.paymentStatus);
+              console.log('📊 Current paymentReminder:', record.paymentReminder);
+              
               if (record.paymentStatus !== 'Paid') {
                 const newReminderState = !record.paymentReminder;
-                onUpdateRecord(record.id, { paymentReminder: newReminderState });
+                console.log('🔄 Toggling reminder to:', newReminderState);
+                
+                try {
+                  await onUpdateRecord(record.id, { paymentReminder: newReminderState });
+                  toast({
+                    title: newReminderState ? "✔ Reminder Enabled" : "❌ Reminder Disabled",
+                    description: `Payment reminders ${newReminderState ? 'enabled' : 'disabled'} for ${record.name}`,
+                  });
+                } catch (error) {
+                  console.error('❌ Failed to update reminder setting:', error);
+                  toast({
+                    title: "❌ Update Failed",
+                    description: "Failed to update reminder setting. Please try again.",
+                    variant: "destructive",
+                  });
+                }
+              } else {
+                console.log('⚠️ Cannot toggle reminder - payment is already paid');
                 toast({
-                  title: newReminderState ? "✔ Reminder Enabled" : "❌ Reminder Disabled",
-                  description: `Payment reminders ${newReminderState ? 'enabled' : 'disabled'} for ${record.name}`,
+                  title: "⚠️ Cannot Update",
+                  description: "Reminders are automatically disabled for paid payments.",
+                  variant: "default",
                 });
               }
             }}
@@ -360,21 +453,11 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )}
       {isColumnVisible('mode') && (
         <TableCell className="text-[11px] p-1">
-          <div className="flex flex-col gap-1">
-            {record.communicationPreferences?.channels?.length ? (
-              record.communicationPreferences.channels.map((channel: string, index: number) => (
-                <Badge 
-                  key={index} 
-                  variant="outline" 
-                  className="text-[10px] px-1 py-0.5 h-auto whitespace-nowrap"
-                >
-                  {channel}
-                </Badge>
-              ))
-            ) : (
-              <span className="text-gray-500">No preferences</span>
-            )}
-          </div>
+          <CommunicationModeColumnCompact 
+            studentId={record.id}
+            studentName={record.name}
+            className="w-full"
+          />
         </TableCell>
       )}
       {isColumnVisible('communication') && (
@@ -428,27 +511,49 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )}
       {isColumnVisible('paymentDetails') && (
         <TableCell className="text-[11px] p-1 text-center">
-          <div className="flex justify-center items-center gap-2">
-            {/* Always show payment icons - either active or default */}
-            <div className="flex items-center gap-1 text-[11px]" title="QR Code Payment">
-              <QrCode className={`h-4 w-4 ${record.paymentDetails?.qrCode && record.paymentDetails.qrCode !== '' ? 'text-purple-600 cursor-pointer hover:text-purple-800' : 'text-gray-400'}`} 
-                      onClick={record.paymentDetails?.qrCode ? () => setQrCodeOpen(true) : undefined} />
-            </div>
-            <div className="flex items-center gap-1 text-[11px]" title={record.paymentDetails?.upiId ? `UPI: ${record.paymentDetails.upiId}` : 'UPI Payment'}>
-              <Smartphone className={`h-4 w-4 ${record.paymentDetails?.upiId && record.paymentDetails.upiId !== '' ? 'text-green-600 cursor-pointer hover:text-green-800' : 'text-gray-400'}`} 
-                         onClick={record.paymentDetails?.upiId ? () => {
-                           navigator.clipboard.writeText(record.paymentDetails?.upiId ?? "uniqbrio@upi");
-                           toast({
-                             title: "UPI ID Copied",
-                             description: "UPI ID copied to clipboard",
-                           });
-                         } : undefined} />
-            </div>
-            <div className="flex items-center gap-1 text-[11px]" title="Payment Link">
-              <Link className={`h-4 w-4 ${record.paymentDetails?.paymentLink && record.paymentDetails.paymentLink !== '' ? 'text-blue-600 cursor-pointer hover:text-blue-800' : 'text-gray-400'}`} 
-                    onClick={record.paymentDetails?.paymentLink ? () => window.open(record.paymentDetails?.paymentLink, '_blank') : undefined} />
-            </div>
-          </div>
+          {(() => {
+            const availableMethods = getAvailablePaymentMethods(communicationChannels)
+            
+            // If only dash should be shown (no communication channels or disabled)
+            if (availableMethods.showDash) {
+              return <span className="text-gray-500">-</span>
+            }
+            
+            return (
+              <div className="flex justify-center items-center gap-2">
+                {/* QR Code - Show for WhatsApp and Email modes */}
+                {availableMethods.showQR && (
+                  <div className="flex items-center gap-1 text-[11px]" title="QR Code Payment">
+                    <QrCode className={`h-4 w-4 ${record.paymentDetails?.qrCode && record.paymentDetails.qrCode !== '' ? 'text-purple-600 cursor-pointer hover:text-purple-800' : 'text-gray-400'}`} 
+                            onClick={record.paymentDetails?.qrCode ? () => setQrCodeOpen(true) : undefined} />
+                  </div>
+                )}
+                
+                {/* UPI - Show for SMS, WhatsApp and Email modes */}
+                {availableMethods.showUPI && (
+                  <div className="flex items-center gap-1 text-[11px]" title={record.paymentDetails?.upiId ? `UPI: ${record.paymentDetails.upiId}` : 'UPI Payment'}>
+                    <Smartphone className={`h-4 w-4 ${record.paymentDetails?.upiId && record.paymentDetails.upiId !== '' ? 'text-green-600 cursor-pointer hover:text-green-800' : 'text-gray-400'}`} 
+                               onClick={record.paymentDetails?.upiId ? () => {
+                                 navigator.clipboard.writeText(record.paymentDetails?.upiId ?? "uniqbrio@upi");
+                                 toast({
+                                   title: "UPI ID Copied",
+                                   description: "UPI ID copied to clipboard",
+                                 });
+                               } : undefined} />
+                  </div>
+                )}
+                
+                {/* Payment Link - Show for WhatsApp and Email modes */}
+                {availableMethods.showLink && (
+                  <div className="flex items-center gap-1 text-[11px]" title="Payment Link">
+                    <Link className={`h-4 w-4 ${record.paymentDetails?.paymentLink && record.paymentDetails.paymentLink !== '' ? 'text-blue-600 cursor-pointer hover:text-blue-800' : 'text-gray-400'}`} 
+                          onClick={record.paymentDetails?.paymentLink ? () => window.open(record.paymentDetails?.paymentLink, '_blank') : undefined} />
+                  </div>
+                )}
+                
+              </div>
+            )
+          })()}
         </TableCell>
       )}
       {isColumnVisible('manualPayment') && (
@@ -501,7 +606,14 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={handleSendReminderWithPaymentOptions}
+                  onClick={(e) => {
+                    console.log('📤 Send Reminder button clicked for:', record.name);
+                    console.log('📊 Balance:', record.balancePayment);
+                    console.log('📊 Status:', dynamicStatus);
+                    console.log('📊 Reminder enabled:', record.paymentReminder);
+                    e.preventDefault();
+                    handleSendReminderWithPaymentOptions();
+                  }}
                   className="border-[#9234ea] hover:bg-[#9234ea] hover:text-white h-8 w-8 p-0 cursor-pointer bg-white transition-colors duration-200 shadow-sm group"
                   title="Send Payment Reminder"
                 >
@@ -593,6 +705,18 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       onClose={() => setEmailPreviewOpen(false)}
       generatedQR={generatedQR}
       setGeneratedQR={setGeneratedQR}
+    />
+
+    {/* Reminder Preview Dialog */}
+    <ReminderPreviewDialog
+      record={record}
+      isOpen={reminderPreviewOpen}
+      onClose={() => setReminderPreviewOpen(false)}
+      onSendConfirm={() => {
+        // Handle send confirmation
+        console.log('Send reminder confirmed for:', record.name)
+        setReminderPreviewOpen(false)
+      }}
     />
 
     <AlertDialog open={alreadyPaidAlertOpen} onOpenChange={setAlreadyPaidAlertOpen}>

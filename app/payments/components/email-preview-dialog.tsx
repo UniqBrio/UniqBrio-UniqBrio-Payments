@@ -20,10 +20,10 @@ const formatDate = (dateString: string | null) => {
   if (!dateString || dateString === 'N/A') return 'N/A'
   try {
     const date = new Date(dateString)
+    const month = date.getMonth() + 1 // getMonth() returns 0-11
     const day = date.getDate()
-    const month = date.toLocaleDateString('en-US', { month: 'short' })
-    const year = date.getFullYear().toString().slice(-2)
-    return `${day} ${month} ${year}`
+    const year = date.getFullYear()
+    return `${month}/${day}/${year}`
   } catch {
     return 'Invalid'
   }
@@ -123,19 +123,53 @@ UniqBrio Academic Team
     setEmailContent({ subject, body })
   }
 
-  const sendEmailReminder = () => {
-    // Here you would integrate with your email service (SendGrid, Nodemailer, etc.)
-    console.log("Sending email with content:", emailContent)
-    
-    // For now, we'll show a success message
-    toast({
-      title: "✔ Email Sent",
-      description: `Payment reminder email sent to ${record.name}`,
-    })
-    
-    onClose()
-    
-  
+  const sendEmailReminder = async () => {
+    try {
+      // Show loading state
+      toast({
+        title: "📤 Sending Email...",
+        description: `Preparing to send email reminder to ${record.name}`,
+      })
+
+      // Call the unified API to send email reminder
+      const response = await fetch('/api/payments/send-reminder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          studentId: record.id,
+          communicationModes: ['Email']
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast({
+          title: "✅ Email Sent Successfully",
+          description: `Payment reminder email sent to ${record.name}`,
+        })
+        
+        console.log('✅ Email sent successfully:', result)
+        onClose()
+      } else {
+        toast({
+          title: "❌ Email Failed",
+          description: result.message || 'Failed to send email reminder',
+          variant: "destructive"
+        })
+      }
+
+    } catch (error) {
+      console.error('❌ Failed to send email:', error)
+      
+      toast({
+        title: "❌ Email Failed",
+        description: `Failed to send email to ${record.name}. Please try again.`,
+        variant: "destructive"
+      })
+    }
   }
 
   // Generate email content when dialog opens

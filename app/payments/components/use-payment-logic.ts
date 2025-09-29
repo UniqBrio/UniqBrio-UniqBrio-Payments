@@ -22,28 +22,28 @@ export function usePaymentLogic() {
 
   // Column visibility configuration
   const [columns, setColumns] = useState<ColumnConfig[]>([
-    { key: 'id', label: 'ID', visible: true },
-    { key: 'name', label: 'Name', visible: true },
-    { key: 'course', label: 'Course', visible: true },
-    { key: 'category', label: 'Category', visible: true },
+    { key: 'id', label: 'Student ID', visible: true },
+    { key: 'name', label: 'Student Name', visible: true },
+    { key: 'program', label: 'Student Program', visible: true },
+    { key: 'course', label: 'Student Course ID', visible: false },
+    { key: 'category', label: 'Student Category', visible: true },
     { key: 'courseType', label: 'Course Type', visible: true },
-    { key: 'courseRegFee', label: 'Course Reg Fee', visible: true },
-    { key: 'studentRegFee', label: 'Student Reg Fee', visible: true },
-    { key: 'finalPayment', label: 'Final Payment', visible: true },
-    { key: 'totalPaid', label: 'Total Paid', visible: true },
-    { key: 'balance', label: 'Balance', visible: true },
+    { key: 'courseRegFee', label: 'Course Reg Fee', visible: false },
+    { key: 'studentRegFee', label: 'Student Reg Fee', visible: false},
+    { key: 'finalPayment', label: 'Course Fee (INR)', visible: true },
+    { key: 'totalPaid', label: 'Total Paid (INR)', visible: true },
+    { key: 'balance', label: 'Balance (INR)', visible: true },
     { key: 'status', label: 'Status', visible: true },
-    { key: 'frequency', label: 'Frequency', visible: false },
     { key: 'paidDate', label: 'Paid Date', visible: true },
     { key: 'nextDue', label: 'Next Due', visible: true },
-    { key: 'courseStartDate', label: 'Start Date', visible: false },
+    { key: 'courseStartDate', label: 'Start Date', visible: true },
     { key: 'reminder', label: 'Reminder', visible: true },
     { key: 'mode', label: 'Mode', visible: false },
-    { key: 'communication', label: 'Communication Text', visible: false },
+    { key: 'communication', label: 'Communication', visible: false },
     { key: 'paymentDetails', label: 'Payment Details', visible: false },
     { key: 'manualPayment', label: 'Manual Payment', visible: true },
     { key: 'payslip', label: 'Payslip', visible: true },
-    { key: 'actions', label: 'Actions', visible: true }
+    { key: 'actions', label: 'Send Reminder', visible: true }
   ])
 
   const handleFilter = () => {
@@ -277,10 +277,10 @@ export function usePaymentLogic() {
               const balance = Math.max(0, finalPayment - totalPaid)
               const courseName = student.course || student.activity || 'General Course'
 
-              // Dates
-              const courseStartDate = student.courseStartDate ? new Date(student.courseStartDate) : new Date()
-              const paidDate = student.paidDate ? new Date(student.paidDate) : courseStartDate
-              const nextPaymentDate = student.nextPaymentDate ? new Date(student.nextPaymentDate) : new Date(courseStartDate.getTime() + 30*24*60*60*1000)
+              // Dates - preserve original format from students collection
+              const courseStartDateObj = student.courseStartDate ? new Date(student.courseStartDate) : new Date()
+              const paidDate = student.paidDate ? new Date(student.paidDate) : courseStartDateObj
+              const nextPaymentDate = student.nextPaymentDate ? new Date(student.nextPaymentDate) : new Date(courseStartDateObj.getTime() + 30*24*60*60*1000)
 
               // Status
               let paymentStatus = 'Paid'
@@ -319,7 +319,7 @@ export function usePaymentLogic() {
                 paymentFrequency: student.paymentFrequency || 'Monthly',
                 paidDate: paidDate.toISOString(),
                 nextPaymentDate: nextPaymentDate.toISOString(),
-                courseStartDate: courseStartDate.toISOString(),
+                courseStartDate: student.courseStartDate || courseStartDateObj.toISOString(),
                 paymentReminder: paymentStatus === 'Paid' ? false : (student.paymentReminder !== false),
                 reminderMode: student.modeOfCommunication || student.reminderMode || 'Email',
                 communicationText: student.communicationText || defaultCommunicationText,
@@ -384,10 +384,40 @@ export function usePaymentLogic() {
     }, 0),
   }
 
-  const handleUpdateRecord = (id: string, updates: Partial<PaymentRecord>) => {
-    console.log('Updating record:', id, updates); // Debug log
-    const updatedRecords = records.map((record: PaymentRecord) => (record.id === id ? { ...record, ...updates } : record))
-    setRecords(updatedRecords)
+  const handleUpdateRecord = async (id: string, updates: Partial<PaymentRecord>) => {
+    console.log('🔄 Updating record:', id, updates); // Debug log
+    
+    try {
+      // Update local state immediately for responsiveness
+      const updatedRecords = records.map((record: PaymentRecord) => (record.id === id ? { ...record, ...updates } : record))
+      setRecords(updatedRecords)
+      
+      // Persist changes to the database
+      const response = await fetch('/api/payments/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: id,
+          updates: updates
+        })
+      });
+      
+      if (!response.ok) {
+        console.error('❌ Failed to update record in database');
+        // Revert local state on failure
+        setRecords(records);
+        throw new Error('Failed to update record');
+      }
+      
+      console.log('✅ Record updated successfully in database');
+      
+    } catch (error) {
+      console.error('❌ Error updating record:', error);
+      // Revert local state on error
+      setRecords(records);
+    }
   }
 
   const refreshPaymentData = async () => {
@@ -467,10 +497,13 @@ export function usePaymentLogic() {
               balancePayment: balance,
               paidDate: student.paidDate || null,
               nextDue: student.nextPaymentDate || null,
-              courseStartDate: student.courseStartDate || null,
+              courseStartDate: student.courseStartDate || new Date().toISOString(),
               paymentReminder: student.paymentReminder !== false,
-              reminderMode: student.reminderMode || 'Email',
               communicationText: student.communicationText || 'Payment reminder sent.',
+              communicationPreferences: {
+                enabled: true,
+                channels: ['Email']
+              },
               paymentDetails: {
                 upiId: student.upiId || 'payments@uniqbrio.com',
                 phoneNumber: student.phoneNumber || '+91 98765 43210'

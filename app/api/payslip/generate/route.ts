@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Student from "@/models/student";
+import Payment from "@/models/payment";
+import { fetchLatestPaymentMethodServer } from "@/lib/payment-utils";
 
 // Mark this route as dynamic since it uses request parameters
 export const dynamic = 'force-dynamic';
@@ -27,6 +29,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Fetch latest payment method from payment records
+    const paymentMethod = await fetchLatestPaymentMethodServer(student.studentId, Payment);
+
     // Generate payslip HTML
     const payslipHTML = `
       <!DOCTYPE html>
@@ -35,9 +40,10 @@ export async function GET(request: NextRequest) {
           <title>Payment Receipt - ${student.name}</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; border-bottom: 2px solid #9234ea; padding-bottom: 20px; margin-bottom: 30px; }
-            .company-name { font-size: 24px; font-weight: bold; color: #9234ea; margin-bottom: 5px; }
-            .receipt-title { font-size: 18px; margin-top: 10px; }
+            .header { text-align: center; border-bottom: 2px solid #9234ea; padding-bottom: 30px; margin-bottom: 40px; }
+            .logo { max-width: 250px; height: auto; margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto; }
+            .company-name { font-size: 32px; font-weight: bold; color: #9234ea; margin-bottom: 5px; letter-spacing: 2px; }
+            .receipt-title { font-size: 18px; margin-top: 10px; font-weight: 500; }
             .student-info { margin-bottom: 30px; }
             .info-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
             .payment-details { border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; }
@@ -50,7 +56,8 @@ export async function GET(request: NextRequest) {
           <div class="timestamp">Generated on: ${new Date().toLocaleString()}</div>
           
           <div class="header">
-            <div class="company-name">UniqBrio</div>
+            <img src="/logo.png" alt="UniqBrio Logo" class="logo" onerror="this.src='/uniqbrio-logo.svg'">
+            <div class="company-name">UNIQBRIO</div>
             <div class="receipt-title">Payment Receipt</div>
           </div>
 
@@ -70,6 +77,10 @@ export async function GET(request: NextRequest) {
             <div class="info-row">
               <strong>Category:</strong>
               <span>${student.category || 'Regular'}</span>
+            </div>
+            <div class="info-row">
+              <strong>Payment Mode:</strong>
+              <span>${paymentMethod}</span>
             </div>
           </div>
 

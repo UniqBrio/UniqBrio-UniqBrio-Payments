@@ -121,9 +121,15 @@ export async function POST(request: NextRequest) {
     console.log(`   New Balance: ₹${currentBalance}`);
     console.log(`   Payment Status: ${paymentStatus}`);
 
-    // NO STUDENT COLLECTION UPDATES - READ ONLY APPROACH
-    // Students and courses collections are only used for reading
-    // All payment tracking happens through single payment document per student
+    // Update student's payment modes to include the latest payment method
+    if (paymentMethod && !student.paymentModes?.includes(paymentMethod)) {
+      if (!student.paymentModes) {
+        student.paymentModes = [];
+      }
+      student.paymentModes.push(paymentMethod);
+      await student.save();
+      console.log(`📝 STUDENT UPDATE: Added '${paymentMethod}' to payment modes for ${student.name}`);
+    }
     
     console.log(`💰 PAYMENT DOCUMENT UPDATE: Payment added to student's payment record - Balance: ₹${currentBalance}`);
 
@@ -191,7 +197,7 @@ export async function GET(request: NextRequest) {
     
     // Sort payment records by date (newest first)
     const sortedPaymentRecords = paymentDoc.paymentRecords.sort(
-      (a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
+      (a: any, b: any) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
     );
     
     return NextResponse.json({

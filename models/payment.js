@@ -95,6 +95,20 @@ const PaymentSchema = new mongoose.Schema({
     default: "Pending" 
   },
   
+  // Communication Settings (for message delivery only)
+  paymentReminder: { type: Boolean, default: false },
+  communicationText: { type: String, default: "" },
+  
+  // Communication Preferences (matches students collection structure)
+  communicationPreferences: {
+    enabled: { type: Boolean, default: true },
+    channels: {
+      type: [String],
+      enum: ["Email", "SMS", "WhatsApp", "In App", "Push Notification"],
+      default: ["Email"]
+    }
+  },
+  
   // Registration Fees Tracking
   registrationFees: {
     studentRegistration: {
