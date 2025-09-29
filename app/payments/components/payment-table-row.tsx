@@ -297,7 +297,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
     <>
       <TableRow key={record.id} className="hover:bg-[#9234ea]/5 border-[#9234ea]/10">
       {selectable && (
-        <TableCell className="p-3 w-8">
+        <TableCell className="p-3 w-8 text-center">
           <input
             type="checkbox"
             checked={!!selected}
@@ -307,55 +307,55 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )}
       {isColumnVisible('id') && (
-        <TableCell className="font-medium text-sm p-3">{record.id}</TableCell>
+        <TableCell className="font-medium text-sm p-3 text-center">{record.id}</TableCell>
       )}
       {isColumnVisible('name') && (
-        <TableCell className="text-sm p-3">{record.name}</TableCell>
+        <TableCell className="text-sm p-3 text-center">{record.name}</TableCell>
       )}
       {isColumnVisible('program') && (
-        <TableCell className="text-sm p-3">{record.activity || 'N/A'}</TableCell>
+        <TableCell className="text-sm p-3 text-center">{record.activity || 'N/A'}</TableCell>
       )}
       {isColumnVisible('course') && (
-        <TableCell className="text-sm p-3">{record.activity}</TableCell>
+        <TableCell className="text-sm p-3 text-center">{record.activity}</TableCell>
       )}
       {isColumnVisible('category') && (
-        <TableCell className="text-sm p-3">
+        <TableCell className="text-sm p-3 text-center">
           <Badge variant="outline" className="text-sm border-purple-200">
             {record.category}
           </Badge>
         </TableCell>
       )}
       {isColumnVisible('courseType') && (
-        <TableCell className="text-sm p-3">
+        <TableCell className="text-sm p-3 text-center">
           <Badge variant="secondary" className="text-sm">
             {record.courseType}
           </Badge>
         </TableCell>
       )}
       {isColumnVisible('registration') && (
-        <TableCell className="text-sm p-3">
+        <TableCell className="text-sm p-3 text-center">
           <RegistrationFeesDisplay record={record} />
         </TableCell>
       )}
       {isColumnVisible('courseRegFee') && (
-        <TableCell className="text-[11px] p-1 font-medium">
+        <TableCell className="text-[11px] p-1 font-medium text-center">
           {record.registrationFees?.courseRegistration?.amount?.toLocaleString() ?? '-'}
         </TableCell>
       )}
       {isColumnVisible('studentRegFee') && (
-        <TableCell className="text-[11px] p-1 font-medium">
+        <TableCell className="text-[11px] p-1 font-medium text-center">
           {record.registrationFees?.studentRegistration?.amount?.toLocaleString() ?? '-'}
         </TableCell>
       )}
             {isColumnVisible('finalPayment') && (
-        <TableCell className="text-[11px] p-2 min-w-[120px]">
+        <TableCell className="text-[11px] p-2 min-w-[120px] text-center">
           <span className="font-medium">
             {(record.finalPayment || 0).toLocaleString()}
           </span>
         </TableCell>
       )}
       {isColumnVisible('totalPaid') && (
-        <TableCell className="text-[11px] p-1 text-green-600 font-medium">
+        <TableCell className="text-[11px] p-1 text-green-600 font-medium text-center">
           {/* Show totalPaidAmount from payments collection */}
           {record.totalPaidAmount && record.totalPaidAmount > 0
             ? (record.totalPaidAmount).toLocaleString()
@@ -363,14 +363,14 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )}
       {isColumnVisible('balance') && (
-        <TableCell className="text-[11px] p-2 min-w-[120px]">
+        <TableCell className="text-[11px] p-2 min-w-[120px] text-center">
           <span className={(record.balancePayment || 0) > 0 ? "text-red-600 font-medium" : "text-green-600"}>
             {(record.balancePayment || 0).toLocaleString()}
           </span>
         </TableCell>
       )}
       {isColumnVisible('status') && (
-        <TableCell className="text-[11px] p-1">
+        <TableCell className="text-[11px] p-1 text-center">
           {dynamicStatus === "-" ? (
             <span className="text-gray-400 italic">-</span>
           ) : (
@@ -405,7 +405,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )}
       {isColumnVisible('reminder') && (
-        <TableCell className="text-[11px] p-1">
+        <TableCell className="text-[11px] p-1 text-center">
           <Badge 
             variant={record.paymentStatus === 'Paid' || !record.paymentReminder ? "secondary" : "default"} 
             className={`text-[11px] ${record.paymentStatus !== 'Paid' ? 'cursor-pointer hover:opacity-80' : ''} ${
@@ -452,7 +452,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )}
       {isColumnVisible('mode') && (
-        <TableCell className="text-[11px] p-1">
+        <TableCell className="text-[11px] p-1 min-w-[100px] text-center">
           <CommunicationModeColumnCompact 
             studentId={record.id}
             studentName={record.name}
@@ -461,7 +461,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )}
       {isColumnVisible('communication') && (
-        <TableCell className="text-[11px] p-1 max-w-xs">
+        <TableCell className="text-[11px] p-1 max-w-xs text-center">
           <div className="space-y-2">
             {editingText && editingText.id === record.id ? (
               <div className="space-y-2">
@@ -557,7 +557,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )}
       {isColumnVisible('manualPayment') && (
-        <TableCell className="text-sm p-3">
+        <TableCell className="text-sm p-3 text-center">
           {showPaymentOptions ? (
             <>
               <Button
@@ -584,7 +584,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )}
       {isColumnVisible('payslip') && (
-        <TableCell className="text-sm p-3">
+        <TableCell className="text-sm p-3 text-center">
           <Button
             size="sm"
             variant="outline"
@@ -597,7 +597,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )}
       {isColumnVisible('actions') && (
-        <TableCell className="text-sm p-3">
+        <TableCell className="text-sm p-3 text-center">
           <div className="flex gap-2 justify-center">
             {/* Send Reminder Logic - Only show for students with balance > 0 */}
             {record.balancePayment > 0 && dynamicStatus === 'Pending' ? (

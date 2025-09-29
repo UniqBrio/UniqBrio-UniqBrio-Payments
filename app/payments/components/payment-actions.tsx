@@ -185,7 +185,8 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
 
       console.log('Updating record with:', updatedRecord); // Debug log
         
-        // Update the record in the parent component immediately
+        // Update the record in the parent component immediately for responsive UI
+        console.log('🔄 Updating local record state with:', updatedRecord);
         onUpdateRecord(record.id, updatedRecord);
         
         // Show success message
@@ -193,20 +194,46 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
           title: "✔ Payment Recorded Successfully",
           description: successMessage,
         });
+        
+        console.log('✅ Local state updated, initiating database refresh...');
 
         // Force refresh the payment data from database after a short delay
         if (refreshPaymentData) {
-          setTimeout(async () => {
+          // Try multiple refresh attempts to ensure data is updated
+          const attemptRefresh = async (attempt: number = 1) => {
             try {
+              console.log(`🔄 Refreshing payment data after manual payment... (attempt ${attempt})`);
               await Promise.resolve(refreshPaymentData());
+              console.log('✅ Payment data refreshed successfully');
             } catch (refreshError) {
-              console.error('Error refreshing payment data:', refreshError);
+              console.error(`❌ Error refreshing payment data (attempt ${attempt}):`, refreshError);
+              
+              // Try again after a longer delay if first attempt fails
+              if (attempt < 2) {
+                setTimeout(() => attemptRefresh(attempt + 1), 2000);
+              } else {
+                // Show error toast if all refresh attempts fail
+                toast({
+                  title: "⚠️ Refresh Warning",
+                  description: "Payment was recorded but display may not be updated. Please refresh the page.",
+                  variant: "destructive"
+                });
+              }
             }
-          }, 500); // Reduced delay
+          };
+          
+          setTimeout(() => attemptRefresh(), 1500); // Increased delay to 1.5 seconds
         }
       
     } catch (error) {
-      console.error('Payment recording error:', error);
+      console.error('❌ Payment recording error:', error);
+      
+      // Log the full error details for debugging
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+      
       toast({
         title: "❌ Payment Recording Failed",
         description: error instanceof Error ? error.message : "Failed to record payment in database",

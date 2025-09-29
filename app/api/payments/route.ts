@@ -5,9 +5,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🚀 POST /api/payments - Manual payment request received');
+    
     const connection = await connectDB();
     
     if (!connection) {
+      console.log('❌ Database connection unavailable');
       return NextResponse.json({
         success: false,
         error: "Database connection unavailable"
@@ -15,6 +18,8 @@ export async function POST(request: NextRequest) {
     }
     
     const body = await request.json();
+    console.log('📝 Payment request body:', JSON.stringify(body, null, 2));
+    
     const {
       studentId,
       amount,
@@ -48,18 +53,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Find the student
+    console.log('🔍 Looking for student with ID:', studentId);
     const student = await Student.findOne({ studentId });
     if (!student) {
+      console.log('❌ Student not found:', studentId);
       return NextResponse.json({
         success: false,
         error: "Student not found"
       }, { status: 404 });
     }
+    console.log('✅ Student found:', student.name);
 
     // Find or create the student's payment document
+    console.log('🔍 Looking for payment document for student:', student.studentId);
     let paymentDoc = await Payment.findOne({ studentId: student.studentId });
     
     if (!paymentDoc) {
+      console.log('📄 Creating new payment document for student:', student.studentId);
       // Create new payment document for this student
       paymentDoc = new Payment({
         studentId: student.studentId,
@@ -74,6 +84,8 @@ export async function POST(request: NextRequest) {
         currentBalance: Number(finalPayment) || 0,
         paymentRecords: []
       });
+    } else {
+      console.log('📄 Found existing payment document with', paymentDoc.paymentRecords.length, 'records');
     }
 
     // Create new payment record to add to the paymentRecords array
@@ -96,15 +108,19 @@ export async function POST(request: NextRequest) {
     };
 
     // Add the new payment record to the array
+    console.log('➕ Adding payment record:', newPaymentRecord);
     paymentDoc.paymentRecords.push(newPaymentRecord);
     
     // Update the total course fee if provided
     if (finalPayment && Number(finalPayment) > 0) {
+      console.log('💰 Updating total course fee to:', finalPayment);
       paymentDoc.totalCourseFee = Number(finalPayment);
     }
 
     // Save the document (pre-save hooks will calculate balances automatically)
+    console.log('💾 Saving payment document...');
     await paymentDoc.save();
+    console.log('✅ Payment document saved successfully');
 
     const currentBalance = paymentDoc.currentBalance;
     const paymentStatus = paymentDoc.paymentStatus;

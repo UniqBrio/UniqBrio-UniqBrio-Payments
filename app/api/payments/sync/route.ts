@@ -8,9 +8,12 @@ export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('🔄 GET /api/payments/sync - Fetching updated payment data...');
+    
     const connection = await connectDB();
     
     if (!connection) {
+      console.log('❌ Database connection unavailable during sync');
       return NextResponse.json({
         success: false,
         error: "Database connection unavailable during build",
@@ -20,6 +23,7 @@ export async function GET(request: NextRequest) {
     
     const url = new URL(request.url);
     const studentIdParam = url.searchParams.get('studentId');
+    console.log('📋 Sync request for studentId:', studentIdParam || 'ALL STUDENTS');
     
     // READ-ONLY COLLECTIONS: Only fetch data, never update
     // Fetch students (READ ONLY)
@@ -35,9 +39,13 @@ export async function GET(request: NextRequest) {
     
     // Fetch all payment documents (one per student) - Source of truth for all calculations
     const studentIds = students.map(s => s.studentId);
+    console.log(`🔍 Fetching payment documents for ${studentIds.length} students`);
+    
     const allPaymentDocs = await Payment.find({ 
       studentId: { $in: studentIds } 
     }).lean();
+    
+    console.log(`📊 Found ${allPaymentDocs.length} payment documents in database`);
     
     // Create lookup map for payment documents by studentId
     const paymentsByStudent = allPaymentDocs.reduce((acc, paymentDoc) => {
@@ -48,7 +56,13 @@ export async function GET(request: NextRequest) {
     // Count total payment records across all students
     const totalPaymentRecords = allPaymentDocs.reduce((sum, doc) => sum + (doc.paymentRecords?.length || 0), 0);
     
-    console.log(`Found ${students.length} students, ${courses.length} courses (ALL statuses), and ${totalPaymentRecords} payment records across ${allPaymentDocs.length} payment documents`);
+    console.log(`📋 Found ${students.length} students, ${courses.length} courses (ALL statuses), and ${totalPaymentRecords} payment records across ${allPaymentDocs.length} payment documents`);
+    
+    // Log a sample of payment documents for debugging
+    if (allPaymentDocs.length > 0) {
+      const sampleDoc = allPaymentDocs[0];
+      console.log(`📝 Sample payment doc for ${sampleDoc.studentId}: ${sampleDoc.paymentRecords?.length || 0} records, balance: ${sampleDoc.currentBalance}`);
+    }
     
     // Debug: Log available courses for matching
     console.log('📚 Available courses for matching:');

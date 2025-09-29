@@ -422,6 +422,7 @@ export function usePaymentLogic() {
 
   const refreshPaymentData = async () => {
     try {
+      console.log('🔄 refreshPaymentData called - fetching updated payment data...');
       // Don't show loading for auto-refresh to avoid UI flickering
       // setLoading(true)
       
@@ -437,8 +438,10 @@ export function usePaymentLogic() {
       })
       let result = await response.json()
       
+      console.log('📊 Sync API response:', { success: result.success, dataLength: result.data?.length });
+      
       if (result.success && result.data && result.data.length > 0) {
-        console.log('Payment data refreshed from sync:', result.data.length, 'records'); // Debug log
+        console.log('✅ Payment data refreshed from sync:', result.data.length, 'records'); // Debug log
         
         // Check if new students were added
         if (result.data.length > previousCount) {
@@ -451,8 +454,10 @@ export function usePaymentLogic() {
           }
         }
         
+        console.log('🔄 Updating records state with fresh data from database');
         setRecords(result.data)
         setError(null)
+        console.log('✅ Records state updated successfully');
       } else {
         // Fallback to students API if sync fails
         // Sync failed, falling back to students API
@@ -525,9 +530,12 @@ export function usePaymentLogic() {
         }
       }
     } catch (err) {
-      console.error('Auto-refresh error:', err)
+      console.error('❌ refreshPaymentData error:', err)
       // Don't set error state for auto-refresh to avoid disturbing UI
       // setError('Failed to refresh payment data')
+      
+      // Re-throw the error so it can be caught by the caller
+      throw err;
     } finally {
       // Don't set loading false for auto-refresh
       // setLoading(false)
