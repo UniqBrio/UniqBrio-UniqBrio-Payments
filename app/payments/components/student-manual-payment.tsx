@@ -263,7 +263,7 @@ export function ManualPaymentDialog({
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
     <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Log Manual Payment</DialogTitle>
+          <DialogTitle>Manual Payment</DialogTitle>
           {studentInfo && (
             <div className="text-sm text-gray-600 mt-2 p-3 bg-gray-50 rounded-md">
               <p><strong>Student:</strong> {studentInfo.name || '-'}</p>

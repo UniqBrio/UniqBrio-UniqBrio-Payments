@@ -75,15 +75,19 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
   const [emailPreviewOpen, setEmailPreviewOpen] = useState(false)
   const [generatedQR, setGeneratedQR] = useState<string>('')
 
-  // Calculate dynamic payment status based on both course balance and registration fees
-  const calculateDynamicStatus = (): "Paid" | "Pending" => {
-    const courseFullyPaid = record.balancePayment <= 0;
-    const registrationStatus = calculateRegistrationStatus(record.registrationFees);
+  // Calculate dynamic payment status based on final payment and balance
+  const calculateDynamicStatus = (): "Paid" | "Pending" | "-" => {
+    // If final payment is "-" (unmatched students), show "-"
+    if (record.finalPayment === "-" || record.finalPayment === null || record.finalPayment === undefined || String(record.finalPayment) === "-") {
+      return "-";
+    }
     
-    // If course is fully paid (balance = 0) AND all registration fees paid
-    if (courseFullyPaid && registrationStatus === "Paid") {
+    // If balance is 0 or "-", show "Paid"
+    if (record.balancePayment === 0 || record.balancePayment === "-" || String(record.balancePayment) === "-") {
       return "Paid";
     }
+    
+    // If balance is not 0, show "Pending"
     return "Pending";
   };
 
@@ -281,9 +285,9 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )}
       {isColumnVisible('totalPaid') && (
         <TableCell className="text-[11px] p-1 text-green-600 font-medium">
-          {/* Only show Course Registration Fee payments in Total Paid */}
-          {record.registrationFees?.courseRegistration?.paid
-            ? (record.registrationFees?.courseRegistration?.amount ?? 0).toLocaleString()
+          {/* Show totalPaidAmount from payments collection */}
+          {record.totalPaidAmount && record.totalPaidAmount > 0
+            ? (record.totalPaidAmount).toLocaleString()
             : '0'} {getCurrencyName(record.currency)}
         </TableCell>
       )}
@@ -296,22 +300,32 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )}
       {isColumnVisible('status') && (
         <TableCell className="text-[11px] p-1">
-          <Badge className={`text-[11px] ${getStatusColor(dynamicStatus)}`}>
-            {dynamicStatus}
-          </Badge>
+          {dynamicStatus === "-" ? (
+            <span className="text-gray-400 italic">-</span>
+          ) : (
+            <Badge className={`text-[11px] ${getStatusColor(dynamicStatus)}`}>
+              {dynamicStatus}
+            </Badge>
+          )}
         </TableCell>
       )}
-      {isColumnVisible('frequency') && (
+      {/* {isColumnVisible('frequency') && (
         <TableCell className="text-[11px] p-1">{record.paymentFrequency}</TableCell>
-      )}
+      )} */}
       {isColumnVisible('paidDate') && (
         <TableCell className="text-[11px] p-1 text-center">
-          {formatDate(record.paidDate)}
+          {record.paidDate ? (
+            <span title={`Raw date: ${record.paidDate}`}>
+              {formatDate(record.paidDate)}
+            </span>
+          ) : (
+            <span className="text-gray-400 italic">-</span>
+          )}
         </TableCell>
       )}
       {isColumnVisible('nextDue') && (
         <TableCell className="text-[11px] p-1 text-center">
-          {formatDate(record.nextPaymentDate)}
+          {record.nextPaymentDate ? formatDate(record.nextPaymentDate) : <span className="text-gray-400 italic">-</span>}
         </TableCell>
       )}
       {isColumnVisible('courseStartDate') && (
@@ -480,49 +494,34 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       {isColumnVisible('actions') && (
         <TableCell className="text-sm p-3">
           <div className="flex gap-2 justify-center">
-            {/* Send Payment Reminder with Payment Options */}
-            {/* DEBUG: Show button for all records to test functionality */}
-            {(record.paymentReminder && 
-             record.balancePayment > 0 && 
-             record.paymentStatus !== 'Paid') || true && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  
-                  console.log('🚀 REMINDER BUTTON CLICKED!');
-                  
-                  // Simple test - just show a toast
-                  toast({
-                    title: "Button Works! ✅",
-                    description: `Clicked for ${record.name || 'Student'}`,
-                    variant: "default",
-                  });
-                  
-                  // Also try to open email preview as a test
-                  try {
-                    console.log('Attempting to open email preview...');
-                    setEmailPreviewOpen(true);
-                  } catch (error) {
-                    console.error('Error opening email preview:', error);
-                  }
-                }}
-                className="border-[#9234ea] hover:bg-[#9234ea] hover:text-white h-8 w-8 p-0 cursor-pointer bg-white transition-colors duration-200 shadow-sm"
-                title="Test Reminder Button"
-              >
-                <Send className="h-4 w-4 text-[#9234ea]" />
-              </Button>
-            )}
-            {/* Show info when reminder is disabled for paid payments */}
-            {record.paymentStatus === 'Paid' && (
+            {/* Send Reminder Logic - Only show for students with balance > 0 */}
+            {record.balancePayment > 0 && dynamicStatus === 'Pending' ? (
+              record.paymentReminder ? (
+                // Show Send Reminder button when reminder is ON and balance > 0
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSendReminderWithPaymentOptions}
+                  className="border-[#9234ea] hover:bg-[#9234ea] hover:text-white h-8 w-8 p-0 cursor-pointer bg-white transition-colors duration-200 shadow-sm group"
+                  title="Send Payment Reminder"
+                >
+                  <Send className="h-4 w-4 text-[#9234ea] group-hover:text-white transition-colors duration-200" />
+                </Button>
+              ) : (
+                // Show "-" when reminder is OFF but balance > 0
+                <span className="text-gray-400 italic">-</span>
+              )
+            ) : dynamicStatus === 'Paid' ? (
+              // Show "Paid" when payment is completed
               <span 
                 className="text-xs text-gray-500 px-2 py-1 bg-green-50 rounded border border-green-200" 
                 title="Payment completed - reminders disabled"
               >
                 Paid
               </span>
+            ) : (
+              // Show "-" for unmatched students or other cases
+              <span className="text-gray-400 italic">-</span>
             )}
           </div>
         </TableCell>

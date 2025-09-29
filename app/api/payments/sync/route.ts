@@ -33,22 +33,22 @@ export async function GET(request: NextRequest) {
     // Fetch courses (READ ONLY) 
     const courses = await Course.find({});
     
-    // Fetch all payments (READ/WRITE) - Source of truth for all calculations
+    // Fetch all payment documents (one per student) - Source of truth for all calculations
     const studentIds = students.map(s => s.studentId);
-    const allPayments = await Payment.find({ 
+    const allPaymentDocs = await Payment.find({ 
       studentId: { $in: studentIds } 
     }).lean();
     
-    // Group payments by student ID for efficient lookup
-    const paymentsByStudent = allPayments.reduce((acc, payment) => {
-      if (!acc[payment.studentId]) {
-        acc[payment.studentId] = [];
-      }
-      acc[payment.studentId].push(payment);
+    // Create lookup map for payment documents by studentId
+    const paymentsByStudent = allPaymentDocs.reduce((acc, paymentDoc) => {
+      acc[paymentDoc.studentId] = paymentDoc;
       return acc;
-    }, {} as Record<string, any[]>);
+    }, {} as Record<string, any>);
     
-    console.log(`Found ${students.length} students, ${courses.length} courses (ALL statuses), and ${allPayments.length} payments`);
+    // Count total payment records across all students
+    const totalPaymentRecords = allPaymentDocs.reduce((sum, doc) => sum + (doc.paymentRecords?.length || 0), 0);
+    
+    console.log(`Found ${students.length} students, ${courses.length} courses (ALL statuses), and ${totalPaymentRecords} payment records across ${allPaymentDocs.length} payment documents`);
     
     // Debug: Log available courses for matching
     console.log('📚 Available courses for matching:');
@@ -79,13 +79,13 @@ export async function GET(request: NextRequest) {
       // DEBUG: Check what category/level data exists
       const rawCategory = (student as any).category;
       const rawLevel = (student as any).level;
-      console.log(`🔍 Student ${student.studentId} fields: category="${rawCategory}" (for display), level="${rawLevel}" (for matching)`);
+      console.log(`🔍 Student ${student.studentId} fields: category="${rawCategory}" (for matching), level="${rawLevel}" (for display only)`);
       
       // Get exact CATEGORY field from students collection for display
       const studentCategory = (student as any).category || '-';
       
-      // Get normalized LEVEL for matching logic with courses
-      const normalizedCategory = normalize((student as any).level);
+      // Get normalized CATEGORY for matching logic with courses (Rule 3: student.category === course.level)
+      const normalizedCategory = normalize((student as any).category);
 
       let matchedCoursePrice = 0;
       let matchedCourseId: string | null = null;
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
       // STRICT 3-RULE MATCHING ONLY - NO FALLBACK OR PARTIAL MATCHES
       // Rule 1: student.activity === course.courseId
       // Rule 2: student.program === course.name  
-      // Rule 3: student.category === course.level
+      // Rule 3: student.category === course.level (FIXED: Now using category field for matching)
       // ALL 3 RULES MUST MATCH EXACTLY - NO EXCEPTIONS
       // ADDITIONALLY: Students MUST have category field populated (not empty)
       const hasValidCategory = rawCategory && typeof rawCategory === 'string' && rawCategory.trim() !== '';
@@ -142,14 +142,21 @@ export async function GET(request: NextRequest) {
       // Courses collection: READ ONLY (never updated)
       // Payments collection: Source of truth for all payment data
       
-      const studentPayments = paymentsByStudent[student.studentId] || [];
-      const coursePaidAmount = studentPayments
-        .filter(p => ['Course Payment', 'Course Registration'].includes(p.paymentCategory))
-        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const studentPaymentDoc = paymentsByStudent[student.studentId];
+      let coursePaidAmount = 0;
+      let totalPaymentRecords = 0;
+      
+      if (studentPaymentDoc && studentPaymentDoc.paymentRecords) {
+        // Calculate from payment records within the student's payment document
+        coursePaidAmount = studentPaymentDoc.paymentRecords
+          .filter(record => ['Course Payment', 'Course Registration'].includes(record.paymentCategory))
+          .reduce((sum, record) => sum + (Number(record.amount) || 0), 0);
+        totalPaymentRecords = studentPaymentDoc.paymentRecords.length;
+      }
       
       // BALANCE CALCULATION (100% from payments collection):
       // Final Payment = Course fee (from matched course)
-      // Total Paid = Sum from payments collection 
+      // Total Paid = Sum from payment records in student's payment document
       // Balance = Final Payment - Total Paid (real-time calculation)
       const balanceAmount = Math.max(0, finalPaymentAmount - coursePaidAmount);
         
@@ -163,7 +170,7 @@ export async function GET(request: NextRequest) {
         console.log(`   ✓ Rule 3: Category "${normalizedCategory}" === CourseLevel`);
         console.log(`   💰 PAYMENT CALCULATION:`);
         console.log(`      Final Payment (Course Fee): ₹${finalPaymentAmount}`);
-        console.log(`      Total Paid Amount: ₹${coursePaidAmount} (from ${studentPayments.length} payments)`);
+        console.log(`      Total Paid Amount: ₹${coursePaidAmount} (from ${totalPaymentRecords} payment records)`);
         console.log(`      Balance Remaining: ₹${balanceAmount} = ₹${finalPaymentAmount} - ₹${coursePaidAmount}`);
         console.log(`      Payment Status: ${balanceAmount > 0 ? 'PENDING' : 'PAID'}`);
       }
@@ -200,6 +207,18 @@ export async function GET(request: NextRequest) {
         finalPayment: matchType === 'exact-triple-match' ? finalPaymentAmount : '-', // Show final payment only if all 3 fields match  
         balancePayment: matchType === 'exact-triple-match' ? balanceAmount : '-', // Show balance only if all 3 fields match
         totalPaidAmount: coursePaidAmount,
+        // Paid Date: Show last payment date or "-" if no payments
+        paidDate: studentPaymentDoc && studentPaymentDoc.lastPaymentDate ? 
+          studentPaymentDoc.lastPaymentDate.toISOString() : null,
+        // Next Due Date: Every 30 days from last payment, or 30 days from now if no payments
+        nextPaymentDate: (() => {
+          if (matchType !== 'exact-triple-match' || balanceAmount <= 0) return null; // Only for matched students with balance
+          const baseDate = studentPaymentDoc && studentPaymentDoc.lastPaymentDate ? 
+            new Date(studentPaymentDoc.lastPaymentDate) : new Date();
+          const nextDue = new Date(baseDate);
+          nextDue.setDate(nextDue.getDate() + 30);
+          return nextDue.toISOString();
+        })(),
         paymentStatus: matchType === 'exact-triple-match' ? (balanceAmount > 0 ? 'Pending' : 'Paid') : '-', // Show status only if all 3 fields match
         paymentReminder: matchType === 'exact-triple-match' && hasBalance, // Reminder on if matched and balance > 0
         communicationPreferences: commPreferences, // Student's preferred communication channels

@@ -56,62 +56,90 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Create payment record
-    const paymentData = {
-      studentId: student.studentId,
-      studentName: student.name,
+    // Find or create the student's payment document
+    let paymentDoc = await Payment.findOne({ studentId: student.studentId });
+    
+    if (!paymentDoc) {
+      // Create new payment document for this student
+      paymentDoc = new Payment({
+        studentId: student.studentId,
+        studentName: student.name,
+        courseId: student.activity || 'UNKNOWN',
+        courseName: student.program || 'Unknown Course',
+        cohort: student.cohort || '',
+        batch: student.batch || '',
+        totalCourseFee: Number(finalPayment) || 0,
+        totalPaidAmount: 0,
+        coursePaidAmount: 0,
+        currentBalance: Number(finalPayment) || 0,
+        paymentRecords: []
+      });
+    }
+
+    // Create new payment record to add to the paymentRecords array
+    const newPaymentRecord = {
       amount: Number(amount),
-      paymentMethod,
+      paymentMethod, // Payment mode (Cash, UPI, QR, Card, etc.)
       paymentType: paymentType || 'Course Fee',
       paymentCategory: paymentCategory || 'Course Payment',
       notes: notes || '',
-      paymentDate: new Date(paymentDate),
+      paymentDate: new Date(paymentDate), // Payment date
+      receiverName: student.name,
+      receiverId: student.studentId,
+      previousBalance: paymentDoc.currentBalance,
+      newBalance: Math.max(0, paymentDoc.currentBalance - Number(amount)),
       isManualPayment: Boolean(isManualPayment),
       recordedBy: recordedBy || 'System',
-      registrationPaymentType,
-      finalPayment: Number(finalPayment) || 0,
-      ...(isManualPayment && receivedByName && receivedByRole && {
-        receivedByName: receivedByName.trim(),
-        receivedByRole: receivedByRole
-      })
+      // Always store received by information when available
+      receivedByName: receivedByName ? receivedByName.trim() : (recordedBy || 'System'),
+      receivedByRole: receivedByRole || (isManualPayment ? 'admin' : 'system')
     };
 
-    const payment = new Payment(paymentData);
-    await payment.save();
-
-    // Calculate updated payment summary
-    const allPayments = await Payment.find({ studentId: student.studentId });
-    const coursePaidAmount = allPayments
-      .filter(p => ['Course Payment', 'Course Registration'].includes(p.paymentCategory))
-      .reduce((sum, p) => sum + p.amount, 0);
+    // Add the new payment record to the array
+    paymentDoc.paymentRecords.push(newPaymentRecord);
     
-    const currentBalance = Math.max(0, (finalPayment || 0) - coursePaidAmount);
-    const paymentStatus = currentBalance <= 0 ? 'Paid' : 'Pending';
+    // Update the total course fee if provided
+    if (finalPayment && Number(finalPayment) > 0) {
+      paymentDoc.totalCourseFee = Number(finalPayment);
+    }
+
+    // Save the document (pre-save hooks will calculate balances automatically)
+    await paymentDoc.save();
+
+    const currentBalance = paymentDoc.currentBalance;
+    const paymentStatus = paymentDoc.paymentStatus;
     
     // Debug payment flow
     console.log(`💳 PAYMENT RECORDED for Student ${studentId}:`);
     console.log(`   Payment Amount: ₹${amount} (${paymentMethod})`);
-    console.log(`   Final Payment (Course Fee): ₹${finalPayment || 0}`);
-    console.log(`   Total Paid Amount: ₹${coursePaidAmount} (from ${allPayments.length} payments)`);
-    console.log(`   New Balance: ₹${currentBalance} = ₹${finalPayment || 0} - ₹${coursePaidAmount}`);
+    console.log(`   Payment Date: ${new Date(paymentDate).toLocaleDateString()}`);
+    console.log(`   Payment Method/Mode: ${paymentMethod}`);
+    console.log(`   Received By: ${newPaymentRecord.receivedByName} (${newPaymentRecord.receivedByRole})`);
+    console.log(`   Final Payment (Course Fee): ₹${paymentDoc.totalCourseFee}`);
+    console.log(`   Total Paid Amount: ₹${paymentDoc.totalPaidAmount} (from ${paymentDoc.paymentRecords.length} payments)`);
+    console.log(`   Course Paid Amount: ₹${paymentDoc.coursePaidAmount}`);
+    console.log(`   New Balance: ₹${currentBalance}`);
     console.log(`   Payment Status: ${paymentStatus}`);
 
     // NO STUDENT COLLECTION UPDATES - READ ONLY APPROACH
     // Students and courses collections are only used for reading
-    // All payment tracking happens through payments collection only
+    // All payment tracking happens through single payment document per student
     
-    console.log(`� PAYMENT ONLY UPDATE: Payment recorded in payments collection - Balance: ₹${currentBalance}`);
+    console.log(`💰 PAYMENT DOCUMENT UPDATE: Payment added to student's payment record - Balance: ₹${currentBalance}`);
 
     return NextResponse.json({
       success: true,
-      message: "Payment recorded successfully - calculated from payments collection only",
+      message: "Payment recorded successfully in student's payment document",
       data: {
-        payment: payment.toObject(),
-        summary: {
-          coursePaidAmount,
-          totalPaidAmount: coursePaidAmount,
-          currentBalance,
-          paymentStatus
+        paymentRecord: newPaymentRecord,
+        paymentDocument: {
+          studentId: paymentDoc.studentId,
+          totalRecords: paymentDoc.paymentRecords.length,
+          totalCourseFee: paymentDoc.totalCourseFee,
+          totalPaidAmount: paymentDoc.totalPaidAmount,
+          coursePaidAmount: paymentDoc.coursePaidAmount,
+          currentBalance: paymentDoc.currentBalance,
+          paymentStatus: paymentDoc.paymentStatus
         }
       }
     });
@@ -147,11 +175,38 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
     
-    const payments = await Payment.find({ studentId }).sort({ paymentDate: -1 });
+    const paymentDoc = await Payment.findOne({ studentId });
+    
+    if (!paymentDoc) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          studentId,
+          paymentRecords: [],
+          totalRecords: 0,
+          message: "No payment document found for this student"
+        }
+      });
+    }
+    
+    // Sort payment records by date (newest first)
+    const sortedPaymentRecords = paymentDoc.paymentRecords.sort(
+      (a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
+    );
     
     return NextResponse.json({
       success: true,
-      data: payments
+      data: {
+        studentId: paymentDoc.studentId,
+        studentName: paymentDoc.studentName,
+        totalCourseFee: paymentDoc.totalCourseFee,
+        totalPaidAmount: paymentDoc.totalPaidAmount,
+        coursePaidAmount: paymentDoc.coursePaidAmount,
+        currentBalance: paymentDoc.currentBalance,
+        paymentStatus: paymentDoc.paymentStatus,
+        totalRecords: paymentDoc.paymentRecords.length,
+        paymentRecords: sortedPaymentRecords
+      }
     });
     
   } catch (error) {

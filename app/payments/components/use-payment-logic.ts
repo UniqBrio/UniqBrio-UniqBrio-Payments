@@ -119,9 +119,10 @@ export function usePaymentLogic() {
   }
 
   // POLLING & CHANGE DETECTION STRATEGY (User requirement):
-  // - Students collection: poll every 30s regardless (baseline new student detection)
+  // - Students collection: poll every 1-2 minutes for category changes (as categories can be modified anytime)
   // - Payments & Courses: ONLY trigger refresh when their data actually changes
   //   (hash comparison, no timestamp field to avoid false positives)
+  // - Frequent checking needed because student categories affect course matching dynamically
   useEffect(() => {
     let studentInterval: any;
     let monitorInterval: any;
@@ -130,7 +131,13 @@ export function usePaymentLogic() {
 
     const computeStudentHash = (students: any[]) =>
       JSON.stringify(
-        students.map(s => ({ id: s.studentId, updated: s.updatedAt || s.createdAt }))
+        students.map(s => ({ 
+          id: s.studentId, 
+          category: s.category, 
+          program: s.program, 
+          activity: s.activity,
+          updated: s.updatedAt || s.createdAt 
+        }))
       );
 
     const computePaymentsCoursesHash = (payments: any[], courses: any[]) =>
@@ -139,7 +146,7 @@ export function usePaymentLogic() {
         courses: courses.map(c => ({ id: c.id || c._id, price: c.priceINR, updated: c.updatedAt || c.createdAt }))
       });
 
-    // 1. Students polling every 30s
+    // 1. Students polling every 1 minute (category changes affect course matching immediately)
     const pollStudents = async () => {
       try {
         const res = await fetch('/api/students', { cache: 'no-store' });
@@ -155,7 +162,7 @@ export function usePaymentLogic() {
       } catch (_) { /* silent */ }
     };
 
-    // 2. Payments + Courses change detection every 15s (no unconditional refresh)
+    // 2. Payments + Courses change detection every 2 minutes (no unconditional refresh)
     const monitorPaymentsAndCourses = async () => {
       try {
         const [paymentsRes, coursesRes] = await Promise.all([
@@ -185,8 +192,8 @@ export function usePaymentLogic() {
     pollStudents();
     monitorPaymentsAndCourses();
 
-    studentInterval = setInterval(pollStudents, 30000); // 30s
-    monitorInterval = setInterval(monitorPaymentsAndCourses, 15000); // 15s
+    studentInterval = setInterval(pollStudents, 60000); // 1 minute - check for student category changes
+    monitorInterval = setInterval(monitorPaymentsAndCourses, 120000); // 2 minutes - check payments/courses changes
 
     return () => {
       clearInterval(studentInterval);

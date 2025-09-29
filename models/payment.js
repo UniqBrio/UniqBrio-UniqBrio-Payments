@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 // Individual Payment Record Schema
 const PaymentRecordSchema = new mongoose.Schema({
   // Payment Transaction Details
-  transactionId: { type: String, required: true },
+  transactionId: { type: String }, // Generated automatically in pre-save hook
   amount: { type: Number, required: true, min: 0 },
   currency: { type: String, default: "INR" },
   paymentType: { 
