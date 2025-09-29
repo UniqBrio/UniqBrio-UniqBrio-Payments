@@ -313,7 +313,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         <TableCell className="text-sm p-3 text-center">{record.name}</TableCell>
       )}
       {isColumnVisible('program') && (
-        <TableCell className="text-sm p-3 text-center">{record.activity || 'N/A'}</TableCell>
+        <TableCell className="text-sm p-3 text-center">{record.program || 'N/A'}</TableCell>
       )}
       {isColumnVisible('course') && (
         <TableCell className="text-sm p-3 text-center">{record.activity}</TableCell>

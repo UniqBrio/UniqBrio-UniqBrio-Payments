@@ -51,6 +51,7 @@ export function StudentManualPayment({ student, onSubmit, open, onOpenChange }: 
         courseType: student.courseType ?? '-',
         category: student.category ?? '-',
         activity: student.activity ?? '-',
+        program: student.program ?? '-',
         registrationFees: student.registrationFees,
       }}
     />
@@ -99,7 +100,7 @@ export function ManualPaymentDialog({
   onSubmit: (payload: ManualPaymentPayload) => void
   defaultMode?: ManualPaymentPayload["mode"]
   prefillAmount?: number
-  studentInfo?: { id: string; name: string; balancePayment?: number; courseType?: string; category?: string; activity?: string; registrationFees?: any }
+  studentInfo?: { id: string; name: string; balancePayment?: number; courseType?: string; category?: string; activity?: string; program?: string; registrationFees?: any }
 }) {
   const [amount, setAmount] = useState<string>("")
   const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10))
@@ -109,6 +110,26 @@ export function ManualPaymentDialog({
   const [receivedByName, setReceivedByName] = useState<string>("")
   const [receivedByRole, setReceivedByRole] = useState<ManualPaymentPayload["receivedByRole"]>("instructor")
   // Removed receiverName and receiverId state
+  
+  // Validation states for progressive form
+  const [amountTouched, setAmountTouched] = useState(false)
+  const [dateTouched, setDateTouched] = useState(false)
+  const [modeTouched, setModeTouched] = useState(false)
+  const [receivedByNameTouched, setReceivedByNameTouched] = useState(false)
+  const [receivedByRoleTouched, setReceivedByRoleTouched] = useState(false)
+  
+  // Validation helpers
+  const isAmountValid = amount.trim() !== "" && parseFloat(amount) > 0
+  const isDateValid = date.trim() !== ""
+  const isModeValid = mode !== ""
+  const isReceivedByNameValid = receivedByName.trim() !== ""
+  const isReceivedByRoleValid = receivedByRole !== ""
+  
+  // Progressive validation - each field depends on previous ones being valid
+  const canEnableDate = isAmountValid
+  const canEnableMode = isAmountValid && isDateValid
+  const canEnableReceivedByName = isAmountValid && isDateValid && isModeValid
+  const canEnableReceivedByRole = isAmountValid && isDateValid && isModeValid && isReceivedByNameValid
 
   // Helper function to safely extract fee data from actual database values
   const getActualFeeData = (feeObj: any) => {
@@ -271,6 +292,7 @@ export function ManualPaymentDialog({
               <p><strong>Course Type:</strong> {studentInfo.courseType || '-'}</p>
               <p><strong>Category:</strong> {studentInfo.category || '-'}</p>
               <p><strong>Activity:</strong> {studentInfo.activity || '-'}</p>
+              <p><strong>Program:</strong> {studentInfo.program || '-'}</p>
               <p><strong>Balance Payment:</strong> ₹{(studentInfo.balancePayment ?? 0).toLocaleString()}</p>
               {studentInfo.registrationFees && (
                 <div className="mt-2 pt-2 border-t">
@@ -360,23 +382,58 @@ export function ManualPaymentDialog({
             <RequiredLabel htmlFor="mp-amount">Payment Amount</RequiredLabel>
             <Input
               id="mp-amount"
-              type="number"
-              min="0"
-              step="0.01"
+              type="text"
               value={amount}
               required
-              onChange={(e) => setAmount(e.target.value)}
+              onBlur={() => setAmountTouched(true)}
+              onChange={(e) => {
+                // Only allow numbers and decimal point
+                const value = e.target.value.replace(/[^0-9.]/g, '');
+                // Prevent multiple decimal points
+                const parts = value.split('.');
+                if (parts.length > 2) {
+                  return;
+                }
+                setAmount(value);
+              }}
               placeholder="Enter amount"
+              className={`text-left ${amountTouched && !isAmountValid ? 'border-red-500 focus:border-red-500' : ''}`}
             />
+            {amountTouched && !isAmountValid && (
+              <span className="text-red-500 text-xs">Please enter a valid amount</span>
+            )}
           </div>
           <div className="grid gap-1">
             <RequiredLabel htmlFor="mp-date">Date</RequiredLabel>
-            <Input id="mp-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+            <Input 
+              id="mp-date" 
+              type="date" 
+              value={date} 
+              onChange={(e) => setDate(e.target.value)}
+              onBlur={() => setDateTouched(true)}
+              disabled={!canEnableDate}
+              required 
+              className={`${dateTouched && !isDateValid ? 'border-red-500 focus:border-red-500' : ''} ${!canEnableDate ? 'opacity-50 cursor-not-allowed' : ''}`}
+            />
+            {dateTouched && !isDateValid && (
+              <span className="text-red-500 text-xs">Please select a date</span>
+            )}
+            {!canEnableDate && (
+              <span className="text-gray-500 text-xs">Complete the amount field first</span>
+            )}
           </div>
           <div className="grid gap-1">
             <RequiredLabel>Mode</RequiredLabel>
-            <Select value={mode} onValueChange={(v) => setMode(v as ManualPaymentPayload["mode"]) } required>
-              <SelectTrigger>
+            <Select 
+              value={mode} 
+              onValueChange={(v) => {
+                setMode(v as ManualPaymentPayload["mode"]);
+                setModeTouched(true);
+              }} 
+              required
+              disabled={!canEnableMode}
+            >
+              <SelectTrigger className={`${modeTouched && !isModeValid ? 'border-red-500 focus:border-red-500' : ''} ${!canEnableMode ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 <SelectValue placeholder="Select mode" />
               </SelectTrigger>
               <SelectContent>
@@ -385,6 +442,12 @@ export function ManualPaymentDialog({
                 <SelectItem value="QR">QR</SelectItem>
               </SelectContent>
             </Select>
+            {modeTouched && !isModeValid && (
+              <span className="text-red-500 text-xs">Please select a payment mode</span>
+            )}
+            {!canEnableMode && (
+              <span className="text-gray-500 text-xs">Complete the amount and date fields first</span>
+            )}
           </div>
         {(mode === "UPI" ||mode === "QR") && (
           <div className="grid gap-1">
@@ -408,15 +471,32 @@ export function ManualPaymentDialog({
             type="text"
             value={receivedByName}
             required
+            onBlur={() => setReceivedByNameTouched(true)}
             onChange={(e) => setReceivedByName(e.target.value)}
+            disabled={!canEnableReceivedByName}
             placeholder="Enter name of person receiving payment"
+            className={`${receivedByNameTouched && !isReceivedByNameValid ? 'border-red-500 focus:border-red-500' : ''} ${!canEnableReceivedByName ? 'opacity-50 cursor-not-allowed' : ''}`}
           />
+          {receivedByNameTouched && !isReceivedByNameValid && (
+            <span className="text-red-500 text-xs">Please enter the receiver's name</span>
+          )}
+          {!canEnableReceivedByName && (
+            <span className="text-gray-500 text-xs">Complete the amount, date, and mode fields first</span>
+          )}
         </div>
         
         <div className="grid gap-1">
           <RequiredLabel>Role</RequiredLabel>
-          <Select value={receivedByRole} onValueChange={(v) => setReceivedByRole(v as ManualPaymentPayload["receivedByRole"])} required>
-            <SelectTrigger>
+          <Select 
+            value={receivedByRole} 
+            onValueChange={(v) => {
+              setReceivedByRole(v as ManualPaymentPayload["receivedByRole"]);
+              setReceivedByRoleTouched(true);
+            }} 
+            required
+            disabled={!canEnableReceivedByRole}
+          >
+            <SelectTrigger className={`${receivedByRoleTouched && !isReceivedByRoleValid ? 'border-red-500 focus:border-red-500' : ''} ${!canEnableReceivedByRole ? 'opacity-50 cursor-not-allowed' : ''}`}>
               <SelectValue placeholder="Select role" />
             </SelectTrigger>
             <SelectContent>
@@ -426,6 +506,12 @@ export function ManualPaymentDialog({
               <SelectItem value="superadmin">Super Admin</SelectItem>
             </SelectContent>
           </Select>
+          {receivedByRoleTouched && !isReceivedByRoleValid && (
+            <span className="text-red-500 text-xs">Please select a role</span>
+          )}
+          {!canEnableReceivedByRole && (
+            <span className="text-gray-500 text-xs">Complete all previous fields first</span>
+          )}
         </div>
         
        
@@ -435,7 +521,13 @@ export function ManualPaymentDialog({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} className="bg-[#9234ea] hover:bg-[#9234ea]/90">Save payment</Button>
+          <Button 
+            onClick={handleSubmit} 
+            disabled={!isAmountValid || !isDateValid || !isModeValid || !isReceivedByNameValid || !isReceivedByRoleValid}
+            className="bg-[#9234ea] hover:bg-[#9234ea]/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Save payment
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

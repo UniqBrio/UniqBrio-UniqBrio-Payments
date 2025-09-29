@@ -2,6 +2,7 @@ export interface PaymentRecord {
   id: string
   name: string
   activity: string
+  program: string
   category: string
   courseType: "Individual" | "Group" | "Online" | "Hybrid" | "-"
   cohort?: string
