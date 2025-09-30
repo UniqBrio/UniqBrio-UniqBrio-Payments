@@ -42,8 +42,8 @@ export default function StudentRegistrationForm() {
     course: "",
     level: "Beginner",
     type: "Individual",
-    category: "Regular",
-    courseType: "Regular",
+    category: "Beginner",
+    courseType: "Individual",
     paymentFrequency: "Monthly",
     phoneNumber: "",
     email: ""
@@ -139,8 +139,8 @@ export default function StudentRegistrationForm() {
           course: "",
           level: "Beginner",
           type: "Individual", 
-          category: "Regular",
-          courseType: "Regular",
+          category: "Beginner",
+          courseType: "Individual",
           paymentFrequency: "Monthly",
           phoneNumber: "",
           email: ""

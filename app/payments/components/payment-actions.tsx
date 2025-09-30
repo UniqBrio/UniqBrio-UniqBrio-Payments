@@ -301,17 +301,17 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
     // Use the same HTML as in payslip-button.tsx for PDF content
     const payslipContent = `
       <div style="max-width: 800px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif;">
-        <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 30px; margin-bottom: 40px;">
-          <img src="/logo.png" alt="UniqBrio Logo" style="max-width: 250px; height: auto; margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto;" onerror="this.src='/uniqbrio-logo.svg'">
-          <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: bold; letter-spacing: 2px;">UNIQBRIO</h1>
-          <p style="margin: 10px 0 0 0; color: #666; font-size: 18px; font-weight: 500;">Payment Receipt</p>
+        <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 24px; margin-bottom: 36px;">
+          <img src="/logo.png" alt="Logo" style="max-width: 220px; height: auto; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;" onerror="this.src='/uniqbrio-logo.svg'">
+          <p style="margin: 0; color: #222; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;">Payment Receipt</p>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
           <div>
             <h3 style="color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Student Details</h3>
-            <p><strong>Name:</strong> ${record.name}</p>
             <p><strong>ID:</strong> ${record.id}</p>
-            <p><strong>Course:</strong> ${record.activity}</p>
+            <p><strong>Name:</strong> ${record.name}</p>
+            <p><strong>Course ID:</strong> ${record.activity}</p>
+            <p><strong>Course Name:</strong> ${record.program}</p>
             <p><strong>Category:</strong> ${record.category}</p>
           </div>
           <div>

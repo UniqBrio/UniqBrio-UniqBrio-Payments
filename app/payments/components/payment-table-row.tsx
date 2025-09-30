@@ -394,13 +394,9 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
           )}
         </TableCell>
       )}
-      {isColumnVisible('nextDue') && (
+      {/* {isColumnVisible('nextDue') && (
         <TableCell className="text-[11px] p-1 text-center">
-          {/* Show next due date for ALL students if a nextPaymentDate exists.
-              Previous logic hid the date when paymentStatus === 'Paid', which caused
-              issues for students who have paid an installment but still have future
-              scheduled payments (some back-end records were marking paymentStatus
-              as 'Paid' prematurely). Now we rely solely on the presence of nextPaymentDate. */}
+
           {(() => {
             // If course fee is 0, do not show a computed next due date
             if ((record.finalPayment ?? 0) === 0) {
@@ -423,12 +419,12 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
             );
           })()}
         </TableCell>
-      )}
-      {isColumnVisible('courseStartDate') && (
+      )} */}
+      {/* {isColumnVisible('courseStartDate') && (
         <TableCell className="text-[11px] p-1 text-center">
           {formatDateToDisplay(record.courseStartDate)}
         </TableCell>
-      )}
+      )} */}
       {isColumnVisible('reminder') && (
         <TableCell className="text-[11px] p-1 text-center">
           <Badge 
@@ -476,7 +472,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
           </Badge>
         </TableCell>
       )}
-      {isColumnVisible('mode') && (
+      {/* {isColumnVisible('mode') && (
         <TableCell className="text-[11px] p-1 min-w-[100px] text-center">
           <CommunicationModeColumnCompact 
             studentId={record.id}
@@ -484,8 +480,8 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
             className="w-full"
           />
         </TableCell>
-      )}
-      {isColumnVisible('communication') && (
+      )} */}
+      {/* {isColumnVisible('communication') && (
         <TableCell className="text-[11px] p-1 max-w-xs text-center">
           <div className="space-y-2">
             {editingText && editingText.id === record.id ? (
@@ -539,14 +535,13 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
           {(() => {
             const availableMethods = getAvailablePaymentMethods(communicationChannels)
             
-            // If only dash should be shown (no communication channels or disabled)
+
             if (availableMethods.showDash) {
               return <span className="text-gray-500">-</span>
             }
             
             return (
               <div className="flex justify-center items-center gap-2">
-                {/* QR Code - Show for WhatsApp and Email modes */}
                 {availableMethods.showQR && (
                   <div className="flex items-center gap-1 text-[11px]" title="QR Code Payment">
                     <QrCode className={`h-4 w-4 ${record.paymentDetails?.qrCode && record.paymentDetails.qrCode !== '' ? 'text-purple-600 cursor-pointer hover:text-purple-800' : 'text-gray-400'}`} 
@@ -554,7 +549,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
                   </div>
                 )}
                 
-                {/* UPI - Show for SMS, WhatsApp and Email modes */}
+
                 {availableMethods.showUPI && (
                   <div className="flex items-center gap-1 text-[11px]" title={record.paymentDetails?.upiId ? `UPI: ${record.paymentDetails.upiId}` : 'UPI Payment'}>
                     <Smartphone className={`h-4 w-4 ${record.paymentDetails?.upiId && record.paymentDetails.upiId !== '' ? 'text-green-600 cursor-pointer hover:text-green-800' : 'text-gray-400'}`} 
@@ -568,7 +563,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
                   </div>
                 )}
                 
-                {/* Payment Link - Show for WhatsApp and Email modes */}
+
                 {availableMethods.showLink && (
                   <div className="flex items-center gap-1 text-[11px]" title="Payment Link">
                     <Link className={`h-4 w-4 ${record.paymentDetails?.paymentLink && record.paymentDetails.paymentLink !== '' ? 'text-blue-600 cursor-pointer hover:text-blue-800' : 'text-gray-400'}`} 
@@ -580,7 +575,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
             )
           })()}
         </TableCell>
-      )}
+      )} */}
       {isColumnVisible('manualPayment') && (
         <TableCell className="text-sm p-3 text-center">
           {showPaymentOptions ? (

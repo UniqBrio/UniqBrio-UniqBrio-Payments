@@ -56,9 +56,9 @@ export async function GET(request: NextRequest) {
           <div class="timestamp">Generated on: ${new Date().toLocaleString()}</div>
           
           <div class="header">
-            <img src="/logo.png" alt="UniqBrio Logo" class="logo" onerror="this.src='/uniqbrio-logo.svg'">
-            <div class="company-name">UNIQBRIO</div>
-            <div class="receipt-title">Payment Receipt</div>
+            <img src="/logo.png" alt="Logo" class="logo" onerror="this.src='/uniqbrio-logo.svg'">
+            <div class="receipt-title" style="font-size:24px; font-weight:600; letter-spacing:0.5px; margin-top:0;">Payment Receipt</div>
+            <div style="margin-top:6px; font-size:14px; color:#555;">Course: ${(student.activity || student.course || 'N/A')}</div>
           </div>
 
           <div class="student-info">
@@ -71,8 +71,12 @@ export async function GET(request: NextRequest) {
               <span>${student.name}</span>
             </div>
             <div class="info-row">
-              <strong>Course:</strong>
+              <strong>Course ID:</strong>
               <span>${student.activity || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+              <strong>Course Name:</strong>
+              <span>${student.course || student.program || student.activity || 'N/A'}</span>
             </div>
             <div class="info-row">
               <strong>Category:</strong>

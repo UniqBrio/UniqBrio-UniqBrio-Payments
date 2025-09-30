@@ -11,7 +11,7 @@ const StudentSchema = new mongoose.Schema({
   category: { type: String, default: "Regular" },
   level: { type: String, default: "Beginner" },
   type: { type: String, default: "Individual" },
-  courseType: { type: String, enum: ["Regular", "Special", "Ongoing"], default: "Regular" },
+  courseType: { type: String, enum: ["Individual", "Group", "Online", "Hybrid", "Regular", "Special", "Ongoing"], default: "Individual" },
   
   // Cohort and batch information
   cohort: { type: String, default: "" },

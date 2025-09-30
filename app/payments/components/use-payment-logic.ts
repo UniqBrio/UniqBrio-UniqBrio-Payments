@@ -1,10 +1,11 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import type { ColumnConfig } from './column-visibility'
 import { PaymentRecord, PaymentSummary } from './payment-types'
-import { ColumnConfig } from './column-visibility'
 import { getCoursePricing } from './course-pricing-helper'
 
 export function usePaymentLogic() {
+  const AUTO_REFRESH_MS = 15000; // 15 seconds
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilters, setStatusFilters] = useState<string[]>([])
   const [categoryFilters, setCategoryFilters] = useState<string[]>([])
@@ -17,34 +18,60 @@ export function usePaymentLogic() {
   const [records, setRecords] = useState<PaymentRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [lastAutoRefresh, setLastAutoRefresh] = useState<Date | null>(null)
   // Cache of courses to allow dynamic recomputation of fallback finalPayment values
   const [coursesCache, setCoursesCache] = useState<any[]>([])
 
-  // Column visibility configuration
-  const [columns, setColumns] = useState<ColumnConfig[]>([
+  // Default / initial column visibility configuration
+  const DEFAULT_COLUMNS: ColumnConfig[] = [
     { key: 'id', label: 'Student ID', visible: true },
     { key: 'name', label: 'Student Name', visible: true },
-    { key: 'program', label: 'Student Program', visible: true },
+    { key: 'program', label: 'Student Course', visible: true },
     { key: 'course', label: 'Student Course ID', visible: false },
     { key: 'category', label: 'Student Category', visible: true },
     { key: 'courseType', label: 'Course Type', visible: true },
-    { key: 'courseRegFee', label: 'Course Reg Fee', visible: false },
-    { key: 'studentRegFee', label: 'Student Reg Fee', visible: false},
+    { key: 'courseRegFee', label: 'Course Reg Fee', visible: true },
+    { key: 'studentRegFee', label: 'Student Reg Fee', visible: true },
     { key: 'finalPayment', label: 'Course Fee (INR)', visible: true },
     { key: 'totalPaid', label: 'Total Paid (INR)', visible: true },
     { key: 'balance', label: 'Balance (INR)', visible: true },
     { key: 'status', label: 'Status', visible: true },
     { key: 'paidDate', label: 'Paid Date', visible: true },
-    { key: 'nextDue', label: 'Next Due', visible: true },
-    { key: 'courseStartDate', label: 'Start Date', visible: true },
+    // { key: 'nextDue', label: 'Next Due', visible: true },
+    // { key: 'courseStartDate', label: 'Start Date', visible: true },
     { key: 'reminder', label: 'Reminder', visible: true },
-    { key: 'mode', label: 'Mode', visible: false },
-    { key: 'communication', label: 'Communication', visible: false },
-    { key: 'paymentDetails', label: 'Payment Details', visible: false },
+    // { key: 'mode', label: 'Mode', visible: false },
+    // { key: 'communication', label: 'Communication', visible: false },
+    // { key: 'paymentDetails', label: 'Payment Details', visible: false },
     { key: 'manualPayment', label: 'Manual Payment', visible: true },
     { key: 'payslip', label: 'Payslip', visible: true },
     { key: 'actions', label: 'Send Reminder', visible: true }
-  ])
+  ]
+
+  const [columns, setColumns] = useState<ColumnConfig[]>(() => {
+    if (typeof window === 'undefined') return DEFAULT_COLUMNS;
+    try {
+      const saved = window.localStorage.getItem('paymentColumns');
+      if (saved) {
+        const parsed: ColumnConfig[] = JSON.parse(saved);
+        // Merge with defaults to avoid missing new columns
+        const merged = DEFAULT_COLUMNS.map(def => {
+          const existing = parsed.find(p => p.key === def.key);
+            return existing ? { ...def, visible: existing.visible } : def;
+        });
+        return merged;
+      }
+    } catch(_) {}
+    return DEFAULT_COLUMNS;
+  })
+
+  // Persist column visibility changes
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('paymentColumns', JSON.stringify(columns));
+    } catch(_) {}
+  }, [columns]);
 
   const handleFilter = () => {
     let filtered = records
@@ -319,7 +346,7 @@ export function usePaymentLogic() {
                 activity: courseName,
                 program: student.program || student.course || courseName,
                 category: student.category || '-',
-                courseType: student.courseType || 'Individual',
+                courseType: matchedCourse?.type || student.courseType || '-',
                 cohort: student.cohort || `${courseName.replace(/\s+/g, '')}_${new Date().getFullYear()}_Batch01`,
                 batch: student.batch || 'Morning Batch',
                 instructor: student.instructor || matchedCourse?.instructor || 'TBD',
@@ -522,7 +549,7 @@ export function usePaymentLogic() {
               activity: student.course || student.activity || 'General Course',
               program: student.program || student.course || 'General Course',
               category: student.category || '-',
-              courseType: student.courseType || 'Individual',
+              courseType: matchedCourse?.type || student.courseType || '-',
               cohort: student.cohort || `${student.course}_${new Date().getFullYear()}_Batch01`,
               paymentStatus,
               totalPaidAmount: totalPaid,
@@ -570,10 +597,34 @@ export function usePaymentLogic() {
     }
   }
 
+  // Central 30-second auto-refresh (in addition to selective polling below)
+  // Placed AFTER refreshPaymentData definition so it can be referenced
+  const refreshRef = useRef(refreshPaymentData)
+  useEffect(() => { refreshRef.current = refreshPaymentData }, [refreshPaymentData])
+  useEffect(() => {
+    // Avoid multiple intervals if component re-renders
+    const id = setInterval(async () => {
+      try {
+        await refreshRef.current?.();
+        setLastAutoRefresh(new Date());
+      } catch (e) {
+        // silent
+      }
+    }, AUTO_REFRESH_MS);
+    return () => clearInterval(id)
+  }, [])
+
   const handleColumnToggle = (key: string, visible: boolean) => {
     setColumns((prev) =>
       prev.map((column) => (column.key === key ? { ...column, visible } : column))
     )
+  }
+
+  const restoreDefaultColumns = () => {
+    setColumns(DEFAULT_COLUMNS);
+    if (typeof window !== 'undefined') {
+      try { window.localStorage.removeItem('paymentColumns'); } catch(_) {}
+    }
   }
 
   const isColumnVisible = (key: string) => {
@@ -613,6 +664,10 @@ export function usePaymentLogic() {
     isColumnVisible,
     handleExport,
     loading,
-    error
+    error,
+    lastAutoRefresh,
+    autoRefreshIntervalMs: AUTO_REFRESH_MS,
+    defaultColumns: DEFAULT_COLUMNS,
+    restoreDefaultColumns
   }
 }

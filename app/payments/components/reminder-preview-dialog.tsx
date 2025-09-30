@@ -100,34 +100,31 @@ export function ReminderPreviewDialog({ record, isOpen, onClose, onSendConfirm }
 
     switch (mode.toLowerCase()) {
       case 'email':
-        return `Subject: 💳 Payment Reminder - ${baseInfo.courseName} Course | ${baseInfo.cohort}
+        return `Subject: Payment Reminder - ${baseInfo.courseName}
 
 Dear ${baseInfo.studentName},
 
-This is a friendly reminder regarding your pending payment for the ${baseInfo.courseName} course.
+This is a payment reminder for your enrollment in ${baseInfo.courseName}.
 
-STUDENT DETAILS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Student ID: ${baseInfo.studentId}
-• Course: ${baseInfo.courseName}
-• Cohort: ${baseInfo.cohort}
+Student: ${baseInfo.studentName} (ID: ${baseInfo.studentId})
+Course: ${baseInfo.courseName}
+Cohort: ${baseInfo.cohort}
 
-PAYMENT SUMMARY:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Total Course Fee: ${formatCurrency(baseInfo.totalFee)}
-• Amount Paid: ${formatCurrency(baseInfo.paidAmount)}
-• Balance Due: ${formatCurrency(baseInfo.balanceAmount)}
-• Due Date: ${formatDate(baseInfo.dueDate)}
+Payment Summary:
+- Total Fee: ${formatCurrency(baseInfo.totalFee)}
+- Paid: ${formatCurrency(baseInfo.paidAmount)}
+- Outstanding: ${formatCurrency(baseInfo.balanceAmount)}
+- Due Date: ${formatDate(baseInfo.dueDate)}
 
-PAYMENT OPTIONS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• UPI ID: ${baseInfo.upiId}
-• Payment Link: ${baseInfo.paymentLink}
-• QR Code: Available on request
+Payment Options:
+- UPI: ${baseInfo.upiId}
+- Link: ${baseInfo.paymentLink}
 
-${record.communicationText || 'Please complete your payment to secure your enrollment and continue your learning journey with us.'}
+Please complete your payment by the due date to avoid any disruption to your learning.
 
-For any queries, feel free to contact our support team.
+Best regards,
+UniqBrio Academic Team
+support@uniqbrio.com
 
 Best regards,
 UniqBrio Academic Team
@@ -138,39 +135,31 @@ UniqBrio Academic Team
 🌐 Website: www.uniqbrio.com`
 
       case 'sms':
-        return `Hi ${baseInfo.studentName}!
+        return `Payment Reminder
+${baseInfo.studentName} (${baseInfo.studentId})
+Course: ${baseInfo.courseName}
+Outstanding: ${formatCurrency(baseInfo.balanceAmount)}
+Due: ${formatDate(baseInfo.dueDate)}
+Pay via UPI: ${baseInfo.upiId}
+-UniqBrio`
 
-Payment reminder for ${baseInfo.courseName}
-Balance Due: ${formatCurrency(baseInfo.balanceAmount)}
-Due Date: ${formatDate(baseInfo.dueDate)}
+      case 'whatsapp':
+        return `*Payment Reminder*
 
-Payment Options:
+Hello ${baseInfo.studentName},
+
+*Student:* ${baseInfo.studentName} (${baseInfo.studentId})
+*Course:* ${baseInfo.courseName}
+*Outstanding Amount:* ${formatCurrency(baseInfo.balanceAmount)}
+*Due Date:* ${formatDate(baseInfo.dueDate)}
+
+*Payment Options:*
 UPI: ${baseInfo.upiId}
 Link: ${baseInfo.paymentLink}
 
-Complete payment to secure your enrollment.
+Please complete your payment by the due date.
 
-- UniqBrio Team`
-
-      case 'whatsapp':
-        return `Hi ${baseInfo.studentName}! 📚
-
-*Payment Reminder - ${baseInfo.courseName}*
-
-💰 *Amount Due:* ${formatCurrency(baseInfo.balanceAmount)}
-📅 *Due Date:* ${formatDate(baseInfo.dueDate)}
-🎓 *Course:* ${baseInfo.courseName}
-👥 *Cohort:* ${baseInfo.cohort}
-
-*Payment Options:*
-🏦 *UPI ID:* ${baseInfo.upiId}
-💳 *Payment Link:* ${baseInfo.paymentLink}
-
-${record.communicationText || 'Complete payment to secure your enrollment! 🎯'}
-
-For support: 📞 +91-XXXXX-XXXXX
-
-*- UniqBrio Team* 🚀`
+UniqBrio Academic Team`
 
       default:
         return `Payment reminder for ${baseInfo.studentName} - ${baseInfo.courseName}`

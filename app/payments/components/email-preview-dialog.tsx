@@ -64,6 +64,13 @@ export function EmailPreviewDialog({ record, isOpen, onClose, generatedQR, setGe
 
 ${record.communicationText}
 
+STUDENT INFORMATION:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Student Name: ${record.name}
+• Student ID: ${record.id}
+• Student Type: ${record.studentType}
+• Payment Category: ${record.paymentCategory || 'Course Payment'}
+
 COHORT & COURSE DETAILS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 • Course: ${record.activity}
@@ -77,7 +84,6 @@ COHORT & COURSE DETAILS:
 
 PAYMENT SUMMARY:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Student ID: ${record.id}
 • Total Course Fee: ${formatCurrency(record.finalPayment, record.currency)}
 • Amount Paid: ${formatCurrency(record.totalPaidAmount, record.currency)}
 • Balance Due: ${formatCurrency(record.balancePayment, record.currency)}
