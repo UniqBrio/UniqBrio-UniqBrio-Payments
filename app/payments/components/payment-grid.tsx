@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { formatDateToDisplay } from '@/lib/date-utils'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -145,7 +146,27 @@ export function PaymentGrid({ filteredRecords, onUpdateRecord }: PaymentGridProp
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-600">Next Due:</span>
-                <span>{record.nextPaymentDate}</span>
+                <span>
+                  {(() => {
+                    // Always attempt to show a next due date for visibility (requirement)
+                    if ((record.finalPayment ?? 0) === 0) {
+                      return <span className="text-gray-400 italic">-</span>
+                    }
+                    let next = record.nextPaymentDate;
+                    if (!next && record.courseStartDate) {
+                      // Fallback: compute 30 days after course start date
+                      try {
+                        const base = new Date(record.courseStartDate);
+                        if (!isNaN(base.getTime())) {
+                          const d = new Date(base);
+                          d.setDate(d.getDate() + 30);
+                          next = d.toISOString();
+                        }
+                      } catch {}
+                    }
+                    return next ? formatDateToDisplay(next) : <span className="text-gray-400 italic">-</span>;
+                  })()}
+                </span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-600">Reminder:</span>

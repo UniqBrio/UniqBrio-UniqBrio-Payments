@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import QRCode from 'qrcode'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -14,7 +15,8 @@ interface ReminderPreviewDialogProps {
   record: PaymentRecord
   isOpen: boolean
   onClose: () => void
-  onSendConfirm: () => void
+  /** Called after user clicks send (only for non-coming-soon modes). Provides selected communication mode. */
+  onSendConfirm: (mode: string) => void
 }
 
 // Utility function for formatting currency
@@ -41,10 +43,37 @@ const formatDate = (dateString: string | null) => {
 export function ReminderPreviewDialog({ record, isOpen, onClose, onSendConfirm }: ReminderPreviewDialogProps) {
   const [messageContent, setMessageContent] = useState('')
   const [selectedMode, setSelectedMode] = useState<string>('')
+  const [loadingPreview, setLoadingPreview] = useState(false)
   const [studentCommPrefs, setStudentCommPrefs] = useState<any>(null)
   const [fetchingPrefs, setFetchingPrefs] = useState(false)
+  const [qrDataUrl, setQrDataUrl] = useState<string>('')
   // Modes that are not yet implemented for sending
-  const COMING_SOON_MODES = ['SMS']
+  // NOTE: SMS removed from this list to enable real sending
+  const COMING_SOON_MODES: string[] = []
+
+  // Fetch preview via API (used for coming soon modes or when we want server-format)
+  const fetchPreview = async (mode: string) => {
+    if (!record?.id) return
+    try {
+      setLoadingPreview(true)
+      const res = await fetch(`/api/payments/reminder/preview?studentId=${encodeURIComponent(record.id)}&mode=${encodeURIComponent(mode)}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && data.content) {
+          setMessageContent(data.content)
+        } else {
+          setMessageContent(generateReminderContent(mode))
+        }
+      } else {
+        setMessageContent(generateReminderContent(mode))
+      }
+    } catch (e) {
+      console.error('Preview fetch failed:', e)
+      setMessageContent(generateReminderContent(mode))
+    } finally {
+      setLoadingPreview(false)
+    }
+  }
   
   // Hook to fetch communication preferences from students collection
   const { 
@@ -195,7 +224,16 @@ For support: 📞 +91-XXXXX-XXXXX
   // Handle mode change
   const handleModeChange = (mode: string) => {
     setSelectedMode(mode)
-    setMessageContent(generateReminderContent(mode))
+    // For coming soon modes, fetch from server so backend format stays in sync
+    if (COMING_SOON_MODES.includes(mode)) {
+      fetchPreview(mode)
+    } else {
+      setMessageContent(generateReminderContent(mode))
+    }
+    // regenerate QR for email/whatsapp (they support richer content)
+    if (['Email','WhatsApp'].includes(mode)) {
+      generateQR()
+    }
   }
 
   // Get icon for communication mode
@@ -212,9 +250,34 @@ For support: 📞 +91-XXXXX-XXXXX
     }
   }
 
+  // Generate QR code (UPI or payment link)
+  const generateQR = async () => {
+    try {
+      const upiId = record.paymentDetails?.upiId || 'uniqbrio@paytm'
+      const amount = record.balancePayment || 0
+      // Prefer UPI string; fallback to payment link
+      const value = upiId
+        ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent('UniqBrio')}&am=${amount}&cu=INR&tn=${encodeURIComponent('Payment for ' + (record.activity || 'Course'))}`
+        : (record.paymentDetails?.paymentLink || 'https://pay.uniqbrio.com')
+      const dataUrl = await QRCode.toDataURL(value, { width: 180, margin: 1 })
+      setQrDataUrl(dataUrl)
+    } catch (err) {
+      console.error('QR generation failed:', err)
+      setQrDataUrl('')
+    }
+  }
+
+  // Generate QR initially when dialog opens for email/whatsapp default mode
+  useEffect(() => {
+    if (isOpen && ['Email','WhatsApp'].includes(selectedMode)) {
+      generateQR()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, selectedMode])
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto border-0 shadow-xl [&>button]:top-2 [&>button]:right-2">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {getModeIcon(selectedMode)}
@@ -228,45 +291,39 @@ For support: 📞 +91-XXXXX-XXXXX
             <label className="text-sm font-medium mb-2 block">Communication Mode:</label>
             <div className="flex gap-2">
               {['Email', 'SMS', 'WhatsApp'].map((mode) => {
-                const isComingSoon = COMING_SOON_MODES.includes(mode)
                 const isSelected = selectedMode === mode
+                const isSMS = mode === 'SMS'
                 return (
-                  <Button
-                    key={mode}
-                    variant="outline"
-                    size="sm"
-                    disabled={isComingSoon}
-                    onClick={() => {
-                      if (isComingSoon) {
-                        toast({
-                          title: `${mode} Coming Soon`,
-                          description: `${mode} reminders are not yet enabled. Please choose another mode.`,
-                        })
-                        return
-                      }
-                      handleModeChange(mode)
-                    }}
-                    aria-pressed={isSelected}
-                    title={isComingSoon ? `${mode} sending not yet available` : `${mode} mode`}
-                    className={`flex items-center gap-1 transition-colors duration-200 border-[1.5px] relative
-                      ${isComingSoon
-                        ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
-                        : (isSelected
-                            ? 'bg-[#9234ea] border-[#9234ea] text-white hover:bg-[#7a2cbe] hover:text-white'
-                            : 'bg-white border-[#9234ea] text-[#9234ea] hover:bg-[#9234ea]/10 hover:text-[#9234ea]')}
-                    `}
-                  >
-                    {getModeIcon(mode)}
-                    {mode}
-                    {isComingSoon && (
-                      <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-gray-200 text-gray-600">Soon</span>
+                  <div key={mode} className="flex flex-col items-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleModeChange(mode)}
+                      aria-pressed={isSelected}
+                      title={`${mode} mode`}
+                      className={`flex items-center gap-1 transition-colors duration-200 border-[1.5px] relative group
+                        ${isSelected
+                          ? 'bg-[#9234ea] border-[#9234ea] text-white hover:bg-[#7a2cbe] hover:text-white'
+                          : 'bg-white border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-600'}
+                      `}
+                    >
+                      {getModeIcon(mode)}
+                      {mode}
+                      {(studentCommPrefs?.channels?.includes(mode as any) || record.communicationPreferences?.channels?.includes(mode as any)) && (
+                        <Badge variant="secondary" className="ml-1 text-xs">
+                          {studentCommPrefs?.channels?.includes(mode) ? 'Student Preference' : 'Available'}
+                        </Badge>
+                      )}
+                    </Button>
+                    {isSMS && (
+                      <div className="mt-0.5 select-none pointer-events-none" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="20" viewBox="0 0 80 40">
+                          <polygon points="0,15 50,15 50,5 70,20 50,35 50,25 0,25" fill="#7b68ee" />
+                          <text x="12" y="33" fontFamily="Arial, sans-serif" fontSize="9" fill="#7b68ee" fontWeight="bold">SOON</text>
+                        </svg>
+                      </div>
                     )}
-                    {!isComingSoon && (studentCommPrefs?.channels?.includes(mode as any) || record.communicationPreferences?.channels?.includes(mode as any)) && (
-                      <Badge variant="secondary" className="ml-1 text-xs">
-                        {studentCommPrefs?.channels?.includes(mode) ? 'Student Preference' : 'Available'}
-                      </Badge>
-                    )}
-                  </Button>
+                  </div>
                 )
               })}
             </div>
@@ -303,13 +360,68 @@ For support: 📞 +91-XXXXX-XXXXX
           
           {/* Message Content */}
           <div>
-            <label className="text-sm font-medium mb-2 block">Message Content:</label>
-            <Textarea
-              value={messageContent}
-              onChange={(e) => setMessageContent(e.target.value)}
-              className="h-96 font-mono text-sm"
-              placeholder="Reminder message content will appear here..."
-            />
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium block">Message Content:</label>
+              {selectedMode === 'SMS' && (
+                <span className="text-[11px] text-gray-500 font-mono">
+                  {messageContent.length} chars{messageContent.length > 320 && ' (Long SMS, may split)'}
+                </span>
+              )}
+            </div>
+            <div className="relative">
+              {loadingPreview && (
+                <div className="absolute inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center z-10 text-sm text-gray-600">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading preview...
+                </div>
+              )}
+              <Textarea
+                value={messageContent}
+                onChange={(e) => setMessageContent(e.target.value)}
+                className="h-96 font-mono text-sm"
+                placeholder="Reminder message content will appear here..."
+              />
+              {selectedMode === 'SMS' && (
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Tip: Keep under 160 characters (current GSM segmenting) for a single SMS. Longer messages may be delivered as multiple parts.
+                </p>
+              )}
+              {['Email','WhatsApp'].includes(selectedMode) && (
+                <div className="mt-3 flex flex-col sm:flex-row gap-4">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="text-xs font-medium text-gray-600">Payment QR</div>
+                    <div className="p-2 bg-white border rounded shadow-sm">
+                      {qrDataUrl ? (
+                        <img src={qrDataUrl} alt="Payment QR" className="w-40 h-40" />
+                      ) : (
+                        <div className="w-40 h-40 flex items-center justify-center text-[10px] text-gray-400">Generating QR...</div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (qrDataUrl) {
+                          const a = document.createElement('a')
+                          a.href = qrDataUrl
+                          a.download = `${record.name}-payment-qr.png`
+                          a.click()
+                        }
+                      }}
+                      className="text-[10px] text-[#9234ea] hover:underline"
+                    >Download QR</button>
+                  </div>
+                  <div className="flex-1 text-[11px] text-gray-600 space-y-1">
+                    <p className="font-medium">Included Payment Options:</p>
+                    <ul className="list-disc ml-4">
+                      {record.paymentDetails?.upiId && <li>UPI ID: {record.paymentDetails.upiId}</li>}
+                      {record.paymentDetails?.paymentLink && <li>Payment Link</li>}
+                      <li>Amount: ₹{(record.balancePayment || 0).toLocaleString()}</li>
+                      <li>Course: {record.activity}</li>
+                    </ul>
+                    <p className="text-[10px] text-gray-500">QR auto-generated for Email & WhatsApp previews.</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           
           {/* Action Buttons */}
@@ -318,26 +430,28 @@ For support: 📞 +91-XXXXX-XXXXX
               Cancel
             </Button>
             <Button 
-              onClick={() => {
+              onClick={async () => {
                 if (COMING_SOON_MODES.includes(selectedMode)) {
                   toast({
-                    title: `${selectedMode} Coming Soon`,
-                    description: `Sending via ${selectedMode} is not yet enabled. Please pick Email or WhatsApp.`,
+                    title: `${selectedMode} Sending Coming Soon`,
+                    description: `Preview shown. Sending via ${selectedMode} will be enabled shortly.`,
                   })
                   return
                 }
-                console.log('📤 REMINDER PREVIEW - Would send:', {
-                  mode: selectedMode,
+                const mode = selectedMode || 'Email'
+                console.log('📤 REMINDER PREVIEW - Sending:', {
+                  mode,
                   student: record.name,
                   content: messageContent
                 });
-                onSendConfirm();
-                onClose();
+                // Fire callback so parent can show toast & trigger API
+                onSendConfirm(mode)
+                onClose()
               }} 
-              className="bg-[#9234ea] hover:bg-[#7a2cbe]"
+              className={`bg-[#9234ea] hover:bg-[#7a2cbe]`}
             >
               {getModeIcon(selectedMode)}
-              Send {selectedMode} Reminder
+              {`Send ${selectedMode || 'Email'} Reminder`}
             </Button>
           </div>
         </div>

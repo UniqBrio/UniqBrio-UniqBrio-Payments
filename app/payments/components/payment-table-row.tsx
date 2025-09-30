@@ -396,11 +396,32 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )}
       {isColumnVisible('nextDue') && (
         <TableCell className="text-[11px] p-1 text-center">
-          {/* Only show next due date if student has balance and is not fully paid */}
-          {record.balancePayment > 0 && record.paymentStatus !== 'Paid' && record.nextPaymentDate ? 
-            formatDateToDisplay(record.nextPaymentDate) : 
-            <span className="text-gray-400 italic">-</span>
-          }
+          {/* Show next due date for ALL students if a nextPaymentDate exists.
+              Previous logic hid the date when paymentStatus === 'Paid', which caused
+              issues for students who have paid an installment but still have future
+              scheduled payments (some back-end records were marking paymentStatus
+              as 'Paid' prematurely). Now we rely solely on the presence of nextPaymentDate. */}
+          {(() => {
+            // If course fee is 0, do not show a computed next due date
+            if ((record.finalPayment ?? 0) === 0) {
+              return <span className="text-gray-400 italic">-</span>
+            }
+            let next = record.nextPaymentDate;
+            // Fallback: compute from courseStartDate (+30 days) if missing
+            if (!next && record.courseStartDate) {
+              try {
+                const base = new Date(record.courseStartDate);
+                if (!isNaN(base.getTime())) {
+                  const d = new Date(base); d.setDate(d.getDate() + 30); next = d.toISOString();
+                }
+              } catch {}
+            }
+            return next ? (
+              <span title={`Next Due: ${next}`}>{formatDateToDisplay(next)}</span>
+            ) : (
+              <span className="text-gray-400 italic">-</span>
+            );
+          })()}
         </TableCell>
       )}
       {isColumnVisible('courseStartDate') && (
@@ -716,10 +737,46 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       record={record}
       isOpen={reminderPreviewOpen}
       onClose={() => setReminderPreviewOpen(false)}
-      onSendConfirm={() => {
-        // Handle send confirmation
-        console.log('Send reminder confirmed for:', record.name)
-        setReminderPreviewOpen(false)
+      onSendConfirm={async (mode) => {
+        console.log('Send reminder confirmed for:', record.name, 'mode:', mode)
+        // Call API to actually send reminder for the chosen mode
+        try {
+          const response = await fetch('/api/payments/send-reminder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ studentId: record.id, communicationModes: [mode] })
+          })
+          if (response.ok) {
+            const result = await response.json()
+            if (result.success) {
+              toast({
+                title: '✅ Reminder Sent',
+                description: `Your ${mode} reminder was sent successfully.`,
+              })
+            } else {
+              toast({
+                title: '⚠️ Reminder Issue',
+                description: result.message || `Failed to send ${mode} reminder.`,
+                variant: 'destructive'
+              })
+            }
+          } else {
+            toast({
+              title: '❌ Send Failed',
+              description: `Could not send ${mode} reminder (status ${response.status}).`,
+              variant: 'destructive'
+            })
+          }
+        } catch (err) {
+          console.error('Reminder send error:', err)
+          toast({
+            title: '❌ Error',
+            description: `An error occurred while sending the ${mode} reminder.`,
+            variant: 'destructive'
+          })
+        } finally {
+          setReminderPreviewOpen(false)
+        }
       }}
     />
 

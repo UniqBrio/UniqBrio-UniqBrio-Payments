@@ -285,10 +285,18 @@ export function usePaymentLogic() {
               let paymentStatus = 'Paid'
               if (balance > 0) paymentStatus = 'Pending'
               
-              // Next payment date - only if there's a balance
-              const nextPaymentDate = (balance > 0 && student.nextPaymentDate) ? 
-                new Date(student.nextPaymentDate) : 
-                (balance > 0 ? new Date(courseStartDateObj.getTime() + 30*24*60*60*1000) : null)
+              // Next payment date - ALWAYS compute from courseStartDate (+30 days) even if fully paid
+              const nextPaymentDate = (() => {
+                if (student.nextPaymentDate) {
+                  const d = new Date(student.nextPaymentDate)
+                  if (!isNaN(d.getTime())) return d
+                }
+                const base = courseStartDateObj
+                if (isNaN(base.getTime())) return null
+                const next = new Date(base)
+                next.setDate(next.getDate() + 30)
+                return next
+              })()
 
               // Registration fees (preserve existing structure)
               const registrationFees = student.registrationFees || {
@@ -494,6 +502,20 @@ export function usePaymentLogic() {
             const totalPaid = student.totalPaidAmount || 0
             const balance = Math.max(0, finalPayment - totalPaid)
             let paymentStatus: 'Paid' | 'Pending' = balance > 0 ? 'Pending' : 'Paid'
+            // Compute a next payment date always (even if fully paid) for schedule visibility
+            const computedNext = (() => {
+              if (student.nextPaymentDate) return student.nextPaymentDate;
+              const base = student.courseStartDate || student.paidDate || new Date().toISOString();
+              try {
+                const d = new Date(base);
+                if (!isNaN(d.getTime())) {
+                  d.setDate(d.getDate() + 30);
+                  return d.toISOString();
+                }
+              } catch {}
+              return null;
+            })();
+
             return {
               id: student.studentId,
               name: student.name,
@@ -507,7 +529,7 @@ export function usePaymentLogic() {
               finalPayment,
               balancePayment: balance,
               paidDate: student.paidDate || null,
-              nextDue: balance > 0 ? (student.nextPaymentDate || null) : null,
+              nextDue: computedNext,
               courseStartDate: student.courseStartDate || new Date().toISOString(),
               paymentReminder: student.paymentReminder !== false,
               communicationText: student.communicationText || 'Payment reminder sent.',
@@ -521,7 +543,7 @@ export function usePaymentLogic() {
               },
               currency: student.currency || 'INR',
               paymentFrequency: student.paymentFrequency || 'One-time',
-              nextPaymentDate: balance > 0 ? (student.nextPaymentDate || null) : null,
+              nextPaymentDate: computedNext,
               reminderDays: student.reminderDays || 3,
               paymentModes: student.paymentModes || ['UPI', 'Cash'],
               studentType: student.studentType || 'Regular',

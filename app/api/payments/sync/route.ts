@@ -245,13 +245,15 @@ export async function GET(request: NextRequest) {
         // Paid Date: Show last payment date or "-" if no payments
         paidDate: studentPaymentDoc && studentPaymentDoc.lastPaymentDate ? 
           studentPaymentDoc.lastPaymentDate.toISOString() : null,
-        // Next Due Date: Every 30 days from last payment, or 30 days from now if no payments
+        // Next Due Date: Always show for matched students (even if fully paid) - monthly cadence from courseStartDate
         nextPaymentDate: (() => {
-          if (matchType !== 'exact-triple-match' || balanceAmount <= 0) return null; // Only for matched students with balance
-          const baseDate = studentPaymentDoc && studentPaymentDoc.lastPaymentDate ? 
-            new Date(studentPaymentDoc.lastPaymentDate) : new Date();
+          if (matchType !== 'exact-triple-match') return null;
+          // Prefer explicit courseStartDate, else createdAt, else today
+          const rawStart = (student as any).courseStartDate || (student as any).createdAt || new Date();
+          const baseDate = new Date(rawStart);
+          if (isNaN(baseDate.getTime())) return null;
           const nextDue = new Date(baseDate);
-          nextDue.setDate(nextDue.getDate() + 30);
+          nextDue.setDate(nextDue.getDate() + 30); // 30 days after course start
           return nextDue.toISOString();
         })(),
   paymentStatus: matchType === 'exact-triple-match' ? (balanceAmount > 0 ? 'Pending' : 'Paid') : (paymentDocFallback ? paymentDocFallback.paymentStatus || (balanceAmount > 0 ? 'Pending' : 'Paid') : '-'),
