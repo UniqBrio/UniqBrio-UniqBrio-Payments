@@ -163,8 +163,8 @@ export async function GET(request: NextRequest) {
       if (studentPaymentDoc && studentPaymentDoc.paymentRecords) {
         // Calculate from payment records within the student's payment document
         coursePaidAmount = studentPaymentDoc.paymentRecords
-          .filter(record => ['Course Payment', 'Course Registration'].includes(record.paymentCategory))
-          .reduce((sum, record) => sum + (Number(record.amount) || 0), 0);
+          .filter((record: any) => ['Course Payment', 'Course Registration'].includes(record.paymentCategory))
+          .reduce((sum: number, record: any) => sum + (Number(record.amount) || 0), 0);
         totalPaymentRecords = studentPaymentDoc.paymentRecords.length;
       }
       

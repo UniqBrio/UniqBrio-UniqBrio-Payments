@@ -396,12 +396,19 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )}
       {isColumnVisible('nextDue') && (
         <TableCell className="text-[11px] p-1 text-center">
-          {record.nextPaymentDate ? formatDateToDisplay(record.nextPaymentDate) : <span className="text-gray-400 italic">-</span>}
+          {/* Only show next due date if student has balance and is not fully paid */}
+          {record.balancePayment > 0 && record.paymentStatus !== 'Paid' && record.nextPaymentDate ? 
+            formatDateToDisplay(record.nextPaymentDate) : 
+            <span className="text-gray-400 italic">-</span>
+          }
         </TableCell>
       )}
       {isColumnVisible('courseStartDate') && (
         <TableCell className="text-[11px] p-1 text-center">
-          {formatDateToDisplay(record.courseStartDate)}
+          {record.courseStartDate ? 
+            formatDateToDisplay(record.courseStartDate) : 
+            <span className="text-gray-400 italic">-</span>
+          }
         </TableCell>
       )}
       {isColumnVisible('reminder') && (

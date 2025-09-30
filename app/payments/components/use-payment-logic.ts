@@ -231,12 +231,27 @@ export function usePaymentLogic() {
       try {
         setLoading(true)
         
-        // First try to get synchronized payment data
-        let response = await fetch('/api/payments/sync')
-        let result = await response.json()
+        // NEW: Fast path -> payments list endpoint (lightweight)
+        let response: Response | null = null;
+        let result: any = {};
+        try {
+          response = await fetch('/api/payments/list?limit=200');
+          result = await response.json();
+          if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+            setRecords(result.data);
+            setError(null);
+            setLoading(false);
+            return; // Done (fast path)
+          }
+        } catch (e) {
+          console.warn('⚠️ payments/list failed, falling back to sync:', e);
+        }
+
+        // Fallback: synchronized full reconstruction
+        response = await fetch('/api/payments/sync')
+        result = await response.json()
         
         if (result.success) {
-          // Use synchronized data from payments collection
           setRecords(result.data)
           setError(null)
         } else {
@@ -280,11 +295,34 @@ export function usePaymentLogic() {
               // Dates - preserve original format from students collection
               const courseStartDateObj = student.courseStartDate ? new Date(student.courseStartDate) : new Date()
               const paidDate = student.paidDate ? new Date(student.paidDate) : courseStartDateObj
-              const nextPaymentDate = student.nextPaymentDate ? new Date(student.nextPaymentDate) : new Date(courseStartDateObj.getTime() + 30*24*60*60*1000)
-
+              
               // Status
               let paymentStatus = 'Paid'
               if (balance > 0) paymentStatus = 'Pending'
+              
+              // Next payment date - only if there's a balance, based on course start date
+              const nextPaymentDate = balance > 0 ? (() => {
+                if (student.nextPaymentDate) {
+                  return new Date(student.nextPaymentDate);
+                }
+                
+                // Calculate next due based on course start date
+                const now = new Date();
+                const nextDue = new Date(courseStartDateObj);
+                
+                // If course start date is in the future, next due is 30 days after start
+                if (courseStartDateObj > now) {
+                  nextDue.setDate(nextDue.getDate() + 30);
+                } else {
+                  // Course has started, calculate next monthly payment cycle
+                  const daysDifference = Math.floor((now.getTime() - courseStartDateObj.getTime()) / (24 * 60 * 60 * 1000));
+                  const monthsPassed = Math.floor(daysDifference / 30);
+                  const nextMonth = monthsPassed + 1;
+                  nextDue.setDate(courseStartDateObj.getDate() + (nextMonth * 30));
+                }
+                
+                return nextDue;
+              })() : null
 
               // Registration fees (preserve existing structure)
               const registrationFees = student.registrationFees || {
@@ -298,7 +336,7 @@ export function usePaymentLogic() {
               }
 
               const defaultCommunicationText = paymentStatus === 'Pending'
-                ? `Payment reminder for ${courseName}. Amount due: ₹${balance}. Due date: ${nextPaymentDate.toLocaleDateString()}. Please complete your payment.`
+                ? `Payment reminder for ${courseName}. Amount due: ₹${balance}.${nextPaymentDate ? ` Due date: ${nextPaymentDate.toLocaleDateString()}.` : ''} Please complete your payment.`
                 : `Payment for ${courseName} is complete. Thank you!`
 
               return {
@@ -319,7 +357,7 @@ export function usePaymentLogic() {
                 paymentStatus: student.paymentStatus || paymentStatus,
                 paymentFrequency: student.paymentFrequency || 'Monthly',
                 paidDate: paidDate.toISOString(),
-                nextPaymentDate: nextPaymentDate.toISOString(),
+                nextPaymentDate: nextPaymentDate ? nextPaymentDate.toISOString() : null,
                 courseStartDate: student.courseStartDate || courseStartDateObj.toISOString(),
                 paymentReminder: paymentStatus === 'Paid' ? false : (student.paymentReminder !== false),
                 reminderMode: student.modeOfCommunication || student.reminderMode || 'Email',
@@ -424,112 +462,59 @@ export function usePaymentLogic() {
   const refreshPaymentData = async () => {
     try {
       console.log('🔄 refreshPaymentData called - fetching updated payment data...');
-      // Don't show loading for auto-refresh to avoid UI flickering
-      // setLoading(true)
-      
-      // Store current count for comparison
       const previousCount = records.length;
-      
-      // Try to fetch updated data from sync endpoint first
-      let response = await fetch('/api/payments/sync', {
-        cache: 'no-store', // Force fresh data
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
-      })
-      let result = await response.json()
-      
-      console.log('📊 Sync API response:', { success: result.success, dataLength: result.data?.length });
-      
-      if (result.success && result.data && result.data.length > 0) {
-        console.log('✅ Payment data refreshed from sync:', result.data.length, 'records'); // Debug log
-        
-        // Check if new students were added
-        if (result.data.length > previousCount) {
-          const newStudentCount = result.data.length - previousCount;
-          console.log(`New students detected: ${newStudentCount} students added`);
-          
-          // Show toast notification for new students
-          if (typeof window !== 'undefined') {
-            console.log(`✅ ${newStudentCount} new student${newStudentCount > 1 ? 's' : ''} added to payment system`);
-          }
-        }
-        
-        console.log('🔄 Updating records state with fresh data from database');
-        setRecords(result.data)
-        setError(null)
-        console.log('✅ Records state updated successfully');
-      } else {
-        // Fallback to students API if sync fails
-        // Sync failed, falling back to students API
-        response = await fetch('/api/students')
-        result = await response.json()
-        
-        if (result.success) {
-          // Fetch courses for triple-rule matching fallback
-          let courses: any[] = []
-          try {
-            const coursesResp = await fetch('/api/courses', { cache: 'no-store' })
-            if (coursesResp.ok) {
-              const cJson = await coursesResp.json()
-              courses = Array.isArray(cJson.data) ? cJson.data : []
-            }
-          } catch (_) {}
 
-          const paymentRecords = await Promise.all(result.data.map(async (student: any) => {
-            let matchedCourse = null as any
-            const studentLevel = student.level || student.category
-            if (student.activity && student.course && studentLevel && courses.length) {
-              matchedCourse = courses.find(c => (
-                student.activity === c.id &&
-                student.course === c.name &&
-                studentLevel === c.level
-              )) || null
-            }
-            const finalPayment = matchedCourse?.priceINR || 0
-            const totalPaid = student.totalPaidAmount || 0
-            const balance = Math.max(0, finalPayment - totalPaid)
-            let paymentStatus: 'Paid' | 'Pending' = balance > 0 ? 'Pending' : 'Paid'
-            return {
-              id: student.studentId,
-              name: student.name,
-              activity: student.course || student.activity || 'General Course',
-              program: student.program || student.course || 'General Course',
-              category: student.category || '-',
-              courseType: student.courseType || 'Individual',
-              cohort: student.cohort || `${student.course}_${new Date().getFullYear()}_Batch01`,
-              paymentStatus,
-              totalPaidAmount: totalPaid,
-              finalPayment,
-              balancePayment: balance,
-              paidDate: student.paidDate || null,
-              nextDue: student.nextPaymentDate || null,
-              courseStartDate: student.courseStartDate || new Date().toISOString(),
-              paymentReminder: student.paymentReminder !== false,
-              communicationText: student.communicationText || 'Payment reminder sent.',
-              communicationPreferences: {
-                enabled: true,
-                channels: ['Email']
-              },
-              paymentDetails: {
-                upiId: student.upiId || 'payments@uniqbrio.com',
-                phoneNumber: student.phoneNumber || '+91 98765 43210'
-              },
-              currency: student.currency || 'INR',
-              paymentFrequency: student.paymentFrequency || 'One-time',
-              nextPaymentDate: student.nextPaymentDate || null,
-              reminderDays: student.reminderDays || 3,
-              paymentModes: student.paymentModes || ['UPI', 'Cash'],
-              studentType: student.studentType || 'Regular',
-              derivedFinalPayment: !!matchedCourse
-            } as PaymentRecord
-          }))
-          console.log('Payment data refreshed from students API (with fallback match):', paymentRecords.length, 'records')
-          setRecords(paymentRecords)
-          setError(null)
-        } else {
-          throw new Error('Failed to fetch data from both sync and students API');
+      // 1. Try list endpoint (fast)
+      let response = await fetch('/api/payments/list?limit=250&sortBy=studentId&sortOrder=asc', { cache: 'no-store' });
+      let result: any = {};
+      try { result = await response.json(); } catch {}
+      if (result.success && result.data?.length) {
+        setRecords(result.data);
+        if (result.data.length > previousCount) {
+          console.log(`➕ ${result.data.length - previousCount} new payment rows`);
         }
+        return;
+      }
+
+      // 2. Fallback to sync endpoint
+      response = await fetch('/api/payments/sync', { cache: 'no-store' });
+      result = await response.json();
+      if (result.success && result.data?.length) {
+        setRecords(result.data);
+        return;
+      }
+
+      // 3. Final fallback: students API legacy path
+      response = await fetch('/api/students');
+      result = await response.json();
+      if (result.success) {
+        // Keep legacy fallback minimal (no recomputation duplication) -> just map base fields
+        const mapped = (result.data || []).map((s: any) => ({
+          id: s.studentId,
+          name: s.name,
+            activity: s.course || s.activity || 'General Course',
+            program: s.program || s.course || 'General Course',
+            category: s.category || '-',
+            courseType: s.courseType || '-',
+            finalPayment: s.finalPayment || 0,
+            totalPaidAmount: s.totalPaidAmount || 0,
+            balancePayment: s.balancePayment || 0,
+            paymentStatus: s.paymentStatus || 'Pending',
+            paidDate: s.paidDate || null,
+            nextPaymentDate: s.nextPaymentDate || null,
+            courseStartDate: s.courseStartDate || null,
+            paymentReminder: s.paymentReminder !== false,
+            communicationText: s.communicationText || '',
+            registrationFees: s.registrationFees,
+            paymentDetails: {
+              upiId: s.upiId || 'uniqbrio@upi',
+              paymentLink: s.paymentLink || 'https://pay.uniqbrio.com',
+              qrCode: 'QR_CODE_PLACEHOLDER'
+            }
+        }));
+        setRecords(mapped);
+      } else {
+        throw new Error('Failed to refresh from all sources');
       }
     } catch (err) {
       console.error('❌ refreshPaymentData error:', err)
