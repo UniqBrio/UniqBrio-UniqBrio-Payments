@@ -74,11 +74,12 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
         let paymentCategory = "Course Payment";
         let paymentAmount = 0;
         if (paymentType === "studentRegistration") {
-          paymentTypeLabel = "Student Registration Fee";
+          // Schema enum only allows generic "Registration Fee" (differentiate via category)
+          paymentTypeLabel = "Registration Fee";
           paymentCategory = "Student Registration";
           paymentAmount = record.registrationFees?.studentRegistration?.amount || 500;
         } else if (paymentType === "courseRegistration") {
-          paymentTypeLabel = "Course Registration Fee";
+          paymentTypeLabel = "Registration Fee"; // normalized
           paymentCategory = "Course Registration";
           paymentAmount = record.registrationFees?.courseRegistration?.amount || 1000;
         } else if (paymentType === "course") {
