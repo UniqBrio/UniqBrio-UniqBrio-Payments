@@ -47,48 +47,62 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
         studentName: record.name
       }); // Debug log
       
-      // We'll capture the last API response (course or registration) to read updated paymentDocument
-      let lastPaymentResponse: any = null;
-
-      // Determine actual individual amounts: dialog's payload.amount is the SUM of all selected unpaid fees
-      const studentRegAmount = record.registrationFees?.studentRegistration?.amount || 0;
-      const courseRegAmount = record.registrationFees?.courseRegistration?.amount || 0;
-      const includesStudentReg = payload.paymentTypes.includes("studentRegistration");
-      const includesCourseReg = payload.paymentTypes.includes("courseRegistration");
-      const includesCourse = payload.paymentTypes.includes("course");
-      const nonCourseSelectedTotal = (includesStudentReg ? studentRegAmount : 0) + (includesCourseReg ? courseRegAmount : 0);
-      const calculatedCoursePortion = includesCourse ? Math.max(0, payload.amount - nonCourseSelectedTotal) : 0;
-      if (includesCourse) {
-        console.log('🧮 Manual payment breakdown:', {
-          totalEntered: payload.amount,
-          studentRegistration: includesStudentReg ? studentRegAmount : 0,
-          courseRegistration: includesCourseReg ? courseRegAmount : 0,
-          coursePortion: calculatedCoursePortion
-        });
-      }
+      // Store course payment response for accurate balance calculation
+      let coursePaymentResponse: any = null;
       
-      // Process each payment type
-      for (const paymentType of payload.paymentTypes) {
+      // Pre-calculate amounts to avoid double counting when multiple types selected
+      const selectedTypes = payload.paymentTypes;
+      const registrationComponents = selectedTypes.filter(t => t === 'studentRegistration' || t === 'courseRegistration');
+      const studentRegFee = record.registrationFees?.studentRegistration?.amount || 500;
+      const courseRegFee = record.registrationFees?.courseRegistration?.amount || 1000;
+      const totalSelectedRegistration = registrationComponents.reduce((sum, t) => {
+        if (t === 'studentRegistration') return sum + (record.registrationFees?.studentRegistration?.amount || 500);
+        if (t === 'courseRegistration') return sum + (record.registrationFees?.courseRegistration?.amount || 1000);
+        return sum;
+      }, 0);
+
+      // User-entered amount represents FULL amount they intend to pay now (could be auto-filled)
+      const userEnteredTotal = payload.amount;
+      // Derive the course-only portion if course is included
+      let derivedCoursePortion = userEnteredTotal;
+      if (selectedTypes.includes('course')) {
+        if (registrationComponents.length > 0) {
+          // Subtract registration fees from total so course portion is isolated
+            derivedCoursePortion = Math.max(0, userEnteredTotal - totalSelectedRegistration);
+        }
+        // Never exceed current balance
+        derivedCoursePortion = Math.min(derivedCoursePortion, record.balancePayment);
+      }
+
+      // Process each payment type individually
+      for (const paymentType of selectedTypes) {
         // Only handle course, studentRegistration, courseRegistration
-        let paymentTypeLabel = "Course Fee";
+        // paymentType must match enum in PaymentRecordSchema: ["Course Fee", "Registration Fee", ...]
+        // We use paymentCategory to distinguish specific registration fee types.
+        let paymentTypeLabel = "Course Fee"; // default valid enum value
         let paymentCategory = "Course Payment";
         let paymentAmount = 0;
         if (paymentType === "studentRegistration") {
-          // Schema enum only allows generic "Registration Fee" (differentiate via category)
+          // Use generic "Registration Fee" to satisfy enum; category provides specificity
           paymentTypeLabel = "Registration Fee";
           paymentCategory = "Student Registration";
           paymentAmount = record.registrationFees?.studentRegistration?.amount || 500;
         } else if (paymentType === "courseRegistration") {
-          paymentTypeLabel = "Registration Fee"; // normalized
+          paymentTypeLabel = "Registration Fee";
           paymentCategory = "Course Registration";
           paymentAmount = record.registrationFees?.courseRegistration?.amount || 1000;
         } else if (paymentType === "course") {
           paymentTypeLabel = "Course Fee";
           paymentCategory = "Course Payment";
-          // Only charge the course portion (total - selected registration fees)
-          paymentAmount = calculatedCoursePortion || payload.amount; // fallback for legacy behavior
+          paymentAmount = derivedCoursePortion;
         } else {
           continue; // skip any other types (advance/confirmation)
+        }
+
+        // Skip zero or negative amounts defensively
+        if (paymentAmount <= 0) {
+          console.log(`⚠️ Skipping ${paymentType} payment with non-positive amount:`, paymentAmount);
+          continue;
         }
 
         // Debug the payment data being sent
@@ -118,43 +132,60 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
           body: JSON.stringify(paymentData)
         });
 
+        const resultText = await response.text();
+        let result: any = {};
+        try { result = JSON.parse(resultText); } catch { /* leave as text */ }
         if (!response.ok) {
-          throw new Error(`HTTP error for ${paymentType}! status: ${response.status}`);
+          console.error('❌ API error body:', result);
+          throw new Error(`HTTP ${response.status} while recording ${paymentType}: ${JSON.stringify(result)}`);
         }
-        const result = await response.json();
         if (!result.success) {
-          throw new Error(`Failed to record ${paymentType} payment`);
+          console.error('❌ API logical failure:', result);
+          throw new Error(`Backend rejected ${paymentType}: ${result.error || 'Unknown error'}`);
         }
-        lastPaymentResponse = result; // keep updating; final iteration holds latest document state
+        if (paymentType === "course" || paymentType === "courseRegistration") {
+          coursePaymentResponse = result;
+        }
+      }
+
+      // Inspect backend authoritative state after processing payments
+      try {
+        const inspectResp = await fetch(`/api/payments/inspect?studentId=${encodeURIComponent(record.id)}`, { cache: 'no-store' });
+        if (inspectResp.ok) {
+          const inspectJson = await inspectResp.json();
+          console.log('🧪 Inspect after payment:', inspectJson);
+        } else {
+          console.warn('⚠️ Inspect endpoint returned status', inspectResp.status);
+        }
+      } catch (inspErr) {
+        console.warn('⚠️ Inspect fetch failed:', inspErr);
       }
 
       // Now update the record based on what payment types were processed
       let updatedRecord: Partial<PaymentRecord> = {};
       let successMessage: string = "";
       
-      const paymentDoc = lastPaymentResponse?.data?.paymentDocument;
-      if (includesCourse && paymentDoc) {
-        updatedRecord = {
-          totalPaidAmount: paymentDoc.totalPaidAmount, // ALL completed payments (course + registration)
-          balancePayment: paymentDoc.currentBalance,
-          paymentStatus: (paymentDoc.paymentStatus === 'Partial' ? 'Pending' : paymentDoc.paymentStatus) as 'Paid' | 'Pending',
-          paidDate: new Date().toISOString(),
-          paymentReminder: paymentDoc.currentBalance > 0
-        };
-        successMessage = `Payment recorded. New balance: ${formatCurrency(paymentDoc.currentBalance, record.currency)}`;
-      } else if (!includesCourse && paymentDoc) {
-        // Registration-only payment: update totals (balance unaffected by registration fees)
-        updatedRecord = {
-          totalPaidAmount: paymentDoc.totalPaidAmount,
-          balancePayment: paymentDoc.currentBalance,
-          paymentStatus: (paymentDoc.paymentStatus === 'Partial' ? 'Pending' : paymentDoc.paymentStatus) as 'Paid' | 'Pending'
-        };
-        successMessage = `Registration fee(s) recorded. Course balance: ${formatCurrency(paymentDoc.currentBalance, record.currency)}`;
-      } else {
-        // Fallback if API format changes
-        updatedRecord = { paidDate: new Date().toISOString() };
-        successMessage = `Payment recorded. Refreshing for updated balance...`;
-      }
+      if (payload.paymentTypes.includes("course")) {
+        // Use ONLY payments collection calculated totals (students collection not updated)
+        if (coursePaymentResponse?.data?.summary) {
+          const backendSummary = coursePaymentResponse.data.summary;
+          updatedRecord = {
+            totalPaidAmount: backendSummary.coursePaidAmount || backendSummary.totalPaidAmount,
+            balancePayment: backendSummary.currentBalance,
+            paymentStatus: backendSummary.paymentStatus as "Paid" | "Pending",
+            paidDate: new Date().toISOString(),
+            paymentReminder: backendSummary.currentBalance > 0
+          };
+          
+          successMessage = `Payment recorded in payments collection. New balance: ${formatCurrency(backendSummary.currentBalance, record.currency)} (calculated dynamically)`;
+        } else {
+          // Force refresh to get updated calculations from payments collection
+          updatedRecord = {
+            paidDate: new Date().toISOString()
+          };
+          successMessage = `Payment recorded. Balance will be calculated from payments collection...`;
+        }
+      } 
       
       // Handle registration fee payments
       if (payload.paymentTypes.some(type => ["studentRegistration", "courseRegistration"].includes(type))) {

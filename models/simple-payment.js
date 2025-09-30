@@ -63,4 +63,7 @@ SimplePaymentSchema.pre('save', function(next) {
   next();
 });
 
-export default mongoose.models.SimplePayment || mongoose.model("SimplePayment", SimplePaymentSchema, "payments");
+// IMPORTANT: Use a different physical collection to avoid clashing with the aggregated
+// per-student Payment model (which also previously used the 'payments' collection).
+// Earlier both schemas pointed to the same collection causing validation/index issues.
+export default mongoose.models.SimplePayment || mongoose.model("SimplePayment", SimplePaymentSchema, "simple-payments");

@@ -8,6 +8,7 @@
     "lint": "next lint",
     "start": "next start",
     "debug:stu": "node --experimental-modules debug-stu00015.js"
+  ,"payments:audit": "node ./scripts/payments-audit.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

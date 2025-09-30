@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { PaymentRecord } from './payment-types'
 import { Mail, MessageSquare, Phone, Loader2 } from "lucide-react"
 import { useStudentCommunicationPreferences } from '@/hooks/use-student-communication-preferences'
+import { toast } from "@/components/ui/use-toast"
 
 interface ReminderPreviewDialogProps {
   record: PaymentRecord
@@ -42,6 +43,8 @@ export function ReminderPreviewDialog({ record, isOpen, onClose, onSendConfirm }
   const [selectedMode, setSelectedMode] = useState<string>('')
   const [studentCommPrefs, setStudentCommPrefs] = useState<any>(null)
   const [fetchingPrefs, setFetchingPrefs] = useState(false)
+  // Modes that are not yet implemented for sending
+  const COMING_SOON_MODES = ['SMS']
   
   // Hook to fetch communication preferences from students collection
   const { 
@@ -161,14 +164,15 @@ For support: 📞 +91-XXXXX-XXXXX
             
             // Set initial mode from students collection preferences
             const preferredChannels = preferences.channels || ['Email']
-            const preferredMode = preferredChannels[0] || 'Email'
+            // Pick first non-coming-soon mode; fallback to Email
+            const preferredMode = preferredChannels.find((c: string) => !COMING_SOON_MODES.includes(c)) || 'Email'
             setSelectedMode(preferredMode)
             setMessageContent(generateReminderContent(preferredMode))
           } else {
             // Fallback to record preferences or default
             console.log('⚠️ No preferences from students collection, using fallback')
             const fallbackChannels = record.communicationPreferences?.channels || ['Email']
-            const fallbackMode = fallbackChannels[0] || 'Email'
+            const fallbackMode = fallbackChannels.find((c: string) => !COMING_SOON_MODES.includes(c)) || 'Email'
             setSelectedMode(fallbackMode)
             setMessageContent(generateReminderContent(fallbackMode))
           }
@@ -176,7 +180,7 @@ For support: 📞 +91-XXXXX-XXXXX
           console.error('❌ Error fetching student preferences:', error)
           // Use record preferences as fallback
           const fallbackChannels = record.communicationPreferences?.channels || ['Email']
-          const fallbackMode = fallbackChannels[0] || 'Email'
+          const fallbackMode = fallbackChannels.find((c: string) => !COMING_SOON_MODES.includes(c)) || 'Email'
           setSelectedMode(fallbackMode)
           setMessageContent(generateReminderContent(fallbackMode))
         } finally {
@@ -223,23 +227,48 @@ For support: 📞 +91-XXXXX-XXXXX
           <div>
             <label className="text-sm font-medium mb-2 block">Communication Mode:</label>
             <div className="flex gap-2">
-              {['Email', 'SMS', 'WhatsApp'].map((mode) => (
-                <Button
-                  key={mode}
-                  variant={selectedMode === mode ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handleModeChange(mode)}
-                  className="flex items-center gap-1"
-                >
-                  {getModeIcon(mode)}
-                  {mode}
-                  {(studentCommPrefs?.channels?.includes(mode as any) || record.communicationPreferences?.channels?.includes(mode as any)) && (
-                    <Badge variant="secondary" className="ml-1 text-xs">
-                      {studentCommPrefs?.channels?.includes(mode) ? 'Student Preference' : 'Available'}
-                    </Badge>
-                  )}
-                </Button>
-              ))}
+              {['Email', 'SMS', 'WhatsApp'].map((mode) => {
+                const isComingSoon = COMING_SOON_MODES.includes(mode)
+                const isSelected = selectedMode === mode
+                return (
+                  <Button
+                    key={mode}
+                    variant="outline"
+                    size="sm"
+                    disabled={isComingSoon}
+                    onClick={() => {
+                      if (isComingSoon) {
+                        toast({
+                          title: `${mode} Coming Soon`,
+                          description: `${mode} reminders are not yet enabled. Please choose another mode.`,
+                        })
+                        return
+                      }
+                      handleModeChange(mode)
+                    }}
+                    aria-pressed={isSelected}
+                    title={isComingSoon ? `${mode} sending not yet available` : `${mode} mode`}
+                    className={`flex items-center gap-1 transition-colors duration-200 border-[1.5px] relative
+                      ${isComingSoon
+                        ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
+                        : (isSelected
+                            ? 'bg-[#9234ea] border-[#9234ea] text-white hover:bg-[#7a2cbe] hover:text-white'
+                            : 'bg-white border-[#9234ea] text-[#9234ea] hover:bg-[#9234ea]/10 hover:text-[#9234ea]')}
+                    `}
+                  >
+                    {getModeIcon(mode)}
+                    {mode}
+                    {isComingSoon && (
+                      <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-gray-200 text-gray-600">Soon</span>
+                    )}
+                    {!isComingSoon && (studentCommPrefs?.channels?.includes(mode as any) || record.communicationPreferences?.channels?.includes(mode as any)) && (
+                      <Badge variant="secondary" className="ml-1 text-xs">
+                        {studentCommPrefs?.channels?.includes(mode) ? 'Student Preference' : 'Available'}
+                      </Badge>
+                    )}
+                  </Button>
+                )
+              })}
             </div>
           </div>
 
@@ -290,6 +319,13 @@ For support: 📞 +91-XXXXX-XXXXX
             </Button>
             <Button 
               onClick={() => {
+                if (COMING_SOON_MODES.includes(selectedMode)) {
+                  toast({
+                    title: `${selectedMode} Coming Soon`,
+                    description: `Sending via ${selectedMode} is not yet enabled. Please pick Email or WhatsApp.`,
+                  })
+                  return
+                }
                 console.log('📤 REMINDER PREVIEW - Would send:', {
                   mode: selectedMode,
                   student: record.name,

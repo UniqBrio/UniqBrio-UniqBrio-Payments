@@ -405,10 +405,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )}
       {isColumnVisible('courseStartDate') && (
         <TableCell className="text-[11px] p-1 text-center">
-          {record.courseStartDate ? 
-            formatDateToDisplay(record.courseStartDate) : 
-            <span className="text-gray-400 italic">-</span>
-          }
+          {formatDateToDisplay(record.courseStartDate)}
         </TableCell>
       )}
       {isColumnVisible('reminder') && (

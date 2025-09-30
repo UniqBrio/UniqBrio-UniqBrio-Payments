@@ -4,6 +4,12 @@ import Course from "@/models/course";
 import Payment from "@/models/payment";
 import { NextRequest, NextResponse } from "next/server";
 
+// Minimal shape for payment records used in aggregation below
+interface PaymentRecordLite {
+  paymentCategory?: string;
+  amount?: number | string;
+}
+
 export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
@@ -68,7 +74,8 @@ export async function GET(request: NextRequest) {
     console.log('📚 Available courses for matching:');
     courses.forEach(course => {
       const courseData = course as any;
-      console.log(`  Course ${courseData.courseId}: "${courseData.name}" (Level: ${courseData.level}, Status: ${courseData.status}, Price: ₹${courseData.priceINR})`);
+      const courseCode = courseData.courseId || courseData.id; // ensure compatibility
+      console.log(`  Course ${courseCode}: "${courseData.name}" (Level: ${courseData.level}, Status: ${courseData.status}, Price: ₹${courseData.priceINR})`);
     });
     
     // Debug: Log all students for matching analysis
@@ -117,7 +124,7 @@ export async function GET(request: NextRequest) {
       if (studentActivity && studentProgram && normalizedCategory && normalizedCategory !== '-' && hasValidCategory) {
         for (const course of courses) {
           const courseData = course as any;
-          const courseCode = courseData.courseId;
+          const courseCode = courseData.courseId || courseData.id; // FIX: use existing id field
           const courseName = courseData.name;
           const courseLevel = courseData.level;
           
@@ -149,7 +156,12 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      const finalPaymentAmount = matchedCourseId ? Number(matchedCoursePrice) || 0 : 0;
+      // Fallback: if no matched course, use payment document's stored totals so manual payments still appear
+      const paymentDocFallback = paymentsByStudent[student.studentId];
+      let finalPaymentAmount = matchedCourseId ? Number(matchedCoursePrice) || 0 : 0;
+      if (!matchedCourseId && paymentDocFallback) {
+        finalPaymentAmount = Number(paymentDocFallback.totalCourseFee) || 0;
+      }
       
       // DYNAMIC CALCULATION FROM PAYMENTS COLLECTION ONLY
       // Students collection: READ ONLY (never updated)
@@ -160,19 +172,28 @@ export async function GET(request: NextRequest) {
       let coursePaidAmount = 0;
       let totalPaymentRecords = 0;
       
-      if (studentPaymentDoc && studentPaymentDoc.paymentRecords) {
+      if (studentPaymentDoc && Array.isArray(studentPaymentDoc.paymentRecords)) {
+        const records = studentPaymentDoc.paymentRecords as PaymentRecordLite[];
         // Calculate from payment records within the student's payment document
-        coursePaidAmount = studentPaymentDoc.paymentRecords
-          .filter((record: any) => ['Course Payment', 'Course Registration'].includes(record.paymentCategory))
-          .reduce((sum: number, record: any) => sum + (Number(record.amount) || 0), 0);
-        totalPaymentRecords = studentPaymentDoc.paymentRecords.length;
+        const courseRecords = records.filter((record: PaymentRecordLite) =>
+          ['Course Payment', 'Course Registration'].includes(record.paymentCategory || '')
+        );
+        coursePaidAmount = courseRecords.reduce((sum: number, record: PaymentRecordLite) => {
+          const amt = Number(record.amount) || 0;
+            return sum + amt;
+        }, 0);
+        totalPaymentRecords = records.length;
       }
       
       // BALANCE CALCULATION (100% from payments collection):
       // Final Payment = Course fee (from matched course)
       // Total Paid = Sum from payment records in student's payment document
       // Balance = Final Payment - Total Paid (real-time calculation)
-      const balanceAmount = Math.max(0, finalPaymentAmount - coursePaidAmount);
+      let balanceAmount = Math.max(0, finalPaymentAmount - coursePaidAmount);
+      // If we have a fallback doc and its currentBalance differs (because of registration fees etc.), trust backend doc
+      if (paymentDocFallback && typeof paymentDocFallback.currentBalance === 'number' && !matchedCourseId) {
+        balanceAmount = paymentDocFallback.currentBalance;
+      }
         
       const hasBalance = balanceAmount > 0;
       
@@ -218,9 +239,9 @@ export async function GET(request: NextRequest) {
         program: studentProgram || 'N/A', 
         category: studentCategory, // Direct category from student collection
         courseType: matchType === 'exact-triple-match' ? matchedCourseType : '-', // Show type only if all 3 fields match
-        finalPayment: matchType === 'exact-triple-match' ? finalPaymentAmount : 0, // Show final payment only if all 3 fields match  
-        balancePayment: matchType === 'exact-triple-match' ? balanceAmount : 0, // Show balance only if all 3 fields match
-        totalPaidAmount: coursePaidAmount,
+  finalPayment: matchType === 'exact-triple-match' ? finalPaymentAmount : (paymentDocFallback ? finalPaymentAmount : 0),
+  balancePayment: matchType === 'exact-triple-match' ? balanceAmount : (paymentDocFallback ? balanceAmount : 0),
+  totalPaidAmount: paymentDocFallback ? paymentDocFallback.totalPaidAmount : coursePaidAmount,
         // Paid Date: Show last payment date or "-" if no payments
         paidDate: studentPaymentDoc && studentPaymentDoc.lastPaymentDate ? 
           studentPaymentDoc.lastPaymentDate.toISOString() : null,
@@ -233,7 +254,7 @@ export async function GET(request: NextRequest) {
           nextDue.setDate(nextDue.getDate() + 30);
           return nextDue.toISOString();
         })(),
-        paymentStatus: matchType === 'exact-triple-match' ? (balanceAmount > 0 ? 'Pending' : 'Paid') : '-', // Show status only if all 3 fields match
+  paymentStatus: matchType === 'exact-triple-match' ? (balanceAmount > 0 ? 'Pending' : 'Paid') : (paymentDocFallback ? paymentDocFallback.paymentStatus || (balanceAmount > 0 ? 'Pending' : 'Paid') : '-'),
         paymentReminder: matchType === 'exact-triple-match' && hasBalance, // Reminder on if matched and balance > 0
         communicationPreferences: commPreferences, // Student's preferred communication channels
         communicationText: matchType === 'exact-triple-match' ? 

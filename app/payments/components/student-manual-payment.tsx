@@ -121,10 +121,9 @@ export function ManualPaymentDialog({
   // Validation helpers
   const isAmountValid = amount.trim() !== "" && parseFloat(amount) > 0
   const isDateValid = date.trim() !== ""
-  // mode is a union of fixed strings; treat any defined value as valid
-  const isModeValid = Boolean(mode)
+  const isModeValid = mode !== ""
   const isReceivedByNameValid = receivedByName.trim() !== ""
-  const isReceivedByRoleValid = Boolean(receivedByRole)
+  const isReceivedByRoleValid = receivedByRole !== ""
   
   // Progressive validation - each field depends on previous ones being valid
   const canEnableDate = isAmountValid
@@ -270,9 +269,6 @@ export function ManualPaymentDialog({
       receivedByName: receivedByName.trim(),
       receivedByRole,
       paymentTypes,
-      // Provide receiverName/Id (backend also sets these but type requires them)
-      receiverName: studentInfo?.name || receivedByName.trim(),
-      receiverId: studentInfo?.id || 'UNKNOWN'
     });
     
     setAmount("");

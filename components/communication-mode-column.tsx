@@ -136,10 +136,11 @@ export function CommunicationModeColumn({ studentId, studentName, className = ""
           <Badge 
             key={`${channel}-${index}`}
             variant={getChannelVariant(channel)}
-            className="text-xs flex items-center gap-1"
+            className={`text-xs flex items-center gap-1 ${channel.toLowerCase() === 'sms' ? 'opacity-60 line-through decoration-dashed' : ''}`}
+            title={channel.toLowerCase() === 'sms' ? 'SMS notifications coming soon' : channel}
           >
             {getChannelIcon(channel)}
-            {channel}
+            {channel.toLowerCase() === 'sms' ? 'SMS (Soon)' : channel}
           </Badge>
         ))}
       </div>
