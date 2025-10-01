@@ -132,7 +132,7 @@ export function PayslipButton({ students }: PayslipButtonProps) {
       (selectedStudent.registrationFees?.studentRegistration?.amount || 0) + 
       (selectedStudent.registrationFees?.courseRegistration?.amount || 0) + 
       (selectedStudent.registrationFees?.confirmationFee?.amount || 0);
-    const file = new Blob([`Payment Receipt - ${selectedStudent.name}\n\nStudent: ${selectedStudent.name}\nCourse: ${selectedStudent.activity}\nTotal Fee: ${getCurrencySymbol(selectedStudent.currency)}${totalFeeWithRegistration}\nPaid: ${getCurrencySymbol(selectedStudent.currency)}${selectedStudent.totalPaidAmount}\nBalance: ${getCurrencySymbol(selectedStudent.currency)}${selectedStudent.balancePayment}`], {type: 'text/plain'})
+    const file = new Blob([`Payment Receipt - ${selectedStudent.name}\n\nStudent: ${selectedStudent.name}\nCourse: ${selectedStudent.program || selectedStudent.activity}${selectedStudent.program && selectedStudent.program !== selectedStudent.activity ? ` (${selectedStudent.activity})` : ''}\nTotal Fee: ${getCurrencySymbol(selectedStudent.currency)}${totalFeeWithRegistration}\nPaid: ${getCurrencySymbol(selectedStudent.currency)}${selectedStudent.totalPaidAmount}\nBalance: ${getCurrencySymbol(selectedStudent.currency)}${selectedStudent.balancePayment}`], {type: 'text/plain'})
     element.href = URL.createObjectURL(file)
     element.download = `payslip-${selectedStudent.name}-${new Date().toISOString().split('T')[0]}.txt`
     document.body.appendChild(element)
@@ -179,7 +179,7 @@ export function PayslipButton({ students }: PayslipButtonProps) {
               <h4 className="font-medium mb-2">Student Found:</h4>
               <p><strong>Name:</strong> {selectedStudent.name}</p>
               <p><strong>CourseId:</strong> {selectedStudent.activity}</p>
-              <p><strong>Course:</strong> {selectedStudent.program}</p>
+              <p><strong>Course:</strong> {selectedStudent.program || selectedStudent.activity} {selectedStudent.program && selectedStudent.program !== selectedStudent.activity ? `(${selectedStudent.activity})` : ''}</p>
               <p><strong>Total Fee:</strong> {getCurrencySymbol(selectedStudent.currency)}{(() => {
                 const courseFee = selectedStudent.finalPayment || 0;
                 const registrationTotal = (selectedStudent.registrationFees?.studentRegistration?.amount || 0) + 

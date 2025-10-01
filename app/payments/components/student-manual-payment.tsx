@@ -289,6 +289,7 @@ export function ManualPaymentDialog({
             <div className="text-sm text-gray-600 mt-2 p-3 bg-gray-50 rounded-md">
               <p><strong>Student:</strong> {studentInfo.name || '-'}</p>
               <p><strong>ID:</strong> {studentInfo.id || '-'}</p>
+              <p><strong>Course:</strong> {studentInfo.program || studentInfo.activity} {studentInfo.program && studentInfo.program !== studentInfo.activity ? `(${studentInfo.activity})` : ''}</p>
               <p><strong>Course Type:</strong> {studentInfo.courseType || '-'}</p>
               <p><strong>Category:</strong> {studentInfo.category || '-'}</p>
               <p><strong>Activity:</strong> {studentInfo.activity || '-'}</p>

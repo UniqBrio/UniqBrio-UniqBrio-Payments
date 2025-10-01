@@ -87,7 +87,8 @@ export function ReminderPreviewDialog({ record, isOpen, onClose, onSendConfirm }
     const baseInfo = {
       studentName: record.name,
       studentId: record.id,
-      courseName: record.activity,
+      courseName: record.program || record.activity,
+      courseCode: record.activity,
       cohort: record.cohort || 'Not Assigned',
       balanceAmount: record.balancePayment || 0,
       totalFee: record.finalPayment || 0,
@@ -106,21 +107,24 @@ Dear ${baseInfo.studentName},
 
 This is a payment reminder for your enrollment in ${baseInfo.courseName}.
 
-Student: ${baseInfo.studentName} (ID: ${baseInfo.studentId})
-Course: ${baseInfo.courseName}
-Cohort: ${baseInfo.cohort}
+Student ID: ${baseInfo.studentId}
+Student Name: ${baseInfo.studentName} 
+Course ID: ${baseInfo.courseCode}
+Course Name: ${baseInfo.courseName}
+Course Level: ${record.category || '-'}
+
 
 Payment Summary:
 - Total Fee: ${formatCurrency(baseInfo.totalFee)}
 - Paid: ${formatCurrency(baseInfo.paidAmount)}
 - Outstanding: ${formatCurrency(baseInfo.balanceAmount)}
-- Due Date: ${formatDate(baseInfo.dueDate)}
+
 
 Payment Options:
 - UPI: ${baseInfo.upiId}
 - Link: ${baseInfo.paymentLink}
 
-Please complete your payment by the due date to avoid any disruption to your learning.
+Please complete your payment Soon.
 
 Best regards,
 UniqBrio Academic Team
@@ -136,22 +140,26 @@ UniqBrio Academic Team
 
       case 'sms':
         return `Payment Reminder
-${baseInfo.studentName} (${baseInfo.studentId})
-Course: ${baseInfo.courseName}
+Student Id : ${baseInfo.studentId}
+Student Name: ${baseInfo.studentName}
+Course ID:${baseInfo.courseCode}
+Course Name : ${baseInfo.courseName}
+Course Level: ${record.category || '-'}
 Outstanding: ${formatCurrency(baseInfo.balanceAmount)}
-Due: ${formatDate(baseInfo.dueDate)}
 Pay via UPI: ${baseInfo.upiId}
--UniqBrio`
+Pay via Link: ${baseInfo.paymentLink}`
 
       case 'whatsapp':
         return `*Payment Reminder*
 
 Hello ${baseInfo.studentName},
 
-*Student:* ${baseInfo.studentName} (${baseInfo.studentId})
-*Course:* ${baseInfo.courseName}
-*Outstanding Amount:* ${formatCurrency(baseInfo.balanceAmount)}
-*Due Date:* ${formatDate(baseInfo.dueDate)}
+Student ID: ${baseInfo.studentId}
+Student Name: ${baseInfo.studentName}
+Course ID: ${baseInfo.courseCode}
+Course Name: ${baseInfo.courseName}
+Course Level: ${record.category || '-'}
+Outstanding Amount: ${formatCurrency(baseInfo.balanceAmount)}
 
 *Payment Options:*
 UPI: ${baseInfo.upiId}
@@ -321,9 +329,9 @@ UniqBrio Academic Team`
           {/* Student Info */}
           <div className="bg-gray-50 p-3 rounded border">
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><strong>Student:</strong> {record.name}</div>
-              <div><strong>ID:</strong> {record.id}</div>
-              <div><strong>Course:</strong> {record.activity}</div>
+              <div><strong>Student ID:</strong> {record.id}</div>
+              <div><strong>Student Name:</strong> {record.name}</div>
+              <div><strong>Course details:</strong> {record.program} ({record.activity})</div>
               <div><strong>Balance:</strong> {formatCurrency(record.balancePayment || 0)}</div>
             </div>
           </div>
@@ -338,7 +346,7 @@ UniqBrio Academic Team`
               <div className="text-sm space-y-1">
                 <div><strong>Status:</strong> {studentCommPrefs.enabled ? '✅ Enabled' : '❌ Disabled'}</div>
                 <div><strong>Preferred Channels:</strong> {studentCommPrefs.channels?.join(', ') || 'None'}</div>
-                <div className="text-xs text-gray-600 mt-1">📡 Data fetched from students collection</div>
+                {/* <div className="text-xs text-gray-600 mt-1">📡 Data fetched from students collection</div> */}
               </div>
             ) : (
               <div className="text-sm text-gray-600">

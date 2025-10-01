@@ -81,7 +81,7 @@ export function PaymentGrid({ filteredRecords, onUpdateRecord }: PaymentGridProp
           <CardContent className="space-y-3">
             {/* Course Information */}
             <div className="space-y-1">
-              <p className="text-xs font-medium text-gray-700">{record.activity}</p>
+              <p className="text-xs font-medium text-gray-700">{record.program || record.activity} {record.program && record.program !== record.activity ? `(${record.activity})` : ''}</p>
               <div className="flex gap-2">
                 <Badge variant="outline" className="text-xs border-purple-200">
                   {record.category}

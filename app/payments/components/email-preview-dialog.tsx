@@ -73,7 +73,7 @@ STUDENT INFORMATION:
 
 COHORT & COURSE DETAILS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Course: ${record.activity}
+• Course: ${record.program || record.activity}${record.program && record.program !== record.activity ? ` (${record.activity})` : ''}
 • Cohort: ${record.cohort || 'Not Assigned'}
 • Batch: ${record.batch || 'Not Assigned'}
 • Instructor: ${record.instructor || 'TBD'}
