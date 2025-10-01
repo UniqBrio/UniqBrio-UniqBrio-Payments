@@ -369,6 +369,19 @@ export async function GET(request: NextRequest) {
     
   } catch (error: any) {
     console.error('SYNC_ROUTE_ERROR', error);
+    
+    // If it's a MongoDB connection error, return empty data gracefully
+    if (error.message?.includes('MongoDB Atlas cluster') || error.message?.includes('IP') || error.message?.includes('whitelist')) {
+      console.log('❌ Database connection unavailable - IP whitelist issue');
+      return NextResponse.json({
+        success: true,
+        data: [],
+        fallback: true,
+        message: "Database temporarily unavailable - check IP whitelist",
+        error: "IP_WHITELIST_ISSUE"
+      });
+    }
+    
     return NextResponse.json(
       { success: false, error: "Failed to sync payment data", details: error.message },
       { status: 500 }

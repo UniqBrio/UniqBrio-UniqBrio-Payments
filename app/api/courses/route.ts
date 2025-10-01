@@ -8,6 +8,15 @@ export async function GET() {
     const courses = await Course.find().lean();
     return NextResponse.json({ success: true, data: courses });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: "Failed to fetch courses", details: error.message }, { status: 500 });
+    console.error("Database connection failed:", error.message);
+    
+    // Return empty array instead of error when DB is unavailable
+    // This allows the UI to load without crashing
+    return NextResponse.json({
+      success: true,
+      data: [], // Empty courses array
+      fallback: true,
+      message: "Database temporarily unavailable"
+    });
   }
 }
