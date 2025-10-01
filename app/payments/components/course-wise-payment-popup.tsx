@@ -81,11 +81,11 @@ export function CourseWisePaymentPopup({ open, onClose, courseData }: CourseWise
     // Ensure we have a valid number
     const numericAmount = isNaN(amount) ? 0 : amount
     
-    // Format with thousand separators
+    // Format with thousand separators - just return the number without currency suffix
     const formattedNumber = new Intl.NumberFormat('en-IN').format(numericAmount)
     
-    // Return format: "1,000 INR" instead of "₹1,000"
-    return `${formattedNumber} ${currency}`
+    // Return format: "1,000" (currency indicated in column header)
+    return formattedNumber
   }
 
   const getProgressColor = (percentage: number) => {
@@ -106,16 +106,16 @@ export function CourseWisePaymentPopup({ open, onClose, courseData }: CourseWise
         <div className="flex-1 min-h-0">
           <div className="h-[60vh] overflow-y-auto rounded-md border border-purple-200">
             <Table>
-              <TableHeader className="sticky top-0 z-10 bg-purple-50 shadow-sm">
-                <TableRow className="bg-purple-50 border-b">
-                  <TableHead className="text-purple-700 font-semibold text-sm p-3 bg-purple-50">Course</TableHead>
-                  <TableHead className="text-purple-700 font-semibold text-sm p-3 bg-purple-50">Batch</TableHead>
-                  <TableHead className="text-purple-700 font-semibold text-sm p-3 bg-purple-50">Students</TableHead>
-                  <TableHead className="text-purple-700 font-semibold text-sm p-3 bg-purple-50">Total Amount</TableHead>
-                  <TableHead className="text-purple-700 font-semibold text-sm p-3 bg-purple-50">Received</TableHead>
-                  <TableHead className="text-purple-700 font-semibold text-sm p-3 bg-purple-50">Outstanding</TableHead>
-                  <TableHead className="text-purple-700 font-semibold text-sm p-3 bg-purple-50">Collection Rate</TableHead>
-                  <TableHead className="text-purple-700 font-semibold text-sm p-3 bg-purple-50">Status</TableHead>
+              <TableHeader className="sticky top-0 z-10 shadow-sm" style={{backgroundColor: '#f3f4f6'}}>
+                <TableRow className="border-b" style={{backgroundColor: '#f3f4f6'}}>
+                  <TableHead className="font-semibold text-sm p-3 text-left" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Course</TableHead>
+                  <TableHead className="font-semibold text-sm p-3 text-left" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Batch</TableHead>
+                  <TableHead className="font-semibold text-sm p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Students</TableHead>
+                  <TableHead className="font-semibold text-sm p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Total Amount (INR)</TableHead>
+                  <TableHead className="font-semibold text-sm p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Received (INR)</TableHead>
+                  <TableHead className="font-semibold text-sm p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Outstanding (INR)</TableHead>
+                  <TableHead className="font-semibold text-sm p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Collection Rate</TableHead>
+                  <TableHead className="font-semibold text-sm p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -126,43 +126,43 @@ export function CourseWisePaymentPopup({ open, onClose, courseData }: CourseWise
                       key={course.course}
                       className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-purple-25`}
                     >
-                      <TableCell className="font-medium text-sm p-3">
+                      <TableCell className="font-medium text-sm p-3 text-left">
                         <div className="flex items-center gap-2">
                           <BookOpen className="h-4 w-4 text-purple-500" />
                           {course.course}
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm p-3">
+                      <TableCell className="text-sm p-3 text-left">
                         <div className="flex items-center gap-1">
                           <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
                             Batch {course.batches.join(', ')}
                           </Badge>
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm p-3">
-                        <div className="flex items-center gap-1">
+                      <TableCell className="text-sm p-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
                           <Users className="h-3 w-3 text-gray-500" />
                           {course.students}
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm p-3">
-                        <div className="flex items-center gap-1">
+                      <TableCell className="text-sm p-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
                           {formatCurrency(course.amount, course.currency)}
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm p-3">
+                      <TableCell className="text-sm p-3 text-center">
                         <span className="font-medium text-green-600">
                           {formatCurrency(course.received, course.currency)}
                         </span>
                       </TableCell>
-                      <TableCell className="text-sm p-3">
+                      <TableCell className="text-sm p-3 text-center">
                         <span className={`font-medium ${course.outstanding > 0 ? "text-red-600" : "text-green-600"}`}>
                           {formatCurrency(course.outstanding, course.currency)}
                         </span>
                       </TableCell>
-                      <TableCell className="text-sm p-3">
+                      <TableCell className="text-sm p-3 text-center">
                         <div className="space-y-1">
-                          <div className="flex justify-between text-sm">
+                          <div className="flex justify-center text-sm">
                             <span>{collectionRate.toFixed(1)}%</span>
                           </div>
                           <div className="w-full bg-orange-500 rounded-full h-2 relative overflow-hidden">
@@ -186,8 +186,10 @@ export function CourseWisePaymentPopup({ open, onClose, courseData }: CourseWise
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm p-3">
-                        {course.outstanding === 0 ? (
+                      <TableCell className="text-sm p-3 text-center">
+                        {course.amount === 0 && course.received === 0 && course.outstanding === 0 ? (
+                          <span className="text-gray-400 italic">-</span>
+                        ) : course.outstanding === 0 ? (
                           <Badge variant="default" className="bg-green-600 text-sm">
                             Complete
                           </Badge>

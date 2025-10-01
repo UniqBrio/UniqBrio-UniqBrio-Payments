@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { BookOpen, Users, DollarSign, AlertTriangle } from "lucide-react"
+import { BookOpen, Users, AlertTriangle } from "lucide-react"
 
 interface CoursePayment {
   course: string
@@ -20,10 +20,8 @@ interface CourseWiseSummaryProps {
 
 export function CourseWiseSummary({ coursePayments }: CourseWiseSummaryProps) {
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount)
+    // Format with Indian number formatting - just return the number without currency
+    return new Intl.NumberFormat("en-IN").format(amount)
   }
 
   const getProgressColor = (percentage: number) => {
@@ -45,14 +43,14 @@ export function CourseWiseSummary({ coursePayments }: CourseWiseSummaryProps) {
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="bg-white border-b">
-                <TableHead className="text-black font-semibold text-xs p-3">Course</TableHead>
-                <TableHead className="text-black font-semibold text-xs p-3">Students</TableHead>
-                <TableHead className="text-black font-semibold text-xs p-3">Total Amount</TableHead>
-                <TableHead className="text-black font-semibold text-xs p-3">Received</TableHead>
-                <TableHead className="text-black font-semibold text-xs p-3">Outstanding</TableHead>
-                <TableHead className="text-black font-semibold text-xs p-3">Collection Rate</TableHead>
-                <TableHead className="text-black font-semibold text-xs p-3">Status</TableHead>
+              <TableRow className="border-b" style={{backgroundColor: '#f3f4f6'}}>
+                <TableHead className="font-semibold text-xs p-3 text-left" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Course</TableHead>
+                <TableHead className="font-semibold text-xs p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Students</TableHead>
+                <TableHead className="font-semibold text-xs p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Total Amount (INR)</TableHead>
+                <TableHead className="font-semibold text-xs p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Received (INR)</TableHead>
+                <TableHead className="font-semibold text-xs p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Outstanding (INR)</TableHead>
+                <TableHead className="font-semibold text-xs p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Collection Rate</TableHead>
+                <TableHead className="font-semibold text-xs p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -63,42 +61,43 @@ export function CourseWiseSummary({ coursePayments }: CourseWiseSummaryProps) {
                     key={course.course}
                     className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-purple-25`}
                   >
-                    <TableCell className="font-medium text-xs p-3">
+                    <TableCell className="font-medium text-xs p-3 text-left">
                       <div className="flex items-center gap-2">
                         <BookOpen className="h-4 w-4 text-purple-500" />
                         {course.course}
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs p-3">
-                      <div className="flex items-center gap-1">
+                    <TableCell className="text-xs p-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
                         <Users className="h-3 w-3 text-gray-500" />
                         {course.students}
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs p-3">
-                      <div className="flex items-center gap-1">
-                        <DollarSign className="h-3 w-3 text-gray-500" />
+                    <TableCell className="text-xs p-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
                         {formatCurrency(course.amount)}
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs p-3">
+                    <TableCell className="text-xs p-3 text-center">
                       <span className="font-medium text-green-600">{formatCurrency(course.received)}</span>
                     </TableCell>
-                    <TableCell className="text-xs p-3">
+                    <TableCell className="text-xs p-3 text-center">
                       <span className={`font-medium ${course.outstanding > 0 ? "text-red-600" : "text-green-600"}`}>
                         {formatCurrency(course.outstanding)}
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs p-3">
+                    <TableCell className="text-xs p-3 text-center">
                       <div className="space-y-1">
-                        <div className="flex justify-between text-xs">
+                        <div className="flex justify-center text-xs">
                           <span>{collectionRate.toFixed(1)}%</span>
                         </div>
                         <Progress value={collectionRate} className="h-2" />
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs p-3">
-                      {course.outstanding === 0 ? (
+                    <TableCell className="text-xs p-3 text-center">
+                      {course.amount === 0 && course.received === 0 && course.outstanding === 0 ? (
+                        <span className="text-gray-400 italic">-</span>
+                      ) : course.outstanding === 0 ? (
                         <Badge variant="default" className="bg-green-600 text-xs">
                           Complete
                         </Badge>
