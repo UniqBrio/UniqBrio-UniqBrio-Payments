@@ -70,8 +70,11 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
           // Subtract registration fees from total so course portion is isolated
             derivedCoursePortion = Math.max(0, userEnteredTotal - totalSelectedRegistration);
         }
-        // Never exceed current balance
-        derivedCoursePortion = Math.min(derivedCoursePortion, record.balancePayment);
+        // Allow partial payments - don't force full balance amount
+        // Only ensure the payment doesn't exceed the balance
+        if (derivedCoursePortion > record.balancePayment) {
+          derivedCoursePortion = record.balancePayment;
+        }
       }
 
       // Process each payment type individually

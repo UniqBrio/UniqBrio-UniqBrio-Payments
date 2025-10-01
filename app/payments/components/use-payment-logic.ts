@@ -5,7 +5,7 @@ import { PaymentRecord, PaymentSummary } from './payment-types'
 import { getCoursePricing } from './course-pricing-helper'
 
 export function usePaymentLogic() {
-  const AUTO_REFRESH_MS = 15000; // 15 seconds
+  const AUTO_REFRESH_MS = 5000; // 5 seconds for real-time updates
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilters, setStatusFilters] = useState<string[]>([])
   const [categoryFilters, setCategoryFilters] = useState<string[]>([])
