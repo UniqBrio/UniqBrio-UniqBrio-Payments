@@ -7,8 +7,10 @@
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
-    "debug:stu": "node --experimental-modules debug-stu00015.js"
-  ,"payments:audit": "node ./scripts/payments-audit.js"
+    "debug:stu": "node --experimental-modules debug-stu00015.js",
+    "payments:audit": "node ./scripts/payments-audit.js",
+    "db:test-connection": "node --experimental-modules ./scripts/test-connection-pattern.js",
+    "db:health": "node -e \"import('./lib/db.js').then(db => db.getConnectionHealth()).then(console.log)\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
