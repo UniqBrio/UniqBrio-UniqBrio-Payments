@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { PaymentRecord } from './payment-types'
-import { Mail, MessageSquare, Phone, Loader2 } from "lucide-react"
+import { Mail, MessageSquare, Phone, Loader2, Smartphone } from "lucide-react"
 import { useStudentCommunicationPreferences } from '@/hooks/use-student-communication-preferences'
 import { toast } from "@/components/ui/use-toast"
 
@@ -47,6 +47,8 @@ export function ReminderPreviewDialog({ record, isOpen, onClose, onSendConfirm }
   const [studentCommPrefs, setStudentCommPrefs] = useState<any>(null)
   const [fetchingPrefs, setFetchingPrefs] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
   // Modes that are not yet implemented for sending
   // NOTE: SMS removed from this list to enable real sending
   const COMING_SOON_MODES: string[] = []
@@ -115,9 +117,9 @@ Course Level: ${record.category || '-'}
 
 
 Payment Summary:
-- Total Fee: ${formatCurrency(baseInfo.totalFee)}
-- Paid: ${formatCurrency(baseInfo.paidAmount)}
-- Outstanding: ${formatCurrency(baseInfo.balanceAmount)}
+- Course Fee: ${formatCurrency(baseInfo.totalFee)}
+- Total Paid: ${formatCurrency(baseInfo.paidAmount)}
+- Balance Fee: ${formatCurrency(baseInfo.balanceAmount)}
 
 
 Payment Options:
@@ -168,6 +170,23 @@ Link: ${baseInfo.paymentLink}
 Please complete your payment by the due date.
 
 UniqBrio Academic Team`
+
+      case 'app':
+        return `📱 In-App Notification
+
+Payment Reminder for ${baseInfo.studentName}
+
+Student ID: ${baseInfo.studentId}
+Student Name: ${baseInfo.studentName}
+Course ID: ${baseInfo.courseCode}
+Course: ${baseInfo.courseName} 
+Outstanding: ${formatCurrency(baseInfo.balanceAmount)}
+
+Tap to pay now via:
+• UPI: ${baseInfo.upiId}
+• Payment Link: ${baseInfo.paymentLink}
+
+- UniqBrio Team`
 
       default:
         return `Payment reminder for ${baseInfo.studentName} - ${baseInfo.courseName}`
@@ -242,6 +261,8 @@ UniqBrio Academic Team`
         return <Phone className="h-4 w-4" />
       case 'whatsapp':
         return <MessageSquare className="h-4 w-4" />
+      case 'app':
+        return <Smartphone className="h-4 w-4" />
       default:
         return <Mail className="h-4 w-4" />
     }
@@ -286,40 +307,40 @@ UniqBrio Academic Team`
           {/* Communication Mode Selection */}
           <div>
             <label className="text-sm font-medium mb-2 block">Communication Mode:</label>
-            <div className="flex gap-2">
-              {['Email', 'SMS', 'WhatsApp'].map((mode) => {
+            <div className="flex gap-2 w-full">
+              {['Email', 'SMS', 'WhatsApp', 'App'].map((mode) => {
                 const isSelected = selectedMode === mode
                 const isSMS = mode === 'SMS'
                 return (
-                  <div key={mode} className="flex flex-col items-center">
+                  <div key={mode} className="flex flex-col items-center flex-1">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleModeChange(mode)}
                       aria-pressed={isSelected}
                       title={`${mode} mode`}
-                      className={`flex items-center gap-1 transition-colors duration-200 border-[1.5px] relative group
-                        ${isSelected
+                      disabled={isSMS}
+                      className={`flex items-center justify-center gap-1 transition-colors duration-200 border-[1.5px] relative group w-full px-2
+                        ${isSMS && isSelected
+                          ? 'bg-gray-400 border-black text-white cursor-not-allowed'
+                          : isSMS
+                          ? 'bg-gray-200 border-gray-400 text-gray-600 cursor-not-allowed hover:bg-gray-200 hover:text-gray-600'
+                          : isSelected
                           ? 'bg-[#9234ea] border-[#9234ea] text-white hover:bg-[#7a2cbe] hover:text-white'
                           : 'bg-white border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-600'}
                       `}
                     >
                       {getModeIcon(mode)}
                       {mode}
+                      {isSMS && (
+                        <span title="Coming Soon">🔜</span>
+                      )}
                       {(studentCommPrefs?.channels?.includes(mode as any) || record.communicationPreferences?.channels?.includes(mode as any)) && (
                         <Badge variant="secondary" className="ml-1 text-xs">
                           {studentCommPrefs?.channels?.includes(mode) ? 'Student Preference' : 'Available'}
                         </Badge>
                       )}
                     </Button>
-                    {isSMS && (
-                      <div className="mt-0.5 select-none pointer-events-none" aria-hidden="true">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="20" viewBox="0 0 80 40">
-                          <polygon points="0,15 50,15 50,5 70,20 50,35 50,25 0,25" fill="#7b68ee" />
-                          <text x="12" y="33" fontFamily="Arial, sans-serif" fontSize="9" fill="#7b68ee" fontWeight="bold">SOON</text>
-                        </svg>
-                      </div>
-                    )}
                   </div>
                 )
               })}
@@ -441,9 +462,19 @@ UniqBrio Academic Team`
                   student: record.name,
                   content: messageContent
                 });
+                                
                 // Fire callback so parent can show toast & trigger API
                 onSendConfirm(mode)
-                onClose()
+                
+                // Show custom success dialog
+                setSuccessMessage(`✅ Sent ${mode} Reminder\nReminder has been sent to ${record.name}`)
+                setShowSuccessDialog(true)
+                
+                // Auto close after 1 second
+                setTimeout(() => {
+                  setShowSuccessDialog(false)
+                  onClose()
+                }, 1000)
               }} 
               className={`bg-[#9234ea] hover:bg-[#7a2cbe]`}
             >
@@ -453,6 +484,31 @@ UniqBrio Academic Team`
           </div>
         </div>
       </DialogContent>
+      
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[#9234ea]">
+              ✅ Success
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm whitespace-pre-line">{successMessage}</p>
+          </div>
+          <div className="flex justify-end gap-2">
+            {/* <Button 
+              onClick={() => {
+                setShowSuccessDialog(false)
+                onClose()
+              }}
+              className="bg-[#9234ea] hover:bg-[#7a2cbe]"
+            >
+              OK
+            </Button> */}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }

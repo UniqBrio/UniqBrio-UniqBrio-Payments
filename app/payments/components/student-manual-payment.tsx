@@ -109,6 +109,8 @@ export function ManualPaymentDialog({
   const [paymentTypes, setPaymentTypes] = useState<ManualPaymentPayload["paymentTypes"]>(["course"])
   const [receivedByName, setReceivedByName] = useState<string>("")
   const [receivedByRole, setReceivedByRole] = useState<ManualPaymentPayload["receivedByRole"]>("instructor")
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
   // Removed receiverName and receiverId state
   
   // Validation states for progressive form
@@ -270,6 +272,16 @@ export function ManualPaymentDialog({
       receivedByRole,
       paymentTypes,
     });
+    
+    // Show success dialog
+    setSuccessMessage(`✅ Payment Saved Successfully!\nAmount: ₹${value.toLocaleString()}\nStudent: ${studentInfo?.name || 'Unknown'}`)
+    setShowSuccessDialog(true)
+    
+    // Auto close after 1 second
+    setTimeout(() => {
+      setShowSuccessDialog(false)
+      onClose()
+    }, 1000)
     
     setAmount("");
     setNotes("");
@@ -531,6 +543,23 @@ export function ManualPaymentDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+      
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[#9234ea]">
+              ✅ Success
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm whitespace-pre-line">{successMessage}</p>
+          </div>
+          <div className="flex justify-end gap-2">
+            {/* Auto-closes, no manual OK button needed */}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }
