@@ -12,6 +12,7 @@ import { PaymentRecord } from './payment-types'
 
 interface CoursePayment {
   course: string
+  program: string
   batches: string[]  // Array of batch numbers
   amount: number
   students: number
@@ -34,9 +35,9 @@ export function CourseWisePaymentPopup({ open, onClose, courseData }: CourseWise
     const batchNumber = record.batch?.replace('Batch ', '') || `${(index % 8) + 1}` // Generate batch numbers 1-8
     
     // Calculate total registration fees for this record
-    const registrationTotal = (record.registrationFees?.studentRegistration || 0) + 
-                             (record.registrationFees?.courseRegistration || 0) + 
-                             (record.registrationFees?.confirmationFee || 0)
+    const registrationTotal = (record.registrationFees?.studentRegistration?.amount || 0) + 
+                             (record.registrationFees?.courseRegistration?.amount || 0) + 
+                             (record.registrationFees?.confirmationFee?.amount || 0)
     
     // Calculate course fees and total amount (course fees + registration fees)
     const courseFees = Number(record.finalPayment) || 0
@@ -57,6 +58,10 @@ export function CourseWisePaymentPopup({ open, onClose, courseData }: CourseWise
       existingCourse.received += receivedAmount
       existingCourse.outstanding += outstandingAmount  // Calculated based on new total
       existingCourse.registration += registrationTotal
+      // Keep existing program or update to the first record's program
+      if (!existingCourse.program) {
+        existingCourse.program = record.program
+      }
       // Keep existing currency or update to the first record's currency
       if (!existingCourse.currency) {
         existingCourse.currency = record.currency || "INR"
@@ -64,6 +69,7 @@ export function CourseWisePaymentPopup({ open, onClose, courseData }: CourseWise
     } else {
       acc.push({
         course: record.activity,
+        program: record.program,
         batches: [batchNumber],
         students: 1,
         amount: totalAmount,  // Now includes course fees + registration fees
@@ -96,7 +102,7 @@ export function CourseWisePaymentPopup({ open, onClose, courseData }: CourseWise
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-7xl max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0 pb-4">
           <DialogTitle className="flex items-center gap-2 text-purple-700">
             <BookOpen className="h-5 w-5" />
@@ -108,7 +114,8 @@ export function CourseWisePaymentPopup({ open, onClose, courseData }: CourseWise
             <Table>
               <TableHeader className="sticky top-0 z-10 shadow-sm" style={{backgroundColor: '#f3f4f6'}}>
                 <TableRow className="border-b" style={{backgroundColor: '#f3f4f6'}}>
-                  <TableHead className="font-semibold text-sm p-3 text-left" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Course</TableHead>
+                  <TableHead className="font-semibold text-sm p-3 text-left" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>CourseID</TableHead>
+                  <TableHead className="font-semibold text-sm p-3 text-left" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Course Name</TableHead>
                   <TableHead className="font-semibold text-sm p-3 text-left" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Batch</TableHead>
                   <TableHead className="font-semibold text-sm p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Students</TableHead>
                   <TableHead className="font-semibold text-sm p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Total Amount (INR)</TableHead>
@@ -129,7 +136,12 @@ export function CourseWisePaymentPopup({ open, onClose, courseData }: CourseWise
                       <TableCell className="font-medium text-sm p-3 text-left">
                         <div className="flex items-center gap-2">
                           <BookOpen className="h-4 w-4 text-purple-500" />
-                          {course.course}
+                          {course.course.replace(/\s+/g, '').substring(0, 8).toUpperCase()}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm p-3 text-left">
+                        <div className="flex items-center gap-2">
+                          {course.program || course.course}
                         </div>
                       </TableCell>
                       <TableCell className="text-sm p-3 text-left">

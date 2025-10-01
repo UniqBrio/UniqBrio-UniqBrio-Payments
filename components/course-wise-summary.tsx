@@ -8,6 +8,7 @@ import { BookOpen, Users, AlertTriangle } from "lucide-react"
 
 interface CoursePayment {
   course: string
+  program: string
   amount: number
   students: number
   received: number
@@ -44,7 +45,8 @@ export function CourseWiseSummary({ coursePayments }: CourseWiseSummaryProps) {
           <Table>
             <TableHeader>
               <TableRow className="border-b" style={{backgroundColor: '#f3f4f6'}}>
-                <TableHead className="font-semibold text-xs p-3 text-left" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Course</TableHead>
+                <TableHead className="font-semibold text-xs p-3 text-left" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>CourseID</TableHead>
+                <TableHead className="font-semibold text-xs p-3 text-left" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Course Name</TableHead>
                 <TableHead className="font-semibold text-xs p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Students</TableHead>
                 <TableHead className="font-semibold text-xs p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Total Amount (INR)</TableHead>
                 <TableHead className="font-semibold text-xs p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Received (INR)</TableHead>
@@ -64,7 +66,12 @@ export function CourseWiseSummary({ coursePayments }: CourseWiseSummaryProps) {
                     <TableCell className="font-medium text-xs p-3 text-left">
                       <div className="flex items-center gap-2">
                         <BookOpen className="h-4 w-4 text-purple-500" />
-                        {course.course}
+                        {course.course.replace(/\s+/g, '').substring(0, 8).toUpperCase()}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs p-3 text-left">
+                      <div className="flex items-center gap-2">
+                        {course.program || course.course}
                       </div>
                     </TableCell>
                     <TableCell className="text-xs p-3 text-center">
