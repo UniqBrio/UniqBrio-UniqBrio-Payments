@@ -142,20 +142,6 @@ export default function PaymentStatusPage() {
         {/* Payment Summary Cards */}
         <PaymentSummaryCards summary={paymentSummary} />
 
-        {/* Auto-refresh status indicator */}
-        <div className="text-xs text-gray-500 flex items-center gap-2">
-          <span>Auto-refresh: {Math.round(autoRefreshIntervalMs / 1000)}s interval</span>
-          {lastAutoRefresh && (
-            <span className="italic">Last: {lastAutoRefresh.toLocaleTimeString()}</span>
-          )}
-          <button
-            onClick={() => refreshPaymentData?.()}
-            className="ml-2 px-2 py-0.5 border rounded-md text-[11px] hover:bg-gray-100 transition"
-          >
-            Refresh now
-          </button>
-        </div>
-
         {/* Filters */}
         <PaymentFilters
           searchTerm={searchTerm}
