@@ -73,7 +73,6 @@ export function PaymentFilters({
   const availablePaymentCategories = [
     "Student Registration",
     "Course Registration", 
-    "Confirmation Fee",
     "Course Fee"
   ]
 
@@ -266,8 +265,7 @@ export function PaymentFilters({
                           <label htmlFor={`payment-category-${paymentCategory}`} className="text-sm text-gray-700 cursor-pointer flex-1">
                             {paymentCategory === "Student Registration" && "Student Registration Fee"}
                             {paymentCategory === "Course Registration" && "Course Registration Fee"}
-                            {paymentCategory === "Confirmation Fee" && "Advance/Confirmation Fee"}
-                            {paymentCategory === "Course Payment" && "Course Payment"}
+                            {paymentCategory === "Course Fee" && "Course Payment"}
                           </label>
                         </div>
                       ))}

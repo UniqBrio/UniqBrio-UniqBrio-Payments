@@ -14,13 +14,13 @@ export async function fetchLatestPaymentMethod(studentId: string): Promise<strin
       const paymentData = await response.json();
       if (paymentData.success && paymentData.data.paymentRecords && paymentData.data.paymentRecords.length > 0) {
         // Get the most recent payment record's payment method
-        return paymentData.data.paymentRecords[0].paymentMethod || 'Not Specified';
+        return paymentData.data.paymentRecords[0].paymentMethod || 'N/A';
       }
     }
   } catch (error) {
     console.error('Error fetching payment method:', error);
   }
-  return 'Not Specified';
+  return 'N/A';
 }
 
 /**
@@ -38,10 +38,10 @@ export async function fetchLatestPaymentMethodServer(studentId: string, PaymentM
       const sortedRecords = paymentDoc.paymentRecords.sort(
         (a: any, b: any) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
       );
-      return sortedRecords[0].paymentMethod || 'Not Specified';
+      return sortedRecords[0].paymentMethod || 'N/A';
     }
   } catch (error) {
     console.error('Error fetching payment method from payment records:', error);
   }
-  return 'Not Specified';
+  return 'N/A';
 }

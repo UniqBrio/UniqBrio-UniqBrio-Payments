@@ -605,55 +605,70 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )}
       {isColumnVisible('payslip') && (
         <TableCell className="text-sm p-3 text-center">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={generatePayslip}
-            className="border-[#9234ea]/30 h-7 w-7 p-0 flex items-center justify-center"
-            title="Generate Payslip"
-          >
-           <img src="/invoice-envelope.svg" alt="Payslip Icon" className="h-5 w-5" />
-          </Button>
+          {(record.finalPayment || 0) === 0 && 
+           (record.totalPaidAmount || 0) === 0 && 
+           (record.balancePayment || 0) === 0 ? (
+            <span className="text-gray-400 text-sm">N/A</span>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={generatePayslip}
+              className="border-[#9234ea]/30 h-7 w-7 p-0 flex items-center justify-center"
+              title="Generate Payslip"
+            >
+             <img src="/invoice-envelope.svg" alt="Payslip Icon" className="h-5 w-5" />
+            </Button>
+          )}
         </TableCell>
       )}
       {isColumnVisible('actions') && (
         <TableCell className="text-sm p-3 text-center">
           <div className="flex gap-2 justify-center">
-            {/* Send Reminder Logic - Only show for students with balance > 0 */}
-            {record.balancePayment > 0 && dynamicStatus === 'Pending' ? (
-              record.paymentReminder ? (
-                // Show Send Reminder button when reminder is ON and balance > 0
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={(e) => {
-                    console.log('📤 Send Reminder button clicked for:', record.name);
-                    console.log('📊 Balance:', record.balancePayment);
-                    console.log('📊 Status:', dynamicStatus);
-                    console.log('📊 Reminder enabled:', record.paymentReminder);
-                    e.preventDefault();
-                    handleSendReminderWithPaymentOptions();
-                  }}
-                  className="border-[#9234ea] hover:bg-[#9234ea] hover:text-white h-8 w-8 p-0 cursor-pointer bg-white transition-colors duration-200 shadow-sm group"
-                  title="Send Payment Reminder"
-                >
-                  <Send className="h-4 w-4 text-[#9234ea] group-hover:text-white transition-colors duration-200" />
-                </Button>
-              ) : (
-                // Show "-" when reminder is OFF but balance > 0
-                <span className="text-gray-400 italic">-</span>
-              )
-            ) : dynamicStatus === 'Paid' ? (
-              // Show "Paid" when payment is completed
-              <span 
-                className="text-xs text-gray-500 px-2 py-1 bg-green-50 rounded border border-green-200" 
-                title="Payment completed - reminders disabled"
-              >
-                Paid
-              </span>
+            {/* Check if all payment amounts are 0 to show N/A */}
+            {(record.finalPayment || 0) === 0 && 
+             (record.totalPaidAmount || 0) === 0 && 
+             (record.balancePayment || 0) === 0 ? (
+              <span className="text-gray-400 text-sm">N/A</span>
             ) : (
-              // Show "-" for unmatched students or other cases
-              <span className="text-gray-400 italic">-</span>
+              <>
+                {/* Send Reminder Logic - Only show for students with balance > 0 */}
+                {record.balancePayment > 0 && dynamicStatus === 'Pending' ? (
+                  record.paymentReminder ? (
+                    // Show Send Reminder button when reminder is ON and balance > 0
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        console.log('📤 Send Reminder button clicked for:', record.name);
+                        console.log('📊 Balance:', record.balancePayment);
+                        console.log('📊 Status:', dynamicStatus);
+                        console.log('📊 Reminder enabled:', record.paymentReminder);
+                        e.preventDefault();
+                        handleSendReminderWithPaymentOptions();
+                      }}
+                      className="border-[#9234ea] hover:bg-[#9234ea] hover:text-white h-8 w-8 p-0 cursor-pointer bg-white transition-colors duration-200 shadow-sm group"
+                      title="Send Payment Reminder"
+                    >
+                      <Send className="h-4 w-4 text-[#9234ea] group-hover:text-white transition-colors duration-200" />
+                    </Button>
+                  ) : (
+                    // Show "-" when reminder is OFF but balance > 0
+                    <span className="text-gray-400 italic">-</span>
+                  )
+                ) : dynamicStatus === 'Paid' ? (
+                  // Show "Paid" when payment is completed
+                  <span 
+                    className="text-xs text-gray-500 px-2 py-1 bg-green-50 rounded border border-green-200" 
+                    title="Payment completed - reminders disabled"
+                  >
+                    Paid
+                  </span>
+                ) : (
+                  // Show "-" for unmatched students or other cases
+                  <span className="text-gray-400 italic">-</span>
+                )}
+              </>
             )}
           </div>
         </TableCell>
