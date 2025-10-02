@@ -3,7 +3,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { dbConnect, getConnectionHealth } from '@/lib/db';
-import { withDatabaseNextJS } from '@/lib/db-middleware';
 import Student from '@/models/student';
 
 /**
@@ -56,25 +55,42 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * APPROACH 2: Middleware Pattern (Alternative - Cleaner Code)
- * This automatically handles connection and error management
+ * APPROACH 2: Direct Pattern (Same as GET but for POST)
+ * This follows the same pattern as your working API routes
  */
-async function POST(request: NextRequest) {
-  // Database is automatically connected by middleware wrapper
-  // No need to call dbConnect() manually
-  
-  const data = await request.json();
-  const student = await Student.create(data);
-  
-  return NextResponse.json({
-    success: true,
-    data: student,
-    message: 'Student created successfully'
-  });
+export async function POST(request: NextRequest) {
+  try {
+    // Establish connection (reuses cached connection)
+    await dbConnect();
+    
+    const data = await request.json();
+    const student = await Student.create(data);
+    
+    return NextResponse.json({
+      success: true,
+      data: student,
+      message: 'Student created successfully'
+    });
+  } catch (error) {
+    console.error('❌ POST operation failed:', error.message);
+    
+    // Graceful error handling like other routes
+    if (error.name === 'MongoNetworkError' || error.name === 'MongoServerSelectionError') {
+      return NextResponse.json({
+        success: false,
+        data: null,
+        fallback: true,
+        message: 'Database temporarily unavailable'
+      }, { status: 503 });
+    }
+    
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to create student',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
+  }
 }
-
-// Wrap POST with database middleware
-export { POST: withDatabaseNextJS(POST) };
 
 /**
  * APPROACH 3: Multiple Operations Pattern
