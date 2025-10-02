@@ -74,7 +74,7 @@ export function PaymentFilters({
     "Student Registration",
     "Course Registration", 
     "Confirmation Fee",
-    "Course Payment"
+    "Course Fee"
   ]
 
   const [tempStatusFilters, setTempStatusFilters] = useState<string[]>(statusFilters)
@@ -147,10 +147,10 @@ export function PaymentFilters({
 
   // Sorting state and options
   const SORT_FIELDS = [
-    { key: 'id', label: 'ID' },
-    { key: 'name', label: 'Name' },
-    { key: 'type', label: 'Type' },
-    { key: 'amount', label: 'Amount' },
+    { key: 'id', label: 'Student ID' },
+    { key: 'name', label: 'Student Name' },
+    { key: 'type', label: 'Course Type' },
+    { key: 'amount', label: 'Course Fee' },
   ];
 
 
