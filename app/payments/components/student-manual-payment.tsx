@@ -307,8 +307,9 @@ export function ManualPaymentDialog({
   const [file, setFile] = useState<File | undefined>(undefined);
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
-    <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto " onInteractOutside={(e) => e.preventDefault()}>
+        {/* X icon removed as per user request */}
         <DialogHeader>
           <DialogTitle>Manual Payment</DialogTitle>
           {studentInfo && (
