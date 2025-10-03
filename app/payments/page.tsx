@@ -228,6 +228,7 @@ export default function PaymentStatusPage() {
                     <PaymentGrid
                       filteredRecords={filteredRecords}
                       onUpdateRecord={handleUpdateRecord}
+                      refreshPaymentData={refreshPaymentData}
                     />
                   </div>
                 ) : (
