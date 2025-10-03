@@ -262,27 +262,7 @@ export function PaymentFilters({
                     </div>
                   </div>
 
-                  {/* Filter by Fee Category - Select Multiple */}
-                  <div className="space-y-2">
-                    <h4 className="font-bold text-xs text-gray-900">Fee Category <span className="font-normal text-gray-500">(Select Multiple)</span></h4>
-                    <div className="grid grid-cols-1 gap-2">
-                      {availablePaymentCategories.map((paymentCategory) => (
-                        <div key={paymentCategory} className="flex items-center gap-2">
-                          <Checkbox
-                            id={`payment-category-${paymentCategory}`}
-                            checked={tempPaymentCategoryFilters.includes(paymentCategory)}
-                            onCheckedChange={(checked) => handlePaymentCategoryChange(paymentCategory, checked as boolean)}
-                            className="h-4 w-4 data-[state=checked]:bg-[#9234ea] data-[state=checked]:border-[#9234ea] border-2 border-gray-300"
-                          />
-                          <label htmlFor={`payment-category-${paymentCategory}`} className="text-sm text-gray-700 cursor-pointer flex-1">
-                            {paymentCategory === "Student Registration" && "Student Registration Fee"}
-                            {paymentCategory === "Course Registration" && "Course Registration Fee"}
-                            {paymentCategory === "Course Fee" && "Course Fee"}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  {/* Fee Category filter removed as per request */}
 
                   {/* Filter by Status */}
                   <div className="space-y-2">
