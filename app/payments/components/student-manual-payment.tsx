@@ -293,8 +293,8 @@ export function ManualPaymentDialog({
   const [file, setFile] = useState<File | undefined>(undefined);
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-    <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={() => {}}>
+    <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Manual Payment</DialogTitle>
           {studentInfo && (

@@ -372,7 +372,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       {isColumnVisible('status') && (
         <TableCell className="text-[11px] p-1 text-center">
           {dynamicStatus === "-" ? (
-            <span className="text-gray-400 italic">-</span>
+            <span className="text-gray-400 italic">N/A</span>
           ) : (
             <Badge className={`text-[11px] ${getStatusColor(dynamicStatus)}`}>
               {dynamicStatus}
@@ -578,7 +578,12 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )} */}
       {isColumnVisible('manualPayment') && (
         <TableCell className="text-sm p-3 text-center">
-          {showPaymentOptions ? (
+          {/* Check if all payment amounts are 0 to show N/A */}
+          {(record.finalPayment || 0) === 0 && 
+           (record.totalPaidAmount || 0) === 0 && 
+           (record.balancePayment || 0) === 0 ? (
+            <span className="text-gray-400 text-sm">N/A</span>
+          ) : showPaymentOptions ? (
             <>
               <Button
                 size="sm"
@@ -605,9 +610,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )}
       {isColumnVisible('payslip') && (
         <TableCell className="text-sm p-3 text-center">
-          {(record.finalPayment || 0) === 0 && 
-           (record.totalPaidAmount || 0) === 0 && 
-           (record.balancePayment || 0) === 0 ? (
+          {(record.totalPaidAmount || 0) === 0 ? (
             <span className="text-gray-400 text-sm">N/A</span>
           ) : (
             <Button

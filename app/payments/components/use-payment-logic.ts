@@ -11,6 +11,7 @@ export function usePaymentLogic() {
   const [categoryFilters, setCategoryFilters] = useState<string[]>([])
   const [paymentCategoryFilters, setPaymentCategoryFilters] = useState<string[]>([])
   const [courseFilters, setCourseFilters] = useState<string[]>([])
+  const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 100000 })
   const [sortBy, setSortBy] = useState<string>("id")
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>("asc")
   const [filteredRecords, setFilteredRecords] = useState<PaymentRecord[]>([])
@@ -86,9 +87,25 @@ export function usePaymentLogic() {
     }
 
     if (statusFilters.length > 0) {
-      filtered = filtered.filter((record: PaymentRecord) => 
-        statusFilters.some(status => record.paymentStatus.toLowerCase() === status.toLowerCase())
-      )
+      filtered = filtered.filter((record: PaymentRecord) => {
+        // Calculate dynamic status for N/A filtering
+        let dynamicStatus: string;
+        if ((record.finalPayment || 0) === 0) {
+          dynamicStatus = "N/A";
+        } else if ((record.balancePayment || 0) === 0) {
+          dynamicStatus = "Paid";
+        } else {
+          dynamicStatus = "Pending";
+        }
+        
+        return statusFilters.some(status => {
+          if (status === "N/A") {
+            return dynamicStatus === "N/A";
+          }
+          return record.paymentStatus.toLowerCase() === status.toLowerCase() || 
+                 dynamicStatus.toLowerCase() === status.toLowerCase();
+        });
+      })
     }
 
     if (categoryFilters.length > 0) {
@@ -107,6 +124,14 @@ export function usePaymentLogic() {
       filtered = filtered.filter((record: PaymentRecord) => 
         courseFilters.some(course => record.activity.toLowerCase() === course.toLowerCase())
       )
+    }
+
+    // Price range filter
+    if (priceRange.min > 0 || priceRange.max < 100000) {
+      filtered = filtered.filter((record: PaymentRecord) => {
+        const courseFee = record.finalPayment || 0;
+        return courseFee >= priceRange.min && courseFee <= priceRange.max;
+      })
     }
 
     // Robust sorting logic
@@ -396,7 +421,7 @@ export function usePaymentLogic() {
   // Automatically filter and sort when any parameter changes
   useEffect(() => {
     handleFilter()
-  }, [searchTerm, statusFilters, categoryFilters, paymentCategoryFilters, courseFilters, sortBy, sortOrder, records])
+  }, [searchTerm, statusFilters, categoryFilters, paymentCategoryFilters, courseFilters, priceRange, sortBy, sortOrder, records])
 
   const paymentSummary: PaymentSummary = {
     receivedPayment: records.reduce((sum: number, record: PaymentRecord) => {
@@ -647,6 +672,8 @@ export function usePaymentLogic() {
     setPaymentCategoryFilters,
     courseFilters,
     setCourseFilters,
+    priceRange,
+    setPriceRange,
     sortBy,
     setSortBy,
     sortOrder,

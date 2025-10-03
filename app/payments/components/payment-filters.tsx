@@ -21,6 +21,8 @@ interface PaymentFiltersProps {
   setCourseFilters: (courses: string[]) => void
   paymentCategoryFilters?: string[]
   setPaymentCategoryFilters?: (categories: string[]) => void
+  priceRange?: { min: number; max: number }
+  setPriceRange?: (range: { min: number; max: number }) => void
   viewMode: "grid" | "list"
   setViewMode: (mode: "grid" | "list") => void
   onExport: () => void
@@ -48,6 +50,8 @@ export function PaymentFilters({
   setCourseFilters,
   paymentCategoryFilters = [],
   setPaymentCategoryFilters = () => {},
+  priceRange = { min: 0, max: 100000 },
+  setPriceRange = () => {},
   viewMode,
   setViewMode,
   onExport,
@@ -67,9 +71,13 @@ export function PaymentFilters({
   const allRecords = totalRecords.length > 0 ? totalRecords : records
   const availableCourses = [...new Set(allRecords.map(record => record.activity).filter(Boolean))]
   const availableCategories = [...new Set(allRecords.map(record => record.category).filter(Boolean))]
-  const availableStatuses = [...new Set(allRecords.map(record => record.paymentStatus).filter(Boolean))]
   
-  // Payment Categories from payment records (Student Registration, Course Registration, etc.)
+  // Include N/A as a status option along with existing payment statuses, but exclude "-"
+  const baseStatuses = [...new Set(allRecords.map(record => record.paymentStatus).filter(Boolean))]
+    .filter(status => status !== "-") // Remove "-" from filter options
+  const availableStatuses = [...baseStatuses, "N/A"].filter((status, index, array) => array.indexOf(status) === index)
+  
+  // Fee Categories from payment records (Student Registration, Course Registration, etc.)
   const availablePaymentCategories = [
     "Student Registration",
     "Course Registration", 
@@ -80,6 +88,7 @@ export function PaymentFilters({
   const [tempCategoryFilters, setTempCategoryFilters] = useState<string[]>(categoryFilters)
   const [tempCourseFilters, setTempCourseFilters] = useState<string[]>(courseFilters)
   const [tempPaymentCategoryFilters, setTempPaymentCategoryFilters] = useState<string[]>(paymentCategoryFilters)
+  const [tempPriceRange, setTempPriceRange] = useState<{ min: number; max: number }>(priceRange)
   const [isClearing, setIsClearing] = useState(false)
 
   const handleStatusChange = (status: string, checked: boolean) => {
@@ -120,6 +129,7 @@ export function PaymentFilters({
     setCategoryFilters(tempCategoryFilters)
     setCourseFilters(tempCourseFilters)
     setPaymentCategoryFilters(tempPaymentCategoryFilters)
+    setPriceRange(tempPriceRange)
     setFilterPopoverOpen(false)
     setIsClearing(false)
   }
@@ -132,17 +142,19 @@ export function PaymentFilters({
     setTempCategoryFilters([])
     setTempCourseFilters([])
     setTempPaymentCategoryFilters([])
+    setTempPriceRange({ min: 0, max: 100000 })
     setStatusFilters([])
     setCategoryFilters([])
     setCourseFilters([])
     setPaymentCategoryFilters([])
+    setPriceRange({ min: 0, max: 100000 })
     setTimeout(() => {
       setIsClearing(false)
       setFilterPopoverOpen(false)
     }, 300)
   }
 
-  const hasActiveFilters = statusFilters.length > 0 || categoryFilters.length > 0 || courseFilters.length > 0 || paymentCategoryFilters.length > 0
+  const hasActiveFilters = statusFilters.length > 0 || categoryFilters.length > 0 || courseFilters.length > 0 || paymentCategoryFilters.length > 0 || (priceRange.min > 0 || priceRange.max < 100000)
 
   // Sorting state and options
   const SORT_FIELDS = [
@@ -240,7 +252,7 @@ export function PaymentFilters({
                             id={`category-${category}`}
                             checked={tempCategoryFilters.includes(category)}
                             onCheckedChange={(checked) => handleCategoryChange(category, checked as boolean)}
-                            className="h-5 w-5 data-[state=checked]:bg-[#9234ea] data-[state=checked]:border-[#9234ea]"
+                            className="h-4 w-4 data-[state=checked]:bg-[#9234ea] data-[state=checked]:border-[#9234ea]"
                           />
                           <label htmlFor={`category-${category}`} className="text-sm text-gray-700 cursor-pointer">
                             {category}
@@ -250,9 +262,9 @@ export function PaymentFilters({
                     </div>
                   </div>
 
-                  {/* Filter by Payment Category - Select Multiple */}
+                  {/* Filter by Fee Category - Select Multiple */}
                   <div className="space-y-2">
-                    <h4 className="font-bold text-xs text-gray-900">Payment Categories <span className="font-normal text-gray-500">(Select Multiple)</span></h4>
+                    <h4 className="font-bold text-xs text-gray-900">Fee Category <span className="font-normal text-gray-500">(Select Multiple)</span></h4>
                     <div className="grid grid-cols-1 gap-2">
                       {availablePaymentCategories.map((paymentCategory) => (
                         <div key={paymentCategory} className="flex items-center gap-2">
@@ -265,7 +277,7 @@ export function PaymentFilters({
                           <label htmlFor={`payment-category-${paymentCategory}`} className="text-sm text-gray-700 cursor-pointer flex-1">
                             {paymentCategory === "Student Registration" && "Student Registration Fee"}
                             {paymentCategory === "Course Registration" && "Course Registration Fee"}
-                            {paymentCategory === "Course Fee" && "Course Payment"}
+                            {paymentCategory === "Course Fee" && "Course Fee"}
                           </label>
                         </div>
                       ))}
@@ -282,13 +294,40 @@ export function PaymentFilters({
                             id={`status-${status}`}
                             checked={tempStatusFilters.includes(status)}
                             onCheckedChange={(checked) => handleStatusChange(status, checked as boolean)}
-                            className="h-5 w-5 data-[state=checked]:bg-[#9234ea] data-[state=checked]:border-[#9234ea]"
+                            className="h-4 w-4 data-[state=checked]:bg-[#9234ea] data-[state=checked]:border-[#9234ea]"
                           />
                           <label htmlFor={`status-${status}`} className="text-sm text-gray-700 cursor-pointer">
                             {status}
                           </label>
                         </div>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Price Range Filter */}
+                  <div className="space-y-2">
+                    <h4 className="font-bold text-xs text-gray-900">Price Range (INR)</h4>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={tempPriceRange.min || ''}
+                        onChange={(e) => setTempPriceRange({ ...tempPriceRange, min: Number(e.target.value) || 0 })}
+                        className="h-8 text-sm"
+                        min="0"
+                      />
+                      <span className="text-sm text-gray-500">to</span>
+                      <Input
+                        type="number"
+                        placeholder="100000"
+                        value={tempPriceRange.max || ''}
+                        onChange={(e) => setTempPriceRange({ ...tempPriceRange, max: Number(e.target.value) || 100000 })}
+                        className="h-8 text-sm"
+                        min="0"
+                      />
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Filter by course fee amount
                     </div>
                   </div>
 

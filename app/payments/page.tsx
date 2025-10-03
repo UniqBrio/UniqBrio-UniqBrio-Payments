@@ -30,6 +30,8 @@ export default function PaymentStatusPage() {
     setPaymentCategoryFilters,
     courseFilters,
     setCourseFilters,
+    priceRange,
+    setPriceRange,
     sortBy,
     setSortBy,
     sortOrder,
@@ -154,6 +156,8 @@ export default function PaymentStatusPage() {
           setPaymentCategoryFilters={setPaymentCategoryFilters}
           courseFilters={courseFilters}
           setCourseFilters={setCourseFilters}
+          priceRange={priceRange}
+          setPriceRange={setPriceRange}
           viewMode={viewMode}
           setViewMode={setViewMode}
           onExport={handleExportSelectedRows}
