@@ -28,7 +28,9 @@ interface StudentManualPaymentProps {
   onOpenChange: (open: boolean) => void
 }
 export function StudentManualPayment({ student, onSubmit, open, onOpenChange }: StudentManualPaymentProps) {
-  // Pass all relevant student info for display
+  // Determine if this is the first payment (no previous payments made)
+  const isFirstPayment = student.totalPaidAmount === 0;
+  
   return (
     <ManualPaymentDialog
       open={open}
@@ -44,10 +46,12 @@ export function StudentManualPayment({ student, onSubmit, open, onOpenChange }: 
         paymentTypes: payload.paymentTypes,
       })}
       prefillAmount={student.balancePayment > 0 ? student.balancePayment : undefined}
+      isFirstPayment={isFirstPayment}
       studentInfo={{
         id: student.id,
         name: student.name,
         balancePayment: student.balancePayment,
+        totalPaidAmount: student.totalPaidAmount,
         courseType: student.courseType ?? '-',
         category: student.category ?? '-',
         activity: student.activity ?? '-',
@@ -94,13 +98,15 @@ export function ManualPaymentDialog({
   defaultMode = "Cash",
   prefillAmount,
   studentInfo,
+  isFirstPayment = true,
 }: {
   open: boolean
   onClose: () => void
   onSubmit: (payload: ManualPaymentPayload) => void
   defaultMode?: ManualPaymentPayload["mode"]
   prefillAmount?: number
-  studentInfo?: { id: string; name: string; balancePayment?: number; courseType?: string; category?: string; activity?: string; program?: string; registrationFees?: any }
+  isFirstPayment?: boolean
+  studentInfo?: { id: string; name: string; balancePayment?: number; totalPaidAmount?: number; courseType?: string; category?: string; activity?: string; program?: string; registrationFees?: any }
 }) {
   const [amount, setAmount] = useState<string>("")
   const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10))
@@ -170,25 +176,21 @@ export function ManualPaymentDialog({
     if (studentInfo?.registrationFees) {
       if (studentInfo.registrationFees.studentRegistration) {
         const studentRegData = getActualFeeData(studentInfo.registrationFees.studentRegistration);
-        if (studentRegData && studentRegData.amount !== null) {
-          options.push({
-            value: "studentRegistration",
-            label: "Student Registration Fee",
-            amount: studentRegData.amount,
-            paid: studentRegData.paid
-          });
-        }
+        options.push({
+          value: "studentRegistration",
+          label: "Student Registration Fee",
+          amount: (studentRegData && studentRegData.amount !== null) ? studentRegData.amount : '-',
+          paid: studentRegData ? studentRegData.paid : false
+        });
       }
       if (studentInfo.registrationFees.courseRegistration) {
         const courseRegData = getActualFeeData(studentInfo.registrationFees.courseRegistration);
-        if (courseRegData && courseRegData.amount !== null) {
-          options.push({
-            value: "courseRegistration", 
-            label: "Course Registration Fee",
-            amount: courseRegData.amount,
-            paid: courseRegData.paid
-          });
-        }
+        options.push({
+          value: "courseRegistration", 
+          label: "Course Registration Fee",
+          amount: (courseRegData && courseRegData.amount !== null) ? courseRegData.amount : '-',
+          paid: courseRegData ? courseRegData.paid : false
+        });
       }
     }
     return options;
@@ -208,9 +210,15 @@ export function ManualPaymentDialog({
         const defaultType = (courseOption && courseOption.amount > 0) ? "course" : unpaidOptions[0].value;
         setPaymentTypes([defaultType as any]);
         
-        // Set amount based on selected default type
-        const selectedOption = options.find(opt => opt.value === defaultType);
-        setAmount((selectedOption?.amount || 0).toString());
+        // Set amount logic based on payment history:
+        if (!isFirstPayment) {
+          // Subsequent payments: Always use full remaining balance (non-editable)
+          setAmount((studentInfo.balancePayment || 0).toString());
+        } else {
+          // First payment: Allow custom amount (editable)
+          const selectedOption = options.find(opt => opt.value === defaultType);
+          setAmount((selectedOption?.amount || 0).toString());
+        }
       } else {
         setPaymentTypes([]);
         setAmount("0");
@@ -223,24 +231,30 @@ export function ManualPaymentDialog({
       setReceivedByName("");
       setReceivedByRole("instructor");
     }
-  }, [open]); // Remove studentInfo from dependency array
+  }, [open, isFirstPayment]); // Added isFirstPayment to dependency array
 
-  // Calculate total amount when payment types change
+  // Calculate amount when payment types change
   useEffect(() => {
     if (studentInfo) {
-      let totalAmount = 0;
-      const options = getAvailablePaymentOptions();
-      
-      paymentTypes.forEach(type => {
-        const option = options.find(opt => opt.value === type);
-        if (option && !option.paid) { // Only include unpaid fees in calculation
-          totalAmount += option.amount;
+      if (!isFirstPayment) {
+        // Subsequent payments: Always use full remaining balance (force update)
+        setAmount((studentInfo.balancePayment || 0).toString());
+      } else {
+        // First payment: Only auto-set if amount is empty (preserve user entry)
+        if (amount === "") {
+          let totalAmount = 0;
+          const options = getAvailablePaymentOptions();
+          paymentTypes.forEach(type => {
+            const option = options.find(opt => opt.value === type);
+            if (option && !option.paid && typeof option.amount === 'number') {
+              totalAmount += option.amount;
+            }
+          });
+          setAmount(totalAmount > 0 ? totalAmount.toString() : "-");
         }
-      });
-      
-      setAmount(totalAmount.toString());
+      }
     }
-  }, [paymentTypes, studentInfo]);
+  }, [paymentTypes, studentInfo, isFirstPayment]);
 
 
   const handleSubmit = () => {
@@ -392,14 +406,20 @@ export function ManualPaymentDialog({
           )}
           
           <div className="grid gap-1">
-            <RequiredLabel htmlFor="mp-amount">Payment Amount</RequiredLabel>
+            <RequiredLabel htmlFor="mp-amount">
+              Payment Amount {isFirstPayment ? "(Editable - First Payment)" : "(Fixed - Subsequent Payment)"}
+            </RequiredLabel>
             <Input
               id="mp-amount"
               type="text"
               value={amount}
               required
+              disabled={!isFirstPayment}
               onBlur={() => setAmountTouched(true)}
               onChange={(e) => {
+                // Only allow editing on first payment
+                if (!isFirstPayment) return;
+                
                 // Only allow numbers and decimal point
                 const value = e.target.value.replace(/[^0-9.]/g, '');
                 // Prevent multiple decimal points
@@ -409,11 +429,21 @@ export function ManualPaymentDialog({
                 }
                 setAmount(value);
               }}
-              placeholder="Enter amount"
-              className={`text-left ${amountTouched && !isAmountValid ? 'border-red-500 focus:border-red-500' : ''}`}
+              placeholder={isFirstPayment ? "Enter custom amount" : "Full remaining balance"}
+              className={`text-left ${amountTouched && !isAmountValid ? 'border-red-500 focus:border-red-500' : ''} ${!isFirstPayment ? 'bg-gray-100 cursor-not-allowed' : ''}`}
             />
             {amountTouched && !isAmountValid && (
               <span className="text-red-500 text-xs">Please enter a valid amount</span>
+            )}
+            {/* Payment type indicator */}
+            {isFirstPayment ? (
+              <p className="text-xs text-green-600 mt-1">
+                ✏️ <strong>First Payment:</strong> You can enter any custom amount.
+              </p>
+            ) : (
+              <p className="text-xs text-blue-600 mt-1">
+                🔒 <strong>Subsequent Payment:</strong> Amount is set to full remaining balance (₹{(studentInfo?.balancePayment || 0).toLocaleString()}).
+              </p>
             )}
           </div>
           <div className="grid gap-1">

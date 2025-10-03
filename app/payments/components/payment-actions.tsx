@@ -53,11 +53,11 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
       // Pre-calculate amounts to avoid double counting when multiple types selected
       const selectedTypes = payload.paymentTypes;
       const registrationComponents = selectedTypes.filter(t => t === 'studentRegistration' || t === 'courseRegistration');
-      const studentRegFee = record.registrationFees?.studentRegistration?.amount || 500;
-      const courseRegFee = record.registrationFees?.courseRegistration?.amount || 1000;
+      const studentRegFee = typeof record.registrationFees?.studentRegistration?.amount === 'number' ? record.registrationFees?.studentRegistration?.amount : 0;
+      const courseRegFee = typeof record.registrationFees?.courseRegistration?.amount === 'number' ? record.registrationFees?.courseRegistration?.amount : 0;
       const totalSelectedRegistration = registrationComponents.reduce((sum, t) => {
-        if (t === 'studentRegistration') return sum + (record.registrationFees?.studentRegistration?.amount || 500);
-        if (t === 'courseRegistration') return sum + (record.registrationFees?.courseRegistration?.amount || 1000);
+        if (t === 'studentRegistration') return sum + (typeof record.registrationFees?.studentRegistration?.amount === 'number' ? record.registrationFees?.studentRegistration?.amount : 0);
+        if (t === 'courseRegistration') return sum + (typeof record.registrationFees?.courseRegistration?.amount === 'number' ? record.registrationFees?.courseRegistration?.amount : 0);
         return sum;
       }, 0);
 
@@ -86,14 +86,13 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
         let paymentCategory = "Course Payment";
         let paymentAmount = 0;
         if (paymentType === "studentRegistration") {
-          // Use generic "Registration Fee" to satisfy enum; category provides specificity
           paymentTypeLabel = "Registration Fee";
           paymentCategory = "Student Registration";
-          paymentAmount = record.registrationFees?.studentRegistration?.amount || 500;
+          paymentAmount = typeof record.registrationFees?.studentRegistration?.amount === 'number' ? record.registrationFees?.studentRegistration?.amount : 0;
         } else if (paymentType === "courseRegistration") {
           paymentTypeLabel = "Registration Fee";
           paymentCategory = "Course Registration";
-          paymentAmount = record.registrationFees?.courseRegistration?.amount || 1000;
+          paymentAmount = typeof record.registrationFees?.courseRegistration?.amount === 'number' ? record.registrationFees?.courseRegistration?.amount : 0;
         } else if (paymentType === "course") {
           paymentTypeLabel = "Course Fee";
           paymentCategory = "Course Payment";
@@ -193,16 +192,16 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
       // Handle registration fee payments
       if (payload.paymentTypes.some(type => ["studentRegistration", "courseRegistration"].includes(type))) {
         // Build registration fees object with explicit type structure (no advance)
-        const studentReg = record.registrationFees?.studentRegistration || { amount: 500, paid: false };
-        const courseReg = record.registrationFees?.courseRegistration || { amount: 1000, paid: false };
+        const studentReg = record.registrationFees?.studentRegistration || { amount: 'N/A', paid: false };
+        const courseReg = record.registrationFees?.courseRegistration || { amount: 'N/A', paid: false };
         const updatedRegistrationFees = {
           studentRegistration: {
-            amount: studentReg.amount,
+            amount: typeof studentReg.amount === 'number' ? studentReg.amount : 'N/A',
             paid: payload.paymentTypes.includes("studentRegistration") ? true : studentReg.paid,
             paidDate: payload.paymentTypes.includes("studentRegistration") ? new Date().toISOString() : studentReg.paidDate
           },
           courseRegistration: {
-            amount: courseReg.amount,
+            amount: typeof courseReg.amount === 'number' ? courseReg.amount : 'N/A',
             paid: payload.paymentTypes.includes("courseRegistration") ? true : courseReg.paid,
             paidDate: payload.paymentTypes.includes("courseRegistration") ? new Date().toISOString() : courseReg.paidDate
           },

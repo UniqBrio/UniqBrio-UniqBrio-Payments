@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
           <div class="timestamp">Generated on: ${new Date().toLocaleString()}</div>
           
           <div class="header">
-            <img src="/logo.png" alt="Logo" class="logo" onerror="this.src='/uniqbrio-logo.svg'">
+            <img src="/academy-logo.svg" alt="Academy Logo" class="logo" style="background-color: #2D2D2D; padding: 10px; border-radius: 5px;">
             <div class="receipt-title" style="font-size:24px; font-weight:600; letter-spacing:0.5px; margin-top:0;">Payment Receipt</div>
             <div style="margin-top:6px; font-size:14px; color:#555;">Course: ${(student.activity || student.course || 'N/A')}</div>
           </div>
