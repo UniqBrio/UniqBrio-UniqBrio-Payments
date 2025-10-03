@@ -438,11 +438,11 @@ export function ManualPaymentDialog({
             {/* Payment type indicator */}
             {isFirstPayment ? (
               <p className="text-xs text-green-600 mt-1">
-                ✏️ <strong>First Payment:</strong> You can enter any custom amount.
+                ✏️ <strong>Conforme Fee :</strong> You can enter any custom amount.
               </p>
             ) : (
               <p className="text-xs text-blue-600 mt-1">
-                🔒 <strong>Subsequent Payment:</strong> Amount is set to full remaining balance (₹{(studentInfo?.balancePayment || 0).toLocaleString()}).
+                🔒 <strong>Course Fee:</strong> Amount is set to full remaining balance (₹{(studentInfo?.balancePayment || 0).toLocaleString()}).
               </p>
             )}
           </div>
