@@ -179,7 +179,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
 
   // Enhanced reminder function with payment options using user's preferred communication mode
   const handleSendReminderWithPaymentOptions = () => {
-    console.log('Opening reminder preview for:', record.name);
+    // Console message removed
     setReminderPreviewOpen(true);
   }
 
@@ -204,7 +204,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
           })
           setGeneratedQR(qrCodeDataURL)
         } catch (error) {
-          console.error('QR Code generation failed:', error)
+          // Console message removed
           setGeneratedQR('')
         }
       }
@@ -231,7 +231,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
           setCommunicationChannels([]) // Failed to fetch, default to no channels
         }
       } catch (error) {
-        console.error('Error fetching communication preferences:', error)
+        // Console message removed
         setCommunicationChannels([]) // Error, default to no channels
       }
     }
@@ -254,7 +254,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       // Return in MM/DD/YYYY format
       return `${month}/${day}/${year}`
     } catch (error) {
-      console.error("Date formatting error:", error)
+      // Console message removed
       return "-"
     }
   }
@@ -435,13 +435,11 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
                 : ''
             }`}
             onClick={async () => {
-              console.log('🔄 Reminder toggle clicked for:', record.name);
-              console.log('📊 Current paymentStatus:', record.paymentStatus);
-              console.log('📊 Current paymentReminder:', record.paymentReminder);
+              // Console messages removed
               
               if (record.paymentStatus !== 'Paid') {
                 const newReminderState = !record.paymentReminder;
-                console.log('🔄 Toggling reminder to:', newReminderState);
+                // Console message removed
                 
                 try {
                   await onUpdateRecord(record.id, { paymentReminder: newReminderState });
@@ -450,7 +448,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
                     description: `Payment reminders ${newReminderState ? 'enabled' : 'disabled'} for ${record.name}`,
                   });
                 } catch (error) {
-                  console.error('❌ Failed to update reminder setting:', error);
+                  // Console message removed
                   toast({
                     title: "❌ Update Failed",
                     description: "Failed to update reminder setting. Please try again.",
@@ -458,7 +456,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
                   });
                 }
               } else {
-                console.log('⚠️ Cannot toggle reminder - payment is already paid');
+                // Console message removed
                 toast({
                   title: "⚠️ Cannot Update",
                   description: "Reminders are automatically disabled for paid payments.",
@@ -643,10 +641,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
                       size="sm"
                       variant="outline"
                       onClick={(e) => {
-                        console.log('📤 Send Reminder button clicked for:', record.name);
-                        console.log('📊 Balance:', record.balancePayment);
-                        console.log('📊 Status:', dynamicStatus);
-                        console.log('📊 Reminder enabled:', record.paymentReminder);
+                        // Console messages removed
                         e.preventDefault();
                         handleSendReminderWithPaymentOptions();
                       }}
@@ -751,7 +746,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       isOpen={reminderPreviewOpen}
       onClose={() => setReminderPreviewOpen(false)}
       onSendConfirm={async (mode) => {
-        console.log('Send reminder confirmed for:', record.name, 'mode:', mode)
+        // Console message removed
         // Call API to actually send reminder for the chosen mode
         try {
           const response = await fetch('/api/payments/send-reminder', {
@@ -781,7 +776,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
             })
           }
         } catch (err) {
-          console.error('Reminder send error:', err)
+          // Console message removed
           toast({
             title: '❌ Error',
             description: `An error occurred while sending the ${mode} reminder.`,

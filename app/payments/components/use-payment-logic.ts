@@ -408,7 +408,7 @@ export function usePaymentLogic() {
           }
         }
       } catch (err) {
-        console.error('Data fetch error:', err)
+  console.error('Data fetch error. Status: unknown')
         setError('Database connection failed')
       } finally {
         setLoading(false)
@@ -450,7 +450,7 @@ export function usePaymentLogic() {
   }
 
   const handleUpdateRecord = async (id: string, updates: Partial<PaymentRecord>) => {
-    console.log('🔄 Updating record:', id, updates); // Debug log
+  // Only log status code if needed; removed verbose console log
     
     try {
       // Update local state immediately for responsiveness
@@ -470,16 +470,16 @@ export function usePaymentLogic() {
       });
       
       if (!response.ok) {
-        console.error('❌ Failed to update record in database');
+  console.error('❌ Failed to update record in database. Status: unknown');
         // Revert local state on failure
         setRecords(records);
         throw new Error('Failed to update record');
       }
       
-      console.log('✅ Record updated successfully in database');
+  // Only log status code if needed; removed verbose console log
       
     } catch (error) {
-      console.error('❌ Error updating record:', error);
+  console.error('❌ Error updating record. Status: unknown');
       // Revert local state on error
       setRecords(records);
     }
@@ -487,7 +487,7 @@ export function usePaymentLogic() {
 
   const refreshPaymentData = async () => {
     try {
-      console.log('🔄 refreshPaymentData called - fetching updated payment data...');
+  // Only log status code if needed; removed verbose console log
       // Don't show loading for auto-refresh to avoid UI flickering
       // setLoading(true)
       
@@ -503,26 +503,26 @@ export function usePaymentLogic() {
       })
       let result = await response.json()
       
-      console.log('📊 Sync API response:', { success: result.success, dataLength: result.data?.length });
+  // Only log status code if needed; removed verbose console log
       
       if (result.success && result.data && result.data.length > 0) {
-        console.log('✅ Payment data refreshed from sync:', result.data.length, 'records'); // Debug log
+  // Only log status code if needed; removed verbose console log
         
         // Check if new students were added
         if (result.data.length > previousCount) {
           const newStudentCount = result.data.length - previousCount;
-          console.log(`New students detected: ${newStudentCount} students added`);
+          // Only log status code if needed; removed verbose console log
           
           // Show toast notification for new students
           if (typeof window !== 'undefined') {
-            console.log(`✅ ${newStudentCount} new student${newStudentCount > 1 ? 's' : ''} added to payment system`);
+            // Only log status code if needed; removed verbose console log
           }
         }
         
-        console.log('🔄 Updating records state with fresh data from database');
+  // Only log status code if needed; removed verbose console log
         setRecords(result.data)
         setError(null)
-        console.log('✅ Records state updated successfully');
+  // Only log status code if needed; removed verbose console log
       } else {
         // Fallback to students API if sync fails
         // Sync failed, falling back to students API
@@ -602,7 +602,7 @@ export function usePaymentLogic() {
               derivedFinalPayment: !!matchedCourse
             } as PaymentRecord
           }))
-          console.log('Payment data refreshed from students API (with fallback match):', paymentRecords.length, 'records')
+          // Only log status code if needed; removed verbose console log
           setRecords(paymentRecords)
           setError(null)
         } else {
@@ -610,7 +610,7 @@ export function usePaymentLogic() {
         }
       }
     } catch (err) {
-      console.error('❌ refreshPaymentData error:', err)
+  console.error('❌ refreshPaymentData error. Status: unknown')
       // Don't set error state for auto-refresh to avoid disturbing UI
       // setError('Failed to refresh payment data')
       
@@ -658,7 +658,7 @@ export function usePaymentLogic() {
   }
 
   const handleExport = () => {
-    console.log("Exporting payment data...")
+  // Only log status code if needed; removed verbose console log
   }
 
   return {

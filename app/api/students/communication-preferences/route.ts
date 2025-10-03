@@ -39,24 +39,20 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log('🔍 Fetching communication preferences for student:', studentId)
+  // Console message removed as requested
     
     // Find student in students collection
     const student = await StudentModel.findOne({ studentId: studentId })
     
     if (!student) {
-      console.log('❌ Student not found in students collection:', studentId)
+  // Console message removed as requested
       return NextResponse.json(
         { error: 'Student not found' },
         { status: 404 }
       )
     }
 
-    console.log('✅ Found student:', {
-      studentId: student.studentId,
-      name: student.name,
-      communicationPreferences: student.communicationPreferences
-    })
+    // Console message removed as requested
 
     // Return communication preferences
     const communicationPreferences = student.communicationPreferences || {
@@ -73,11 +69,11 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Error fetching student communication preferences:', error)
+    // Console message removed
     return NextResponse.json(
       { 
-        error: 'Failed to fetch communication preferences', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
+        error: 'Communication preferences unavailable', 
+        message: 'Service temporarily unavailable' 
       },
       { status: 500 }
     )

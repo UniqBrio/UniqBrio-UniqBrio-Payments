@@ -5,35 +5,19 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('🔍 Starting direct comparison of students and courses...');
     await connectDB();
+    // Console message removed
     
     // Get sample data to show what exists
     const students = await Student.find({}).limit(5);
     const courses = await Course.find({ status: 'Active' }).limit(5);
     
-    console.log('\n📚 SAMPLE STUDENTS FROM DATABASE:');
-    students.forEach((student: any, index) => {
-      console.log(`Student ${index + 1}:`, {
-        studentId: student.studentId,
-        name: student.name,
-        activity: student.activity,
-        program: student.program || student.course,
-        category: student.category || student.level
-      });
-    });
+    // Sample display
+    // Console message removed
     
-    console.log('\n🎓 SAMPLE COURSES FROM DATABASE:');
-    courses.forEach((course: any, index) => {
-      console.log(`Course ${index + 1}:`, {
-        courseId: course.courseId || course.id,
-        name: course.name,
-        level: course.level,
-        priceINR: course.priceINR
-      });
-    });
+    // Console message removed
     
-    console.log('\n🔄 TESTING MATCHING LOGIC:');
+    // Console message removed
     
     const matchResults = [];
     for (const student of students) {
@@ -55,13 +39,13 @@ export async function GET(request: NextRequest) {
             courseLevel: c.level,
             fee: c.priceINR
           };
-          console.log(`✅ MATCH FOUND: ${s.studentId} -> ${c.courseId || c.id} (₹${c.priceINR})`);
+          // Console message removed
           break;
         }
       }
       
       if (!matched) {
-        console.log(`❌ NO MATCH: ${s.studentId} (Activity: ${s.activity}, Program: ${s.program || s.course}, Category: ${s.category || s.level})`);
+        // Console message removed
       }
       
       matchResults.push({
@@ -105,7 +89,7 @@ export async function GET(request: NextRequest) {
     });
     
   } catch (error: any) {
-    console.error('❌ Direct comparison error:', error);
+    // Console message removed
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

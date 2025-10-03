@@ -17,7 +17,7 @@ export interface ReminderActionsProps {
 
 export function useReminderActions({ record, onReminderSent }: ReminderActionsProps) {
     const handleReminderSend = async (record: PaymentRecord, channels: string[]) => {
-    console.log(`Sending reminder to ${record.name} via:`, channels)
+    // Console message removed
     
     try {
       // Show loading toast
@@ -27,11 +27,7 @@ export function useReminderActions({ record, onReminderSent }: ReminderActionsPr
       })
 
       // Call the API to send actual reminders
-      console.log('🚀 SENDING TO API:', {
-        studentId: record.id,
-        communicationModes: channels,
-        recordData: { name: record.name, activity: record.activity }
-      });
+      // Console message removed
 
       const response = await fetch('/api/payments/send-reminder', {
         method: 'POST',
@@ -44,10 +40,10 @@ export function useReminderActions({ record, onReminderSent }: ReminderActionsPr
         })
       })
 
-      console.log('📡 API Response Status:', response.status);
-      
+      // Console message removed
+
       if (!response.ok) {
-        console.error('❌ API Response Error:', response.status, response.statusText);
+        // Console message removed
         throw new Error(`API request failed: ${response.status}`);
       }
 

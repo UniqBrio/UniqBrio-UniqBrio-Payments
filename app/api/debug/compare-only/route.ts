@@ -9,11 +9,11 @@ export async function GET(request: NextRequest) {
     
     // Fetch all students from database
     const students = await Student.find({}).limit(20);
-    console.log(`📚 Found ${students.length} students in database`);
+    // Console message removed
     
     // Fetch all active courses from database
     const courses = await Course.find({ status: 'Active' });
-    console.log(`🎓 Found ${courses.length} courses in database`);
+    // Console message removed
     
     const results = [];
     
@@ -21,14 +21,8 @@ export async function GET(request: NextRequest) {
     for (const student of students) {
       const studentData = student as any;
       
-      console.log(`\n=== Processing Student: ${studentData.studentId} ===`);
-      console.log('Student Data:', {
-        id: studentData.studentId,
-        name: studentData.name,
-        activity: studentData.activity,
-        program: studentData.program || studentData.course,
-        category: studentData.category || studentData.level
-      });
+      // Console message removed
+      // Console message removed
       
       const normalize = (v: any) => (typeof v === 'string' ? v.trim() : v);
       const normLower = (v: any) => (typeof v === 'string' ? v.trim().toLowerCase() : v);
@@ -41,11 +35,7 @@ export async function GET(request: NextRequest) {
       let matchType = 'NO_MATCH';
       let finalPayment = 0;
       
-      console.log('Looking for matches with:', {
-        activity: studentActivity,
-        program: studentProgram,
-        category: studentCategory
-      });
+      // Console message removed
       
       // Try exact triple match first
       if (studentActivity && studentProgram && studentCategory) {
@@ -60,17 +50,13 @@ export async function GET(request: NextRequest) {
           const rule2Match = normLower(studentProgram) === normLower(courseData.name);
           const rule3Match = normLower(studentCategory) === normLower(courseData.level);
           
-          console.log(`  Checking course ${courseCode}:`, {
-            rule1: `"${studentActivity}" === "${courseCode}" = ${rule1Match}`,
-            rule2: `"${studentProgram}" === "${courseData.name}" = ${rule2Match}`,
-            rule3: `"${studentCategory}" === "${courseData.level}" = ${rule3Match}`
-          });
+          // Console message removed
           
           if (rule1Match && rule2Match && rule3Match) {
             matchedCourse = courseData;
             matchType = 'EXACT_TRIPLE_MATCH';
             finalPayment = courseData.priceINR || 0;
-            console.log(`✅ EXACT TRIPLE MATCH FOUND: ${courseCode} - ₹${finalPayment}`);
+            // Console message removed
             break;
           }
         }
@@ -78,7 +64,7 @@ export async function GET(request: NextRequest) {
       
       // If no exact match, try fallback matching
       if (!matchedCourse && studentActivity && studentCategory) {
-        console.log('  No exact match, trying activity + level fallback...');
+        // Console message removed
         for (const course of courses) {
           const courseData = course as any;
           const courseCode = courseData.courseId || courseData.id;
@@ -90,14 +76,14 @@ export async function GET(request: NextRequest) {
             matchedCourse = courseData;
             matchType = 'ACTIVITY_LEVEL_MATCH';
             finalPayment = courseData.priceINR || 0;
-            console.log(`✅ FALLBACK MATCH FOUND: ${courseCode} - ₹${finalPayment}`);
+            // Console message removed
             break;
           }
         }
       }
       
       if (!matchedCourse) {
-        console.log('❌ NO MATCH FOUND - finalPayment will be 0');
+        // Console message removed
       }
       
       // Add result for this student
@@ -119,11 +105,11 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    console.log(`\n🎯 FINAL SUMMARY:`);
-    console.log(`Total students processed: ${results.length}`);
-    console.log(`Exact matches: ${results.filter(r => r.matchType === 'EXACT_TRIPLE_MATCH').length}`);
-    console.log(`Fallback matches: ${results.filter(r => r.matchType === 'ACTIVITY_LEVEL_MATCH').length}`);
-    console.log(`No matches: ${results.filter(r => r.matchType === 'NO_MATCH').length}`);
+    // Console message removed
+    // Console message removed
+    // Console message removed
+    // Console message removed
+    // Console message removed
     
     return NextResponse.json({
       success: true,
@@ -139,7 +125,7 @@ export async function GET(request: NextRequest) {
     });
     
   } catch (error: any) {
-    console.error('❌ Compare error:', error);
+    // Console message removed
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

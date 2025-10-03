@@ -14,12 +14,12 @@ export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('🔄 GET /api/payments/sync - Fetching updated payment data...');
+    // Console message removed
     
     const connection = await connectDB();
     
     if (!connection) {
-      console.log('❌ Database connection unavailable during sync');
+      // Console message removed
       return NextResponse.json({
         success: false,
         error: "Database connection unavailable during build",
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     
     const url = new URL(request.url);
     const studentIdParam = url.searchParams.get('studentId');
-    console.log('📋 Sync request for studentId:', studentIdParam || 'ALL STUDENTS');
+    // Console message removed
     
     // READ-ONLY COLLECTIONS: Only fetch data, never update
     // Fetch students (READ ONLY)
@@ -45,13 +45,13 @@ export async function GET(request: NextRequest) {
     
     // Fetch all payment documents (one per student) - Source of truth for all calculations
     const studentIds = students.map(s => s.studentId);
-    console.log(`🔍 Fetching payment documents for ${studentIds.length} students`);
+    // Console message removed
     
     const allPaymentDocs = await Payment.find({ 
       studentId: { $in: studentIds } 
     }).lean();
     
-    console.log(`📊 Found ${allPaymentDocs.length} payment documents in database`);
+    // Console message removed
     
     // Create lookup map for payment documents by studentId
     const paymentsByStudent = allPaymentDocs.reduce((acc, paymentDoc) => {
@@ -62,27 +62,19 @@ export async function GET(request: NextRequest) {
     // Count total payment records across all students
     const totalPaymentRecords = allPaymentDocs.reduce((sum, doc) => sum + (doc.paymentRecords?.length || 0), 0);
     
-    console.log(`📋 Found ${students.length} students, ${courses.length} courses (ALL statuses), and ${totalPaymentRecords} payment records across ${allPaymentDocs.length} payment documents`);
+    // Console message removed
     
     // Log a sample of payment documents for debugging
     if (allPaymentDocs.length > 0) {
       const sampleDoc = allPaymentDocs[0];
-      console.log(`📝 Sample payment doc for ${sampleDoc.studentId}: ${sampleDoc.paymentRecords?.length || 0} records, balance: ${sampleDoc.currentBalance}`);
+      // Console message removed
     }
     
     // Debug: Log available courses for matching
-    console.log('📚 Available courses for matching:');
-    courses.forEach(course => {
-      const courseData = course as any;
-      const courseCode = courseData.courseId || courseData.id; // ensure compatibility
-      console.log(`  Course ${courseCode}: "${courseData.name}" (Level: ${courseData.level}, Status: ${courseData.status}, Price: ₹${courseData.priceINR})`);
-    });
+    // Console message removed
     
     // Debug: Log all students for matching analysis
-    console.log('\n👥 Students to match:');
-    students.forEach(student => {
-      console.log(`  Student ${student.studentId} (${(student as any).name}): Activity="${(student as any).activity}", Program="${(student as any).program || (student as any).course}", Category="${(student as any).category}", Level="${(student as any).level}"`);
-    });
+    // Console message removed
     
     // Process students with enhanced matching (triple-rule + partial matches)
     const processedStudents = [];
@@ -100,7 +92,7 @@ export async function GET(request: NextRequest) {
       // DEBUG: Check what category/level data exists
       const rawCategory = (student as any).category;
       const rawLevel = (student as any).level;
-      console.log(`🔍 Student ${student.studentId} fields: category="${rawCategory}" (for matching), level="${rawLevel}" (for display only)`);
+      // Console message removed
       
       // Get exact CATEGORY field from students collection for display
       const studentCategory = (student as any).category || '-';
@@ -120,7 +112,7 @@ export async function GET(request: NextRequest) {
       // ALL 3 RULES MUST MATCH EXACTLY - NO EXCEPTIONS
       // ADDITIONALLY: Students MUST have category field populated (not empty)
       const hasValidCategory = rawCategory && typeof rawCategory === 'string' && rawCategory.trim() !== '';
-      console.log(`🔍 Category validation for ${student.studentId}: rawCategory="${rawCategory}", hasValidCategory=${hasValidCategory}`);
+      // Console message removed
       if (studentActivity && studentProgram && normalizedCategory && normalizedCategory !== '-' && hasValidCategory) {
         for (const course of courses) {
           const courseData = course as any;
@@ -150,9 +142,9 @@ export async function GET(request: NextRequest) {
       // Log unmatched students - STRICT 3-RULE MATCHING ONLY
       if (!matchedCourseId) {
         if (studentActivity && studentProgram && normalizedCategory && normalizedCategory !== '-') {
-          console.log(`❌ UNMATCHED STUDENT ${student.studentId}: STRICT 3-RULE FAILED - Activity="${studentActivity}", Program="${studentProgram}", Category="${normalizedCategory}" - Needs exact course match`);
+          // Console message removed
         } else {
-          console.log(`⚠️ INCOMPLETE DATA ${student.studentId}: Missing required fields - Activity="${studentActivity || 'MISSING'}", Program="${studentProgram || 'MISSING'}", Category="${normalizedCategory || 'MISSING'}" - Cannot perform 3-rule matching`);
+          // Console message removed
         }
       }
 
@@ -199,15 +191,15 @@ export async function GET(request: NextRequest) {
       
       // Debug log for strict 3-rule matching and payment calculations
       if (matchedCourseId) {
-        console.log(`✅ Student ${student.studentId}: STRICT 3-RULE MATCH with course ${matchedCourseId}`);
-        console.log(`   ✓ Rule 1: Activity "${studentActivity}" === CourseId "${matchedCourseId}"`);
-        console.log(`   ✓ Rule 2: Program "${studentProgram}" === CourseName`);  
-        console.log(`   ✓ Rule 3: Category "${normalizedCategory}" === CourseLevel`);
-        console.log(`   💰 PAYMENT CALCULATION:`);
-        console.log(`      Final Payment (Course Fee): ₹${finalPaymentAmount}`);
-        console.log(`      Total Paid Amount: ₹${coursePaidAmount} (from ${totalPaymentRecords} payment records)`);
-        console.log(`      Balance Remaining: ₹${balanceAmount} = ₹${finalPaymentAmount} - ₹${coursePaidAmount}`);
-        console.log(`      Payment Status: ${balanceAmount > 0 ? 'PENDING' : 'PAID'}`);
+        // Console message removed
+        // Console message removed
+        // Console message removed
+        // Console message removed
+        // Console message removed
+        // Console message removed
+        // Console message removed
+        // Console message removed
+        // Console message removed
       }
       
       // Extract communication preferences from student data
@@ -357,7 +349,7 @@ export async function GET(request: NextRequest) {
     const totalMatches = processedStudents.filter(s => s.matchedCourseId).length;
     const unmatchedStudents = processedStudents.filter(s => !s.matchedCourseId).length;
     
-    console.log(`📊 STRICT 3-RULE SUMMARY: ${totalMatches}/${processedStudents.length} students matched with EXACT triple-rule matching, ${unmatchedStudents} unmatched (need exact course data)`);
+    // Console message removed
     
     return NextResponse.json({
       success: true,
@@ -368,11 +360,11 @@ export async function GET(request: NextRequest) {
     });
     
   } catch (error: any) {
-    console.error('SYNC_ROUTE_ERROR', error);
+    // Console message removed
     
     // If it's a MongoDB connection error, return empty data gracefully
     if (error.message?.includes('MongoDB Atlas cluster') || error.message?.includes('IP') || error.message?.includes('whitelist')) {
-      console.log('❌ Database connection unavailable - IP whitelist issue');
+      // Console message removed
       return NextResponse.json({
         success: true,
         data: [],

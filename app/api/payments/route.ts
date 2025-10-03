@@ -8,8 +8,7 @@ let ROOT_TXN_FIELD_CLEANED = false;
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🚀 POST /api/payments - Manual payment request received');
-    console.log('🔐 MONGODB_URI present:', !!process.env.MONGODB_URI);
+    // Console messages removed
 
     await connectDB();
 
@@ -23,31 +22,31 @@ export async function POST(request: NextRequest) {
           for (const idx of rootTxnIdx) {
             if (!idx?.name) continue;
             try {
-              console.log(`🛠 Dropping unintended root index ${idx.name}`);
+              // Console message removed
               await Payment.collection.dropIndex(idx.name as string);
-              console.log(`✅ Dropped index ${idx.name}`);
+              // Console message removed
             } catch (dErr: any) {
-              console.warn(`⚠️ Could not drop index ${idx.name}:`, dErr.message);
+              // Console message removed
             }
           }
         } catch (listErr: any) {
-          console.warn('⚠️ Index list failed (non-fatal):', listErr.message);
+          // Console message removed
         }
         const unsetRes: any = await Payment.updateMany(
           { transactionId: { $exists: true } },
           { $unset: { transactionId: "" } }
         );
         if (unsetRes.modifiedCount) {
-          console.log(`🧽 Removed stray root transactionId field from ${unsetRes.modifiedCount} documents (POST route pre-flight)`);
+          // Console message removed
         }
       } catch (cleanErr: any) {
-        console.warn('⚠️ Root transactionId cleanup skipped:', cleanErr.message);
+        // Console message removed
       }
       ROOT_TXN_FIELD_CLEANED = true;
     }
 
     const body = await request.json();
-    console.log('📝 Payment request body:', JSON.stringify(body, null, 2));
+    // Console message removed
 
     const {
       studentId,
@@ -133,7 +132,7 @@ export async function POST(request: NextRequest) {
       paymentDoc.totalCourseFee = newPaymentRecord.previousBalance > 0 ? paymentDoc.totalCourseFee : Number(amount);
       // Ensure currentBalance reflects new inferred fee before subtraction logic re-runs in pre-save
       paymentDoc.currentBalance = Math.max(0, paymentDoc.totalCourseFee - Number(amount));
-      console.log('🧮 Inferred totalCourseFee from first manual payment:', paymentDoc.totalCourseFee);
+      // Console message removed
     }
 
     paymentDoc.paymentRecords.push(newPaymentRecord);

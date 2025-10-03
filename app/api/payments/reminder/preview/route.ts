@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, mode, comingSoon, content })
   } catch (error) {
-    console.error('Reminder preview error:', error)
+    // Console message removed to fix build errors
     return NextResponse.json({ success: false, error: 'Failed to generate preview' }, { status: 500 })
   }
 }

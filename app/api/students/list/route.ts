@@ -29,20 +29,16 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB()
     
-    console.log('🔍 Fetching all students from students collection')
+  // Console message removed as requested
     
     // Find all students
     const students = await StudentModel.find({}).limit(10).sort({ createdAt: -1 })
     
-    console.log(`✅ Found ${students.length} students in collection`)
+    // Console message removed as requested
     
     // Log each student's communication preferences
     students.forEach((student, index) => {
-      console.log(`Student ${index + 1}:`, {
-        studentId: student.studentId,
-        name: student.name,
-        communicationPreferences: student.communicationPreferences
-      })
+      // Console message removed as requested
     })
 
     return NextResponse.json({
@@ -61,7 +57,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Error fetching students:', error)
+    // Console message removed
     return NextResponse.json(
       { 
         error: 'Failed to fetch students', 

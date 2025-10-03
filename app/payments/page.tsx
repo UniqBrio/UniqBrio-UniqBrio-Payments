@@ -116,7 +116,7 @@ export default function PaymentStatusPage() {
   const filteredRecordsRef = useRef(filteredRecords);
   filteredRecordsRef.current = filteredRecords;
 
-  console.log("Filtered Records:", filteredRecords);
+  // Only show status code if needed; removed verbose console log
 
   return (
     <MainLayout>

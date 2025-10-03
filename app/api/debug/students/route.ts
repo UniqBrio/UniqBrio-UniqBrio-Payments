@@ -4,21 +4,19 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    console.log('🔍 Debug: Starting student database check...');
+    // Console message removed
     
     await connectDB();
     
     // Count total students
-    const totalStudents = await Student.countDocuments();
-    console.log(`📊 Total students in database: ${totalStudents}`);
-    
-    // Get first few students for debugging
+    const totalStudents = await db.collection('students').countDocuments();
+    // Console message removed    // Get first few students for debugging
     const students = await Student.find({}).limit(3).lean();
-    console.log('👥 Sample students:', students.map(s => ({id: s.studentId, name: s.name})));
+    // Console message removed
     
     // Check collections in database
     const collections = await Student.db.listCollections().toArray();
-    console.log('📁 Available collections:', collections.map(c => c.name));
+    // Console message removed
     
     return NextResponse.json({
       success: true,
@@ -31,7 +29,7 @@ export async function GET() {
       }
     });
   } catch (error) {
-    console.error('❌ Debug API Error:', error);
+    // Console message removed
     
     return NextResponse.json({
       success: false,
@@ -54,7 +52,7 @@ export async function POST() {
       });
     }
     
-    console.log('🏗️ Creating sample students...');
+    // Console message removed
     
     const sampleStudents = [
       {
@@ -87,7 +85,7 @@ export async function POST() {
     ];
     
     const createdStudents = await Student.insertMany(sampleStudents);
-    console.log(`✅ Created ${createdStudents.length} sample students`);
+    // Console message removed
     
     return NextResponse.json({
       success: true,
@@ -96,7 +94,7 @@ export async function POST() {
     });
     
   } catch (error) {
-    console.error('❌ Sample data creation error:', error);
+    // Console message removed
     return NextResponse.json({
       success: false,
       error: error.message

@@ -87,13 +87,7 @@ export async function GET(request: NextRequest) {
     const allResults: any[] = [];
 
     for (const student of studentsToTest) {
-      console.log(`\n=== ${student.id} DEBUGGING WITH MOCK DATA ===`);
-      console.log('Student Details:', {
-        id: student.id,
-        activity: student.activity,
-        program: student.program,
-        category: student.category
-      });
+      // Console messages removed to fix build errors
 
       // Test all matching levels
       const matchingResults = {
@@ -118,9 +112,9 @@ export async function GET(request: NextRequest) {
       matchingResults.exactTripleMatch = exactMatch;
       matchingResults.finalResult = exactMatch;
       matchingResults.matchType = 'EXACT_TRIPLE_MATCH';
-      console.log('✅ EXACT TRIPLE MATCH FOUND:', exactMatch);
+      // Console message removed
     } else {
-      console.log('❌ No exact triple match found');
+      // Console message removed
       
       // Level 2: Activity + Level Match
       const activityLevelMatch = mockCourses.find(course => 
@@ -132,9 +126,9 @@ export async function GET(request: NextRequest) {
         matchingResults.activityLevelMatch = activityLevelMatch;
         matchingResults.finalResult = activityLevelMatch;
         matchingResults.matchType = 'ACTIVITY_LEVEL_MATCH';
-        console.log('✅ Activity + Level match found:', activityLevelMatch);
+        // Console message removed
       } else {
-        console.log('❌ No activity + level match found');
+        // Console message removed
         
         // Level 3: Program + Level Match
         const programLevelMatch = mockCourses.find(course => 
@@ -146,9 +140,9 @@ export async function GET(request: NextRequest) {
           matchingResults.programLevelMatch = programLevelMatch;
           matchingResults.finalResult = programLevelMatch;
           matchingResults.matchType = 'PROGRAM_LEVEL_MATCH';
-          console.log('✅ Program + Level match found:', programLevelMatch);
+          // Console message removed
         } else {
-          console.log('❌ No program + level match found');
+          // Console message removed
           
           // Level 4: Activity Only Match
           const activityMatch = mockCourses.find(course => 
@@ -159,9 +153,9 @@ export async function GET(request: NextRequest) {
             matchingResults.activityOnlyMatch = activityMatch;
             matchingResults.finalResult = activityMatch;
             matchingResults.matchType = 'ACTIVITY_ONLY_MATCH';
-            console.log('✅ Activity only match found:', activityMatch);
+            // Console message removed
           } else {
-            console.log('❌ No activity only match found');
+            // Console message removed
             
             // Level 5: Program Only Match
             const programMatch = mockCourses.find(course => 
@@ -172,12 +166,12 @@ export async function GET(request: NextRequest) {
               matchingResults.programOnlyMatch = programMatch;
               matchingResults.finalResult = programMatch;
               matchingResults.matchType = 'PROGRAM_ONLY_MATCH';
-              console.log('✅ Program only match found:', programMatch);
+              // Console message removed
             } else {
-              console.log('❌ No program only match found');
+              // Console message removed
               
               // Level 6: NO FALLBACK - Return null instead of dummy data
-              console.log('❌ No matches found - NO COURSE ASSIGNED (NO FALLBACK DUMMY DATA)');
+              // Console message removed
               matchingResults.finalResult = null;
               matchingResults.matchType = 'NO_MATCH_FOUND';
             }
@@ -186,29 +180,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log('\n=== FINAL RESULT ===');
-    console.log('Match Type:', matchingResults.matchType);
-    console.log('Selected Course:', matchingResults.finalResult);
-    console.log('Final Payment (No Dummy Fallback):', matchingResults.finalResult?.fee || 0);
+    // Console messages removed to fix build errors
     
     if (matchingResults.matchType !== 'EXACT_TRIPLE_MATCH') {
-      console.log('\n🔍 WHY NO EXACT MATCH:');
-      console.log('Student needs:', {
-        activity: student.activity,
-        program: student.program, 
-        category: student.category
-      });
-      
-      console.log('\nAvailable courses analysis:');
+      // Console messages removed to fix build errors
       mockCourses.forEach((course, index) => {
         const activityMatch = course.courseId === student.activity ? '✅' : '❌';
         const programMatch = course.name === student.program ? '✅' : '❌';
         const categoryMatch = course.level === student.category ? '✅' : '❌';
         
-        console.log(`Course ${index + 1}: ${activityMatch} Activity | ${programMatch} Program | ${categoryMatch} Category`);
-        console.log(`  courseId: "${course.courseId}" vs "${student.activity}"`);
-        console.log(`  name: "${course.name}" vs "${student.program}"`);
-        console.log(`  level: "${course.level}" vs "${student.category}"`);
+        // Console messages removed to fix build errors
       });
     }
 
@@ -240,7 +221,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Mock matching error:', error);
+    // Console message removed
     return NextResponse.json(
       { error: 'Mock matching analysis failed', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }

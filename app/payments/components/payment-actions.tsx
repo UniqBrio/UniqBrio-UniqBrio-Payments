@@ -41,11 +41,7 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
 
   const handleManualPayment = async (payload: StudentManualPaymentPayload) => {
     try {
-      console.log('🔍 Recording payment:', {
-        amount: payload.amount,
-        paymentTypes: payload.paymentTypes,
-        studentName: record.name
-      }); // Debug log
+      // Console message removed
       
       // Store course payment response for accurate balance calculation
       let coursePaymentResponse: any = null;
@@ -103,7 +99,7 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
 
         // Skip zero or negative amounts defensively
         if (paymentAmount <= 0) {
-          console.log(`⚠️ Skipping ${paymentType} payment with non-positive amount:`, paymentAmount);
+          // Console message removed
           continue;
         }
 
@@ -124,7 +120,7 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
           receivedByRole: payload.receivedByRole
         };
         
-        console.log(`💳 MANUAL PAYMENT API CALL for ${paymentType}:`, paymentData);
+        // Console message removed
         
         const response = await fetch('/api/payments', {
           method: 'POST',
@@ -138,11 +134,11 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
         let result: any = {};
         try { result = JSON.parse(resultText); } catch { /* leave as text */ }
         if (!response.ok) {
-          console.error('❌ API error body:', result);
+          // Console message removed
           throw new Error(`HTTP ${response.status} while recording ${paymentType}: ${JSON.stringify(result)}`);
         }
         if (!result.success) {
-          console.error('❌ API logical failure:', result);
+          // Console message removed
           throw new Error(`Backend rejected ${paymentType}: ${result.error || 'Unknown error'}`);
         }
         if (paymentType === "course" || paymentType === "courseRegistration") {
@@ -153,14 +149,11 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
       // Inspect backend authoritative state after processing payments
       try {
         const inspectResp = await fetch(`/api/payments/inspect?studentId=${encodeURIComponent(record.id)}`, { cache: 'no-store' });
-        if (inspectResp.ok) {
-          const inspectJson = await inspectResp.json();
-          console.log('🧪 Inspect after payment:', inspectJson);
-        } else {
-          console.warn('⚠️ Inspect endpoint returned status', inspectResp.status);
+        if (!inspectResp.ok) {
+          // Console message removed - only log HTTP status if needed
         }
       } catch (inspErr) {
-        console.warn('⚠️ Inspect fetch failed:', inspErr);
+        // Console message removed
       }
 
       // Now update the record based on what payment types were processed
@@ -235,10 +228,9 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
         }
       }
 
-      console.log('Updating record with:', updatedRecord); // Debug log
+      // Console message removed
         
         // Update the record in the parent component immediately for responsive UI
-        console.log('🔄 Updating local record state with:', updatedRecord);
         onUpdateRecord(record.id, updatedRecord);
         
         // Show success message
@@ -247,18 +239,18 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
           description: successMessage,
         });
         
-        console.log('✅ Local state updated, initiating database refresh...');
+        // Console message removed
 
         // Force refresh the payment data from database after a short delay
         if (refreshPaymentData) {
           // Try multiple refresh attempts to ensure data is updated
           const attemptRefresh = async (attempt: number = 1) => {
             try {
-              console.log(`🔄 Refreshing payment data after manual payment... (attempt ${attempt})`);
+              // Console message removed
               await Promise.resolve(refreshPaymentData());
-              console.log('✅ Payment data refreshed successfully');
+              // Console message removed
             } catch (refreshError) {
-              console.error(`❌ Error refreshing payment data (attempt ${attempt}):`, refreshError);
+              // Console message removed
               
               // Try again after a longer delay if first attempt fails
               if (attempt < 2) {
@@ -278,13 +270,7 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
         }
       
     } catch (error) {
-      console.error('❌ Payment recording error:', error);
-      
-      // Log the full error details for debugging
-      if (error instanceof Error) {
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-      }
+      // Console message removed
       
       toast({
         title: "❌ Payment Recording Failed",

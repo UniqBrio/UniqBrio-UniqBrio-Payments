@@ -282,6 +282,8 @@ export function ManualPaymentDialog({
       date,
       mode,
       notes: notes.trim() || undefined,
+      receiverName: receivedByName.trim(),
+      receiverId: studentInfo?.id || "",
       receivedByName: receivedByName.trim(),
       receivedByRole,
       paymentTypes,
@@ -381,7 +383,7 @@ export function ManualPaymentDialog({
                         disabled={isFeePaid}
                         onCheckedChange={(checked) => {
                           if (isFeePaid) return; // Prevent changes for paid/completed fees
-                          console.log('Checkbox clicked:', option.value, 'checked:', checked);
+                          // Console message removed as requested
                           const currentTypes = [...paymentTypes];
                           if (checked === true) {
                             if (!currentTypes.includes(option.value as any)) {
