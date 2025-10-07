@@ -5,7 +5,10 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Download, LayoutGrid, List, Filter, Upload, Check, Info, X, RotateCcw, ArrowUpDown, ArrowUp, ArrowDown, Menu, Grid3X3 } from "lucide-react"
+import { Search, Download, LayoutGrid, List, Filter, Upload, Check, Info, X, RotateCcw, ArrowUpDown, ArrowUp, ArrowDown, Menu, Grid3X3, ChevronDown, CalendarDays } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Calendar } from "@/components/ui/calendar"
 import { ColumnVisibility, ColumnConfig } from './column-visibility'
 import { TooltipButton } from './tooltip-button'
 import React, { useState } from "react"
@@ -124,6 +127,8 @@ export function PaymentFilters({
   }
 
   const [filterPopoverOpen, setFilterPopoverOpen] = useState(false)
+  const [permanentFilterIcon, setPermanentFilterIcon] = useState<"apply" | "clear" | null>(null)
+  
   const handleApply = () => {
     setStatusFilters(tempStatusFilters)
     setCategoryFilters(tempCategoryFilters)
@@ -132,6 +137,8 @@ export function PaymentFilters({
     setPriceRange(tempPriceRange)
     setFilterPopoverOpen(false)
     setIsClearing(false)
+    // Set permanent icon to show green checkmark after applying
+    setPermanentFilterIcon("apply")
   }
 
 
@@ -148,6 +155,8 @@ export function PaymentFilters({
     setCourseFilters([])
     setPaymentCategoryFilters([])
     setPriceRange({ min: 0, max: 100000 })
+    // Set permanent icon to show red X after clearing
+    setPermanentFilterIcon("clear")
     setTimeout(() => {
       setIsClearing(false)
       setFilterPopoverOpen(false)
@@ -185,104 +194,162 @@ export function PaymentFilters({
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
           </div>
-          <Popover open={filterPopoverOpen} onOpenChange={setFilterPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-10 px-3 gap-1 border border-gray-200 text-black hover:bg-gray-50 rounded-md shadow-sm flex items-center relative"
-                title="Filter"
-              >
-                <div className="relative flex items-center">
-                  <Filter className="h-5 w-5" />
-                  {hasActiveFilters && !isClearing && (
-                    <div className="absolute -top-3 -right-2 z-20">
-                      <svg width="9" height="9" viewBox="0 0 20 20" fill="none">
-                        <circle cx="10" cy="10" r="10" fill="#22C55E"></circle>
-                        <path d="M6 10.5l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
-                      </svg>
-                    </div>
-                  )}
-                  {isClearing && (
-                    <div className="absolute -top-3 -right-2 z-20">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="9" height="9">
-                        {/* Red circle */}
-                        <circle cx="25" cy="25" r="20" fill="#ef4444"/>
-                        
-                        {/* White X */}
-                        <path d="M17 17l16 16M33 17l-16 16" 
-                              stroke="white" strokeWidth="4" strokeLinecap="round"/>
-                      </svg>
-                    </div>
-                  )}
+          <TooltipProvider delayDuration={200}>
+            <Popover 
+              open={filterPopoverOpen} 
+              onOpenChange={(open) => {
+                setFilterPopoverOpen(open)
+                // Reset permanent icon when opening filter dropdown
+                if (open) {
+                  setPermanentFilterIcon(null)
+                }
+              }}
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-10 px-3 gap-1 border border-gray-200 text-black hover:bg-gray-50 rounded-md shadow-sm flex items-center relative"
+                      aria-label="Filters"
+                    >
+                      <div className="relative flex items-center">
+                        <Filter className="h-4 w-4 mr-2" />
+                        {/* Show green checkmark when filters are applied or during transient apply state */}
+                        {(permanentFilterIcon === "apply" || (hasActiveFilters && !isClearing)) && (
+                          <span className="absolute -top-2 -right-3">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                              <circle cx="10" cy="10" r="10" fill="#22C55E"/>
+                              <path d="M6 10.5l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </span>
+                        )}
+                        {/* Show red X when clearing or permanently cleared */}
+                        {(isClearing || permanentFilterIcon === "clear") && (
+                          <span className="absolute -top-2 -right-3">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                              <circle cx="10" cy="10" r="10" fill="#EF4444"/>
+                              <path d="M7 7l6 6M13 7l-6 6" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+                            </svg>
+                          </span>
+                        )}
+                      </div>
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Filters</TooltipContent>
+              </Tooltip>
+            <PopoverContent side="bottom" align="end" className="w-[320px] md:w-[600px] max-h-[70vh] overflow-y-auto">
+              <div className="space-y-4">
+                {/* Filter dropdowns */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Courses Dropdown */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Courses</h4>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between text-sm">
+                          {tempCourseFilters.length === 0 ? (
+                            "All Courses"
+                          ) : tempCourseFilters.length === 1 ? (
+                            tempCourseFilters[0]
+                          ) : (
+                            `${tempCourseFilters.length} selected`
+                          )}
+                          <ChevronDown className="h-4 w-4 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-56 max-h-60 overflow-y-auto">
+                        {availableCourses.map((course) => (
+                          <DropdownMenuItem
+                            key={course}
+                            className="flex items-center gap-2 cursor-pointer"
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            <Checkbox
+                              checked={tempCourseFilters.includes(course)}
+                              onCheckedChange={(checked) => handleCourseChange(course, checked as boolean)}
+                              className="data-[state=checked]:bg-purple-600 border-purple-500"
+                            />
+                            <span className="text-sm">{course}</span>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  {/* Categories Dropdown */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Categories</h4>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between text-sm">
+                          {tempCategoryFilters.length === 0 ? (
+                            "All Categories"
+                          ) : tempCategoryFilters.length === 1 ? (
+                            tempCategoryFilters[0]
+                          ) : (
+                            `${tempCategoryFilters.length} selected`
+                          )}
+                          <ChevronDown className="h-4 w-4 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-56">
+                        {availableCategories.map((category) => (
+                          <DropdownMenuItem
+                            key={category}
+                            className="flex items-center gap-2 cursor-pointer"
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            <Checkbox
+                              checked={tempCategoryFilters.includes(category)}
+                              onCheckedChange={(checked) => handleCategoryChange(category, checked as boolean)}
+                              className="data-[state=checked]:bg-purple-600 border-purple-500"
+                            />
+                            <span className="text-sm">{category}</span>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  {/* Status Dropdown */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Status</h4>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between text-sm">
+                          {tempStatusFilters.length === 0 ? (
+                            "All Statuses"
+                          ) : tempStatusFilters.length === 1 ? (
+                            tempStatusFilters[0] === "inprogress" ? "In Progress" : 
+                            tempStatusFilters[0].charAt(0).toUpperCase() + tempStatusFilters[0].slice(1)
+                          ) : (
+                            `${tempStatusFilters.length} selected`
+                          )}
+                          <ChevronDown className="h-4 w-4 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-56">
+                        {availableStatuses.map((status) => (
+                          <DropdownMenuItem
+                            key={status}
+                            className="flex items-center gap-2 cursor-pointer"
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            <Checkbox
+                              checked={tempStatusFilters.includes(status)}
+                              onCheckedChange={(checked) => handleStatusChange(status, checked as boolean)}
+                              className="data-[state=checked]:bg-purple-600 border-purple-500"
+                            />
+                            <span className="text-sm">{status}</span>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 bg-white rounded-lg shadow-lg border-none" align="start">
-              <div className="max-h-64 overflow-y-auto custom-scrollbar">
-                <div className="p-3 space-y-3">
-                  {/* Filter by Course */}
-                  <div className="space-y-2">
-                    <h4 className="font-bold text-xs text-gray-900">Filter by Course</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {availableCourses.map((course) => (
-                        <div key={course} className="flex items-center gap-1">
-
-                          <Checkbox
-                            id={`course-${course}`}
-                            checked={tempCourseFilters.includes(course)}
-                            onCheckedChange={(checked) => handleCourseChange(course, checked as boolean)}
-                            className="h-4 w-4 data-[state=checked]:bg-[#9234ea] data-[state=checked]:border-[#9234ea]"
-                          />
-                          <label htmlFor={`course-${course}`} className="text-sm text-gray-700 cursor-pointer">
-                            {course}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Filter by Category */}
-                  <div className="space-y-2">
-                    <h4 className="font-bold text-xs text-gray-900">Filter by Category</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {availableCategories.map((category) => (
-                        <div key={category} className="flex items-center gap-1">
-                          <Checkbox
-                            id={`category-${category}`}
-                            checked={tempCategoryFilters.includes(category)}
-                            onCheckedChange={(checked) => handleCategoryChange(category, checked as boolean)}
-                            className="h-4 w-4 data-[state=checked]:bg-[#9234ea] data-[state=checked]:border-[#9234ea]"
-                          />
-                          <label htmlFor={`category-${category}`} className="text-sm text-gray-700 cursor-pointer">
-                            {category}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Fee Category filter removed as per request */}
-
-                  {/* Filter by Status */}
-                  <div className="space-y-2">
-                    <h4 className="font-bold text-xs text-gray-900">Filter by Status</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {availableStatuses.map((status) => (
-                        <div key={status} className="flex items-center gap-1">
-                          <Checkbox
-                            id={`status-${status}`}
-                            checked={tempStatusFilters.includes(status)}
-                            onCheckedChange={(checked) => handleStatusChange(status, checked as boolean)}
-                            className="h-4 w-4 data-[state=checked]:bg-[#9234ea] data-[state=checked]:border-[#9234ea]"
-                          />
-                          <label htmlFor={`status-${status}`} className="text-sm text-gray-700 cursor-pointer">
-                            {status}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
 
                   {/* Price Range Filter */}
                   <div className="space-y-2">
@@ -311,33 +378,28 @@ export function PaymentFilters({
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="pt-3 border-t-1">
-                    <div className="flex gap-2">
-                      <Button 
-                        onClick={handleApply} 
-                        className="flex-1 bg-[#9234ea] hover:bg-[#9234ea]/90 text-white text-xs h-8" 
-                        title="Apply filters"
-                      >
-                        <span className="text-white font-bold mr-1">✔</span>
-                        Apply
-                      </Button>
-                      <Button 
-                        onClick={handleClearAll}
-                        variant="outline" 
-                        className="flex-1 text-red-600 hover:bg-red-50 text-xs h-8" 
-                        title="Clear all filters"
-                      >
-                        <X className="h-3 w-3 mr-1 text-red-600" />
-                        Clear
-                      </Button>
-                    </div>
-                  </div>
+                {/* Action buttons */}
+                <div className="flex justify-between gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearAll}
+                  >
+                    Clear All
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                    onClick={handleApply}
+                  >
+                    Apply Filters
+                  </Button>
+                </div>
 
                 </div>
-              </div>
             </PopoverContent>
           </Popover>
+          </TooltipProvider>
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -425,13 +487,14 @@ export function PaymentFilters({
               </Button>
             </div>
 
-          {/* Export Icon */}
+          {/* Export Button */}
           <TooltipButton
             onClick={onExport}
-            className="h-10 w-10 p-0 bg-white text-black border-gray-300 hover:bg-gray-50 rounded-md shadow-sm"
+            className="h-10 px-3 py-2 bg-white text-black border-gray-300 hover:bg-gray-50 rounded-md shadow-sm flex items-center gap-2"
             tooltip="Export"
           >
             <Download className="h-4 w-4" />
+            <span className="text-sm font-medium">Export</span>
           </TooltipButton>
 
          
