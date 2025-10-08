@@ -310,24 +310,39 @@ export function usePaymentLogic() {
             }
 
             const paymentRecords = await Promise.all(result.data.map(async (student: any) => {
-              // Triple rule logic (frontend fallback ONLY when sync API failed):
-              // Rule 1: student.activity === course.id
-              // Rule 2: student.course === course.name
-              // Rule 3: student.category === course.level
+              // Improved course matching (frontend fallback ONLY when sync API failed)
               let matchedCourse = null as any
               const studentLevel = student.level || student.category
-              if (student.activity && student.course && studentLevel && courses.length) {
-                matchedCourse = courses.find(c => (
-                  student.activity === c.id &&
-                  student.course === c.name &&
-                  studentLevel === c.level
-                )) || null
+              const courseId = student.enrolledCourse || student.activity
+              
+              if (courses.length) {
+                // Priority 1: Match by course ID
+                if (courseId) {
+                  matchedCourse = courses.find(c => c.id === courseId) || null
+                }
+                
+                // Priority 2: Try strict matching if Priority 1 failed
+                if (!matchedCourse && courseId && student.course && studentLevel) {
+                  matchedCourse = courses.find(c => (
+                    courseId === c.id &&
+                    student.course === c.name &&
+                    studentLevel === c.level
+                  )) || null
+                }
+                
+                // Priority 3: Match by course ID and name only
+                if (!matchedCourse && courseId && student.course) {
+                  matchedCourse = courses.find(c => (
+                    courseId === c.id &&
+                    student.course === c.name
+                  )) || null
+                }
               }
 
               const finalPayment = matchedCourse?.priceINR || 0
               const totalPaid = student.totalPaidAmount || 0
               const balance = Math.max(0, finalPayment - totalPaid)
-              const courseName = student.course || student.activity || 'General Course'
+              const courseName = student.course || courseId || 'General Course'
 
               // Dates - preserve original format from students collection
               const courseStartDateObj = student.courseStartDate ? new Date(student.courseStartDate) : new Date()
@@ -368,7 +383,8 @@ export function usePaymentLogic() {
               return {
                 id: student.studentId || student._id || `STU${Date.now()}`,
                 name: student.name || 'Unknown Student',
-                activity: courseName,
+                activity: courseId,
+                enrolledCourse: student.enrolledCourse || student.activity,
                 program: student.program || student.course || courseName,
                 category: student.category || '-',
                 courseType: matchedCourse?.type || student.courseType || '-',
@@ -543,12 +559,30 @@ export function usePaymentLogic() {
           const paymentRecords = await Promise.all(result.data.map(async (student: any) => {
             let matchedCourse = null as any
             const studentLevel = student.level || student.category
-            if (student.activity && student.course && studentLevel && courses.length) {
-              matchedCourse = courses.find(c => (
-                student.activity === c.id &&
-                student.course === c.name &&
-                studentLevel === c.level
-              )) || null
+            const courseId = student.enrolledCourse || student.activity
+            
+            if (courses.length) {
+              // Priority 1: Match by course ID first
+              if (courseId) {
+                matchedCourse = courses.find(c => c.id === courseId) || null
+              }
+              
+              // Priority 2: Try strict matching if Priority 1 failed
+              if (!matchedCourse && courseId && student.course && studentLevel) {
+                matchedCourse = courses.find(c => (
+                  courseId === c.id &&
+                  student.course === c.name &&
+                  studentLevel === c.level
+                )) || null
+              }
+              
+              // Priority 3: Match by course ID and name only
+              if (!matchedCourse && courseId && student.course) {
+                matchedCourse = courses.find(c => (
+                  courseId === c.id &&
+                  student.course === c.name
+                )) || null
+              }
             }
             const finalPayment = matchedCourse?.priceINR || 0
             const totalPaid = student.totalPaidAmount || 0
@@ -571,7 +605,8 @@ export function usePaymentLogic() {
             return {
               id: student.studentId,
               name: student.name,
-              activity: student.course || student.activity || 'General Course',
+              activity: courseId,
+              enrolledCourse: student.enrolledCourse || student.activity,
               program: student.program || student.course || 'General Course',
               category: student.category || '-',
               courseType: matchedCourse?.type || student.courseType || '-',

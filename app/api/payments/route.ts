@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       paymentDoc = new Payment({
         studentId: student.studentId,
         studentName: student.name,
-        courseId: student.activity || 'UNKNOWN',
+        courseId: student.enrolledCourse || student.activity || 'UNKNOWN',
         courseName: student.program || 'Unknown Course',
         cohort: student.cohort || '',
         batch: student.batch || '',

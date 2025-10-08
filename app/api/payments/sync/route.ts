@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
       };
       const normLower = (v: any) => normalize(v).toLowerCase();
 
-      const studentActivity = normalize((student as any).activity);
+      const studentActivity = normalize((student as any).enrolledCourse || (student as any).activity);
       const studentProgram = normalize((student as any).program || (student as any).course);
       
       // DEBUG: Check what category/level data exists
@@ -113,28 +113,52 @@ export async function GET(request: NextRequest) {
       // ADDITIONALLY: Students MUST have category field populated (not empty)
       const hasValidCategory = rawCategory && typeof rawCategory === 'string' && rawCategory.trim() !== '';
       // Console message removed
-      if (studentActivity && studentProgram && normalizedCategory && normalizedCategory !== '-' && hasValidCategory) {
-        for (const course of courses) {
-          const courseData = course as any;
-          const courseCode = courseData.courseId || courseData.id; // FIX: use existing id field
-          const courseName = courseData.name;
-          const courseLevel = courseData.level;
-          
-          // Skip courses with missing required fields
-          if (!courseCode || !courseName || !courseLevel) continue;
-          
-          // Check all 3 rules strictly
+      // Improved matching logic - try multiple approaches
+      for (const course of courses) {
+        const courseData = course as any;
+        const courseCode = courseData.id || courseData.courseId; // Use 'id' field from Course model
+        const courseName = courseData.name;
+        const courseLevel = courseData.level;
+        
+        // Skip courses with missing required fields
+        if (!courseCode || !courseName) continue;
+        
+        // Priority 1: Try to match by enrolledCourse/activity ID first
+        const studentCourseId = (student as any).enrolledCourse || studentActivity;
+        if (studentCourseId && normLower(studentCourseId) === normLower(courseCode)) {
+          matchedCoursePrice = Number(courseData.priceINR) || 0;
+          matchedCourseId = courseCode;
+          matchedCourseType = courseData.type || '-';
+          matchType = 'exact-course-id-match';
+          break;
+        }
+        
+        // Priority 2: Try strict 3-rule matching if all fields are available
+        if (studentActivity && studentProgram && normalizedCategory && normalizedCategory !== '-' && hasValidCategory && courseLevel) {
           const rule1Match = normLower(studentActivity) === normLower(courseCode);
           const rule2Match = normLower(studentProgram) === normLower(courseName);
           const rule3Match = normLower(normalizedCategory) === normLower(courseLevel);
           
-          // ONLY match if ALL 3 rules are satisfied
           if (rule1Match && rule2Match && rule3Match) {
             matchedCoursePrice = Number(courseData.priceINR) || 0;
             matchedCourseId = courseCode;
             matchedCourseType = courseData.type || '-';
             matchType = 'exact-triple-match';
-            break; // Stop at first exact match
+            break;
+          }
+        }
+        
+        // Priority 3: Fallback - match by course name and activity if level matching fails
+        if (studentActivity && studentProgram) {
+          const rule1Match = normLower(studentActivity) === normLower(courseCode);
+          const rule2Match = normLower(studentProgram) === normLower(courseName);
+          
+          if (rule1Match && rule2Match) {
+            matchedCoursePrice = Number(courseData.priceINR) || 0;
+            matchedCourseId = courseCode;
+            matchedCourseType = courseData.type || '-';
+            matchType = 'course-id-name-match';
+            break;
           }
         }
       }
@@ -228,18 +252,19 @@ export async function GET(request: NextRequest) {
         id: student.studentId,
         name: (student as any).name || 'Unknown',
         activity: studentActivity || 'N/A',
+        enrolledCourse: (student as any).enrolledCourse || (student as any).activity || 'N/A',
         program: studentProgram || 'N/A', 
         category: studentCategory, // Direct category from student collection
-        courseType: matchType === 'exact-triple-match' ? matchedCourseType : '-', // Show type only if all 3 fields match
-  finalPayment: matchType === 'exact-triple-match' ? finalPaymentAmount : (paymentDocFallback ? finalPaymentAmount : 0),
-  balancePayment: matchType === 'exact-triple-match' ? balanceAmount : (paymentDocFallback ? balanceAmount : 0),
+        courseType: matchedCourseId ? matchedCourseType : '-', // Show type if any match found
+        finalPayment: matchedCourseId ? finalPaymentAmount : (paymentDocFallback ? finalPaymentAmount : 0),
+        balancePayment: matchedCourseId ? balanceAmount : (paymentDocFallback ? balanceAmount : 0),
   totalPaidAmount: paymentDocFallback ? paymentDocFallback.totalPaidAmount : coursePaidAmount,
         // Paid Date: Show last payment date or "-" if no payments
         paidDate: studentPaymentDoc && studentPaymentDoc.lastPaymentDate ? 
           studentPaymentDoc.lastPaymentDate.toISOString() : null,
         // Next Due Date: Always show for matched students (even if fully paid) - monthly cadence from courseStartDate
         nextPaymentDate: (() => {
-          if (matchType !== 'exact-triple-match') return null;
+          if (!matchedCourseId) return null;
           // Prefer explicit courseStartDate, else createdAt, else today
           const rawStart = (student as any).courseStartDate || (student as any).createdAt || new Date();
           const baseDate = new Date(rawStart);

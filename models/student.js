@@ -8,6 +8,7 @@ const StudentSchema = new mongoose.Schema({
   // Course information
   course: { type: String, required: true },
   activity: { type: String }, // Alternative field name for course
+  enrolledCourse: { type: String }, // Proper course ID for enrollment
   category: { type: String, default: "Regular" },
   level: { type: String, default: "Beginner" },
   type: { type: String, default: "Individual" },
