@@ -54,7 +54,7 @@ async function sendEmailReminder(record: any, message: string) {
     }
   } catch (error) {
     console.error('Email sending failed:', error)
-    return { success: false, channel: 'Email', error: error.message }
+    return { success: false, channel: 'Email', error: error instanceof Error ? error.message : 'Unknown email error' }
   }
 }
 

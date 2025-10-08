@@ -274,7 +274,9 @@ export async function GET(request: NextRequest) {
           return nextDue.toISOString();
         })(),
   paymentStatus: matchType === 'exact-triple-match' ? (balanceAmount > 0 ? 'Pending' : 'Paid') : (paymentDocFallback ? paymentDocFallback.paymentStatus || (balanceAmount > 0 ? 'Pending' : 'Paid') : '-'),
-        paymentReminder: matchType === 'exact-triple-match' && hasBalance, // Reminder on if matched and balance > 0
+        paymentReminder: paymentDocFallback && paymentDocFallback.paymentReminder !== undefined 
+          ? paymentDocFallback.paymentReminder // Use existing payment document setting if it exists
+          : (matchType === 'exact-triple-match' && hasBalance), // Default: Reminder on if matched and balance > 0
         communicationPreferences: commPreferences, // Student's preferred communication channels
         communicationText: matchType === 'exact-triple-match' ? 
           ((student as any).communicationText || `Make a payment quickly - Balance: ₹${balanceAmount.toLocaleString()}${paymentOptionsText}`) : 

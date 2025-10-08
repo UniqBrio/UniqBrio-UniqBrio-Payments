@@ -468,6 +468,9 @@ export function usePaymentLogic() {
   const handleUpdateRecord = async (id: string, updates: Partial<PaymentRecord>) => {
   // Only log status code if needed; removed verbose console log
     
+    // Store original state before making any changes
+    const originalRecords = [...records];
+    
     try {
       // Update local state immediately for responsiveness
       const updatedRecords = records.map((record: PaymentRecord) => (record.id === id ? { ...record, ...updates } : record))
@@ -487,8 +490,8 @@ export function usePaymentLogic() {
       
       if (!response.ok) {
   console.error('❌ Failed to update record in database. Status: unknown');
-        // Revert local state on failure
-        setRecords(records);
+        // Revert local state on failure using original state
+        setRecords(originalRecords);
         throw new Error('Failed to update record');
       }
       
@@ -496,8 +499,8 @@ export function usePaymentLogic() {
       
     } catch (error) {
   console.error('❌ Error updating record. Status: unknown');
-      // Revert local state on error
-      setRecords(records);
+      // Revert local state on error using original state
+      setRecords(originalRecords);
     }
   }
 
@@ -556,7 +559,20 @@ export function usePaymentLogic() {
             }
           } catch (_) {}
 
+          // Fetch payment documents to respect manual reminder settings
+          let paymentDocs: any[] = []
+          try {
+            const paymentResp = await fetch('/api/payments', { cache: 'no-store' })
+            if (paymentResp.ok) {
+              const pJson = await paymentResp.json()
+              paymentDocs = Array.isArray(pJson.data) ? pJson.data : []
+            }
+          } catch (_) {}
+
           const paymentRecords = await Promise.all(result.data.map(async (student: any) => {
+            // Find payment document for this student to respect manual settings
+            const paymentDoc = paymentDocs.find(p => p.studentId === student.studentId)
+            
             let matchedCourse = null as any
             const studentLevel = student.level || student.category
             const courseId = student.enrolledCourse || student.activity
@@ -618,7 +634,9 @@ export function usePaymentLogic() {
               paidDate: student.paidDate || null,
               nextDue: computedNext,
               courseStartDate: student.courseStartDate || new Date().toISOString(),
-              paymentReminder: student.paymentReminder !== false,
+              paymentReminder: paymentDoc && paymentDoc.paymentReminder !== undefined 
+                ? paymentDoc.paymentReminder // Use existing payment document setting if it exists
+                : (balance > 0), // Default: Reminder on if balance > 0
               communicationText: student.communicationText || 'Payment reminder sent.',
               communicationPreferences: {
                 enabled: true,
