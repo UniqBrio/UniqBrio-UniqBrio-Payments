@@ -189,7 +189,7 @@ export function PaymentFilters({
               <input
                 type="text"
                 className={`pl-10 pr-2 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300 w-full max-w-[1000px]`}
-                placeholder="Search courses, instructors, tags..."
+                placeholder="Search by student name or course name"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />

@@ -127,11 +127,14 @@ export function ManualPaymentDialog({
   const [receivedByRoleTouched, setReceivedByRoleTouched] = useState(false)
   
   // Validation helpers
-  const isAmountValid = amount.trim() !== "" && parseFloat(amount) > 0
+  const maxAllowedAmount = studentInfo?.balancePayment || 0
+  const enteredAmount = parseFloat(amount) || 0
+  const isAmountValid = amount.trim() !== "" && enteredAmount > 0 && enteredAmount <= maxAllowedAmount
+  const isAmountExceedsBalance = enteredAmount > maxAllowedAmount && amount.trim() !== ""
   const isDateValid = date.trim() !== ""
-  const isModeValid = mode !== ""
+  const isModeValid = mode && mode.length > 0
   const isReceivedByNameValid = receivedByName.trim() !== ""
-  const isReceivedByRoleValid = receivedByRole !== ""
+  const isReceivedByRoleValid = receivedByRole && receivedByRole.length > 0
   
   // Progressive validation - each field depends on previous ones being valid
   const canEnableDate = isAmountValid
@@ -260,6 +263,7 @@ export function ManualPaymentDialog({
   const handleSubmit = () => {
     // Always use the user input from the amount field, not the balance amount
     const value = parseFloat(amount);
+    const balancePayment = studentInfo?.balancePayment || 0;
     
     // Validation for required fields
     if (
@@ -272,6 +276,16 @@ export function ManualPaymentDialog({
       toast({
         title: "Required fields missing",
         description: "Please fill all required fields including payment received by name and role.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validation for amount exceeding balance
+    if (value > balancePayment) {
+      toast({
+        title: "Invalid Payment Amount",
+        description: `Payment amount (₹${value.toLocaleString()}) cannot exceed the balance payment of ₹${balancePayment.toLocaleString()}`,
         variant: "destructive",
       });
       return;
@@ -430,13 +444,34 @@ export function ManualPaymentDialog({
                 if (parts.length > 2) {
                   return;
                 }
-                setAmount(value);
+                
+                // Check if the entered amount exceeds balance payment
+                const numericValue = parseFloat(value) || 0;
+                const balancePayment = studentInfo?.balancePayment || 0;
+                
+                // If user tries to enter amount exceeding balance, cap it at balance
+                if (numericValue > balancePayment && balancePayment > 0) {
+                  setAmount(balancePayment.toString());
+                  // Show a toast notification to inform user
+                  toast({
+                    title: "Amount Capped",
+                    description: `Maximum allowed amount is ₹${balancePayment.toLocaleString()}`,
+                    variant: "default",
+                  });
+                } else {
+                  setAmount(value);
+                }
               }}
               placeholder={isFirstPayment ? "Enter custom amount" : "Full remaining balance"}
               className={`text-left ${amountTouched && !isAmountValid ? 'border-red-500 focus:border-red-500' : ''} ${!isFirstPayment ? 'bg-gray-100 cursor-not-allowed' : ''}`}
             />
             {amountTouched && !isAmountValid && (
-              <span className="text-red-500 text-xs">Please enter a valid amount</span>
+              <span className="text-red-500 text-xs">
+                {isAmountExceedsBalance 
+                  ? `Amount cannot exceed balance payment of ₹${maxAllowedAmount.toLocaleString()}` 
+                  : "Please enter a valid amount"
+                }
+              </span>
             )}
             {/* Payment type indicator */}
             {isFirstPayment ? (

@@ -64,52 +64,168 @@ export default function PaymentStatusPage() {
 
   // Export logic using selectedRows and filteredRecords
   // escapeCSV: Escapes values for CSV export
-  function escapeCSV(val: any, key?: string) {
+  function escapeCSV(val: any) {
     if (val == null) return '';
     
-    // Handle special case for registration fees
-    if (key === 'registration' && typeof val === 'object' && val.registrationFees) {
-      const regFees = val.registrationFees;
-      const studentReg = regFees.studentRegistration ? `Student: ₹${regFees.studentRegistration.amount}${regFees.studentRegistration.paid ? ' (Paid)' : ''}` : '';
-      const courseReg = regFees.courseRegistration ? `Course: ₹${regFees.courseRegistration.amount}${regFees.courseRegistration.paid ? ' (Paid)' : ''}` : '';
-      const confirmation = regFees.confirmationFee ? `Confirmation: ₹${regFees.confirmationFee.amount}${regFees.confirmationFee.paid ? ' (Paid)' : ''}` : '';
-      return [studentReg, courseReg, confirmation].filter(Boolean).join('; ');
+    if (typeof val === 'object') {
+      return '"' + JSON.stringify(val).replace(/"/g, '""') + '"';
     }
     
-    if (typeof val === 'object') return '"' + JSON.stringify(val).replace(/"/g, '""') + '"';
     const str = String(val);
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
       return '"' + str.replace(/"/g, '""') + '"';
     }
     return str;
   }
   // handleExportSelectedRows: Exports selected payment records as CSV
   function handleExportSelectedRows() {
-    const filteredRecords = filteredRecordsRef.current || [];
-    const selected = filteredRecords.filter(r => selectedRows.includes(r.id));
-    if (selected.length === 0) return;
-    // Only export columns that are visible in the table, in the same order
-    const allKeys = [
-      'id','name','course','category','courseType','registration','finalPayment','totalPaid','balance','status','frequency','paidDate','nextDue','reminder','mode','communication','paymentDetails','actions'
+    try {
+      const filteredRecords = filteredRecordsRef.current || [];
+      const selected = selectedRows.length > 0 
+        ? filteredRecords.filter(r => selectedRows.includes(r.id))
+        : filteredRecords; // Export all if none selected
+      
+      console.log('Export triggered - Records:', selected.length, 'Selected rows:', selectedRows.length);
+      
+      // Debug: Log sample data to identify corruption
+      if (selected.length > 0) {
+        console.log('Sample record for debugging:', {
+          id: selected[0].id,
+          name: selected[0].name,
+          finalPayment: selected[0].finalPayment,
+          totalPaidAmount: selected[0].totalPaidAmount,
+          balancePayment: selected[0].balancePayment,
+          category: selected[0].category,
+          courseType: selected[0].courseType
+        });
+      }
+      
+      if (selected.length === 0) {
+        toast({
+          title: "No Data to Export",
+          description: "No records found to export. Please ensure there are payment records available.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+    // Map column keys to actual PaymentRecord field names and human-readable headers
+    const columnMapping = [
+      { key: 'id', field: 'id', header: 'Student ID' },
+      { key: 'name', field: 'name', header: 'Student Name' },
+      { key: 'program', field: 'program', header: 'Program' },
+      { key: 'course', field: 'activity', header: 'Course' },
+      { key: 'category', field: 'category', header: 'Category' },
+      { key: 'courseType', field: 'courseType', header: 'Course Type' },
+      { key: 'courseRegFee', field: 'registrationFees.courseRegistration', header: 'Course Registration Fee' },
+      { key: 'studentRegFee', field: 'registrationFees.studentRegistration', header: 'Student Registration Fee' },
+      { key: 'finalPayment', field: 'finalPayment', header: 'Course Fee' },
+      { key: 'totalPaid', field: 'totalPaidAmount', header: 'Total Paid' },
+      { key: 'balance', field: 'balancePayment', header: 'Balance' },
+      { key: 'status', field: 'paymentStatus', header: 'Status' },
+      { key: 'paidDate', field: 'paidDate', header: 'Paid Date' },
+      { key: 'reminder', field: 'paymentReminder', header: 'Reminder' },
+      { key: 'batch', field: 'batch', header: 'Batch' },
+      { key: 'instructor', field: 'instructor', header: 'Instructor' },
+      { key: 'cohort', field: 'cohort', header: 'Cohort' },
+      { key: 'nextPaymentDate', field: 'nextPaymentDate', header: 'Next Payment Date' },
+      { key: 'paymentFrequency', field: 'paymentFrequency', header: 'Payment Frequency' },
+      { key: 'currency', field: 'currency', header: 'Currency' },
+      { key: 'communicationText', field: 'communicationText', header: 'Communication Text' },
+      { key: 'courseStartDate', field: 'courseStartDate', header: 'Course Start Date' },
+      { key: 'studentType', field: 'studentType', header: 'Student Type' },
+      { key: 'paymentCategory', field: 'paymentCategory', header: 'Payment Category' },
+      { key: 'classSchedule', field: 'classSchedule', header: 'Class Schedule' },
+      { key: 'enrolledCourse', field: 'enrolledCourse', header: 'Enrolled Course' },
+      { key: 'emiSplit', field: 'emiSplit', header: 'EMI Split' },
+      { key: 'paymentModes', field: 'paymentModes', header: 'Payment Modes' }
     ];
-    const visibleKeys = allKeys.filter(isColumnVisible);
-    const header = visibleKeys.join(',');
-    const rows = selected.map(row =>
-      visibleKeys.map(key => {
-        const value = key === 'registration' ? row : (row as any)[key];
-        return escapeCSV(value, key);
+
+    // Get only visible columns based on column configuration
+    const visibleColumns = columnMapping.filter(col => isColumnVisible(col.key));
+    
+    // Create CSV header - ensure clean headers
+    const header = visibleColumns.map(col => escapeCSV(col.header)).join(',');
+    
+    // Create CSV rows
+    const rows = selected.map(row => 
+      visibleColumns.map(col => {
+        let value;
+        
+        // Handle nested fields (like registrationFees)
+        if (col.field.includes('.')) {
+          const [parent, child] = col.field.split('.');
+          if (parent === 'registrationFees' && row.registrationFees) {
+            const regData = (row.registrationFees as any)[child];
+            if (regData && regData.amount !== undefined) {
+              // Clean only the amount value, preserve status text
+              let amountValue = regData.amount;
+              if (typeof amountValue === 'string') {
+                amountValue = amountValue.replace(/^[a-zA-Z,]+\s*/, ''); // Remove unwanted prefixes
+                amountValue = amountValue.replace(/[₹$€£¥]/g, ''); // Remove currency symbols
+              }
+              const amount = typeof amountValue === 'number' ? amountValue : parseFloat(String(amountValue).replace(/[^\d.-]/g, '')) || 0;
+              value = `${amount}${regData.paid ? ' (Paid)' : ' (Pending)'}`;
+            } else {
+              value = 'N/A';
+            }
+          } else {
+            value = 'N/A';
+          }
+        } else {
+          // Handle direct fields
+          let fieldValue = (row as any)[col.field];
+          
+          // Format specific field types
+          if (col.field === 'finalPayment' || col.field === 'totalPaidAmount' || col.field === 'balancePayment') {
+            // Only clean financial fields - remove unwanted prefixes and currency symbols
+            if (typeof fieldValue === 'string') {
+              fieldValue = fieldValue.replace(/^[a-zA-Z,]+\s*/, ''); // Remove unwanted prefixes like "a,"
+              fieldValue = fieldValue.replace(/[₹$€£¥]/g, ''); // Remove currency symbols
+            }
+            const numValue = typeof fieldValue === 'number' ? fieldValue : parseFloat(String(fieldValue).replace(/[^\d.-]/g, '')) || 0;
+            value = numValue.toString();
+          } else if (col.field === 'paymentReminder') {
+            value = fieldValue ? 'Yes' : 'No';
+          } else if (col.field === 'paidDate' || col.field === 'nextPaymentDate' || col.field === 'courseStartDate') {
+            value = fieldValue ? new Date(fieldValue).toLocaleDateString() : '';
+          } else if (col.field === 'paymentModes') {
+            value = Array.isArray(fieldValue) ? fieldValue.join(', ') : (fieldValue || '');
+          } else if (col.field === 'emiSplit') {
+            value = fieldValue ? fieldValue.toString() : '';
+          } else {
+            // For non-financial fields, preserve original data
+            value = fieldValue !== null && fieldValue !== undefined ? String(fieldValue).trim() : '';
+          }
+        }
+        
+        return escapeCSV(value);
       }).join(',')
     );
+
     const csv = [header, ...rows].join('\r\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'export.csv';
+    a.download = `payments-export-${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Export Successful",
+      description: `${selected.length} records exported to CSV file.`,
+    });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export Failed",
+        description: "An error occurred while exporting data. Please try again.",
+        variant: "destructive",
+      });
+    }
   }
 
   // Keep a ref to filteredRecords for export

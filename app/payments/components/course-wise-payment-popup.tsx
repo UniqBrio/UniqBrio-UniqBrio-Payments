@@ -116,7 +116,6 @@ export function CourseWisePaymentPopup({ open, onClose, courseData }: CourseWise
                 <TableRow className="border-b" style={{backgroundColor: '#f3f4f6'}}>
                   <TableHead className="font-semibold text-sm p-3 text-left" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>CourseID</TableHead>
                   <TableHead className="font-semibold text-sm p-3 text-left" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Course Name</TableHead>
-                  <TableHead className="font-semibold text-sm p-3 text-left" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Batch</TableHead>
                   <TableHead className="font-semibold text-sm p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Students</TableHead>
                   <TableHead className="font-semibold text-sm p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Total Amount (INR)</TableHead>
                   <TableHead className="font-semibold text-sm p-3 text-center" style={{color: '#828fa1', backgroundColor: '#f3f4f6'}}>Received (INR)</TableHead>
@@ -136,19 +135,12 @@ export function CourseWisePaymentPopup({ open, onClose, courseData }: CourseWise
                       <TableCell className="font-medium text-sm p-3 text-left">
                         <div className="flex items-center gap-2">
                           <BookOpen className="h-4 w-4 text-purple-500" />
-                          {course.course.replace(/\s+/g, '').substring(0, 8).toUpperCase()}
+                          {course.course.replace(/\s+/g, '').toUpperCase()}
                         </div>
                       </TableCell>
                       <TableCell className="text-sm p-3 text-left">
                         <div className="flex items-center gap-2">
                           {course.program || course.course}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm p-3 text-left">
-                        <div className="flex items-center gap-1">
-                          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                            Batch {course.batches.join(', ')}
-                          </Badge>
                         </div>
                       </TableCell>
                       <TableCell className="text-sm p-3 text-center">

@@ -79,10 +79,38 @@ export function usePaymentLogic() {
 
     // Apply filters
     if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase()
       filtered = filtered.filter(
-        (record: PaymentRecord) =>
-          record.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          record.id.toLowerCase().includes(searchTerm.toLowerCase()),
+        (record: PaymentRecord) => {
+          // Search by student name
+          const nameMatch = record.name.toLowerCase().includes(searchLower)
+          
+          // Search by student ID
+          const idMatch = record.id.toLowerCase().includes(searchLower)
+          
+          // Search by course/activity (multiple possible fields)
+          const courseMatch = (record.activity && record.activity.toLowerCase().includes(searchLower)) ||
+                             (record.program && record.program.toLowerCase().includes(searchLower)) ||
+                             (record.enrolledCourse && record.enrolledCourse.toLowerCase().includes(searchLower))
+          
+          // Search by instructor (if available)
+          const instructorMatch = record.instructor && record.instructor.toLowerCase().includes(searchLower)
+          
+          // Search by category
+          const categoryMatch = record.category && record.category.toLowerCase().includes(searchLower)
+          
+          // Search by course type
+          const typeMatch = record.courseType && record.courseType.toLowerCase().includes(searchLower)
+          
+          // Search by cohort and batch
+          const cohortMatch = record.cohort && record.cohort.toLowerCase().includes(searchLower)
+          const batchMatch = record.batch && record.batch.toLowerCase().includes(searchLower)
+          
+          // Search by class schedule
+          const scheduleMatch = record.classSchedule && record.classSchedule.toLowerCase().includes(searchLower)
+          
+          return nameMatch || idMatch || courseMatch || instructorMatch || categoryMatch || typeMatch || cohortMatch || batchMatch || scheduleMatch
+        }
       )
     }
 
@@ -711,7 +739,9 @@ export function usePaymentLogic() {
   }
 
   const handleExport = () => {
-  // Only log status code if needed; removed verbose console log
+    // This function can be used for additional export logic if needed
+    // The main export functionality is handled in the parent component
+    console.log('Export triggered from usePaymentLogic');
   }
 
   return {
