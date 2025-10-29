@@ -561,6 +561,7 @@ export default function Sidebar({ position, collapsed, toggleSidebar }: SidebarP
             <TooltipTrigger asChild>
               <div className="flex items-center">
                 <Link
+                  prefetch={false}
                   href={item.href}
                   className={cn(
                     "flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-purple-50 hover:text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors",
@@ -747,6 +748,7 @@ export default function Sidebar({ position, collapsed, toggleSidebar }: SidebarP
                       {getFavoriteItems().map((item) => (
                         <Link
                           key={item.id}
+                          prefetch={false}
                           href={item.href}
                           className="flex items-center px-2 py-2 text-sm rounded-md hover:bg-purple-50 hover:text-purple-700"
                         >
@@ -794,6 +796,7 @@ export default function Sidebar({ position, collapsed, toggleSidebar }: SidebarP
                   <TooltipTrigger asChild>
                     <div className="flex items-center bg-white border border-gray-200 rounded-md">
                       <Link
+                        prefetch={false}
                         href={item.href}
                         className="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-purple-50 hover:text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors"
                       >
@@ -882,6 +885,7 @@ export default function Sidebar({ position, collapsed, toggleSidebar }: SidebarP
                       {getFavoriteItems().map((item) => (
                         <Link
                           key={item.id}
+                          prefetch={false}
                           href={item.href}
                           className="flex items-center px-2 py-2 text-sm rounded-md hover:bg-purple-50 hover:text-purple-700"
                         >
