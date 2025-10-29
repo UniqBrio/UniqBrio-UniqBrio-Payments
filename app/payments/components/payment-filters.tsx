@@ -187,7 +187,13 @@ export function PaymentFilters({
           <div className={`relative ${hasRecords ? 'flex-grow' : 'flex-1 min-w-[120px] max-w-[900px]'}`}>
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <input
+                id="payments-search"
+                name="paymentsSearch"
                 type="text"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
                 className={`pl-10 pr-2 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300 w-full max-w-[1000px]`}
                 placeholder="Search by student name or course name"
                 value={searchTerm}
@@ -356,7 +362,10 @@ export function PaymentFilters({
                     <h4 className="font-bold text-xs text-gray-900">Price Range (INR)</h4>
                     <div className="flex items-center gap-2">
                       <Input
+                        id="price-min"
+                        name="priceMin"
                         type="number"
+                        autoComplete="off"
                         placeholder="0"
                         value={tempPriceRange.min || ''}
                         onChange={(e) => setTempPriceRange({ ...tempPriceRange, min: Number(e.target.value) || 0 })}
@@ -365,7 +374,10 @@ export function PaymentFilters({
                       />
                       <span className="text-sm text-gray-500">to</span>
                       <Input
+                        id="price-max"
+                        name="priceMax"
                         type="number"
+                        autoComplete="off"
                         placeholder="100000"
                         value={tempPriceRange.max || ''}
                         onChange={(e) => setTempPriceRange({ ...tempPriceRange, max: Number(e.target.value) || 100000 })}

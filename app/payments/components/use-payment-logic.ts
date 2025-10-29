@@ -580,7 +580,7 @@ export function usePaymentLogic() {
       } else {
         // Fallback to students API if sync fails
         // Sync failed, falling back to students API
-        response = await fetch('/api/students')
+  response = await fetch('/api/students', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
         result = await response.json()
         
         if (result.success && Array.isArray(result.data) && (result.data.length > 0 || !result.fallback)) {
