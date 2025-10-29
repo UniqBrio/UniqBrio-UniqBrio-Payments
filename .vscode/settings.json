@@ -13,5 +13,20 @@
                 "\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.6422.112 Safari/537.36\""
             ]
         }
+    },
+    // Fix Tailwind unknown at-rule diagnostics in CSS files
+    "css.lint.unknownAtRules": "ignore",
+    "scss.lint.unknownAtRules": "ignore",
+    "less.lint.unknownAtRules": "ignore",
+    // Associate CSS with Tailwind language features
+    "files.associations": {
+        "*.css": "tailwindcss"
+    },
+    // Point Tailwind extension at the config file
+    "tailwindCSS.experimental.configFile": "tailwind.config.ts",
+    // Nice-to-haves for authoring Tailwind classes
+    "tailwindCSS.emmetCompletions": true,
+    "editor.quickSuggestions": {
+        "strings": true
     }
 }

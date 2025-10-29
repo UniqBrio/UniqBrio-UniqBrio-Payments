@@ -20,6 +20,8 @@ export function usePaymentLogic() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastAutoRefresh, setLastAutoRefresh] = useState<Date | null>(null)
+  // Persist content on screen after first successful data load to avoid first-load flicker on Vercel
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   // Cache of courses to allow dynamic recomputation of fallback finalPayment values
   const [coursesCache, setCoursesCache] = useState<any[]>([])
 
@@ -319,6 +321,7 @@ export function usePaymentLogic() {
           // Use synchronized data from payments collection when we have real data
           setRecords(result.data)
           setError(null)
+          setHasLoadedOnce(true)
         } else {
           // Fallback to legacy student data
           response = await fetch('/api/students', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
@@ -449,6 +452,7 @@ export function usePaymentLogic() {
             // Only update records when we have a meaningful dataset
             setRecords(paymentRecords)
             setError(null)
+            if (paymentRecords.length > 0) setHasLoadedOnce(true)
           } else {
             setError('Failed to fetch students')
           }
@@ -557,7 +561,7 @@ export function usePaymentLogic() {
   if (result.success && result.data && result.data.length > 0 && !result.fallback) {
   // Only log status code if needed; removed verbose console log
         
-        // Check if new students were added
+  // Check if new students were added
         if (result.data.length > previousCount) {
           const newStudentCount = result.data.length - previousCount;
           // Only log status code if needed; removed verbose console log
@@ -569,8 +573,9 @@ export function usePaymentLogic() {
         }
         
   // Only log status code if needed; removed verbose console log
-        setRecords(result.data)
-        setError(null)
+  setRecords(result.data)
+  setError(null)
+  if (result.data.length > 0) setHasLoadedOnce(true)
   // Only log status code if needed; removed verbose console log
       } else {
         // Fallback to students API if sync fails
@@ -688,6 +693,7 @@ export function usePaymentLogic() {
           // Only update when we actually have data to show; keep previous state on empty/fallback
           setRecords(paymentRecords)
           setError(null)
+          if (paymentRecords.length > 0) setHasLoadedOnce(true)
         } else {
           throw new Error('Failed to fetch data from both sync and students API');
         }
@@ -777,6 +783,7 @@ export function usePaymentLogic() {
     handleExport,
     loading,
     error,
+  hasLoadedOnce,
     lastAutoRefresh,
     autoRefreshIntervalMs: AUTO_REFRESH_MS,
     defaultColumns: DEFAULT_COLUMNS,

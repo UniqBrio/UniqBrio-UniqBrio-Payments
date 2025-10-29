@@ -8,10 +8,10 @@ interface PaymentSummaryCardsProps {
 }
 
 export function PaymentSummaryCards({ summary }: PaymentSummaryCardsProps) {
-  const { receivedPayment, outstandingPayment, totalPayment, profit } = summary
+  const { receivedPayment, outstandingPayment, totalPayment } = summary
   
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
       <Card className="bg-orange-50 border-orange-200 rounded-2xl">
         <CardContent className="p-6">
           <div className="flex items-start justify-between">
@@ -63,22 +63,7 @@ export function PaymentSummaryCards({ summary }: PaymentSummaryCardsProps) {
         </CardContent>
       </Card>
 
-      <Card className="bg-blue-50 border-blue-200 rounded-2xl">
-        <CardContent className="p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-blue-600 text-sm font-medium mb-2">Profit Amount</p>
-              <p className="text-2xl font-bold text-blue-800 mb-1">{profit.toLocaleString()} INR</p>
-              <p className="text-blue-500 text-xs">Stable</p>
-            </div>
-            <div className="bg-blue-200 p-2 rounded-lg">
-              <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      
     </div>
   )
 }

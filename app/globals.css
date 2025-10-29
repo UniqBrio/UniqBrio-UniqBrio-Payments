@@ -588,3 +588,73 @@ button:focus,
     font-size: 14px;
   }
 }
+
+/* Reusable Tabs - global styles */
+:root {
+  --tab-height: 44px;
+  --tab-padding-x: 40px; /* much wider */
+  --tab-radius: 12px;
+  --tab-gap: 16px;
+
+  --tab-primary: #7B61FF;      /* active fill (purple) */
+  --tab-secondary: #F2994A;    /* inactive border/icon (orange) */
+
+  --tab-text: #1f2937;         /* default text */
+  --tab-bg: #ffffff;           /* inactive background */
+}
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--tab-gap);
+  flex-wrap: wrap;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--tab-height);
+  padding: 0 var(--tab-padding-x);
+  min-width: 220px; /* much wider */
+  justify-content: center; /* align content nicely */
+  border-radius: var(--tab-radius);
+  border: 2px solid var(--tab-secondary);
+  background: var(--tab-bg);
+  color: var(--tab-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: background .2s ease, color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .02s ease;
+}
+
+.tab:hover {
+  box-shadow: 0 0 0 4px rgba(242, 153, 74, 0.12);
+}
+
+.tab:active {
+  transform: translateY(1px);
+}
+
+.tab--active {
+  background: var(--tab-primary);
+  color: #ffffff;
+  border-color: var(--tab-primary);
+  box-shadow: 0 0 0 4px rgba(123, 97, 255, 0.15);
+}
+
+.tab__icon {
+  display: inline-flex;
+  width: 24px; /* larger icons */
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  color: currentColor; /* SVGs inherit */
+  opacity: 0.95;
+}
+
+/* Optional: make tabs full-width on small screens */
+@media (max-width: 640px) {
+  .tabs { gap: 10px; }
+  .tab { flex: 1 1 auto; justify-content: center; min-width: auto; width: 100%; padding: 0 16px; }
+}

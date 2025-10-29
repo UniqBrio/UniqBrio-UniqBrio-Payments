@@ -5,7 +5,7 @@ import MainLayout from "@/components/main-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/use-toast"
-import { FileText } from "lucide-react"
+import { FileText, LayoutDashboard, CreditCard } from "lucide-react"
 
 // Payment components
 import { PaymentFilters } from './components/payment-filters'
@@ -50,12 +50,14 @@ export default function PaymentStatusPage() {
     handleExport,
     loading,
     error,
+    hasLoadedOnce,
     lastAutoRefresh,
     autoRefreshIntervalMs
   } = usePaymentLogic()
 
   const [showCourseWisePopup, setShowCourseWisePopup] = useState(false)
   const [showCourseMatching, setShowCourseMatching] = useState(false)
+  const [activeTab, setActiveTab] = useState<'Analytics' | 'Payments'>('Payments')
 
   // Selected rows state lifted up
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
@@ -257,39 +259,65 @@ export default function PaymentStatusPage() {
           </div>
         </div>
 
-        {/* Payment Summary Cards */}
-        <PaymentSummaryCards summary={paymentSummary} />
+        {/* Tabs before content */}
+        <div className="tabs">
+          <button
+            className={`tab ${activeTab === 'Analytics' ? 'tab--active' : ''}`}
+            onClick={() => setActiveTab('Analytics')}
+            type="button"
+            aria-pressed={activeTab === 'Analytics'}
+          >
+            <span className="tab__icon"><LayoutDashboard className="h-5 w-5" /></span>
+            <span>Analytics</span>
+          </button>
+          <button
+            className={`tab ${activeTab === 'Payments' ? 'tab--active' : ''}`}
+            onClick={() => setActiveTab('Payments')}
+            type="button"
+            aria-pressed={activeTab === 'Payments'}
+          >
+            <span className="tab__icon"><CreditCard className="h-5 w-5" /></span>
+            <span>Payments</span>
+          </button>
+        </div>
 
-        {/* Filters */}
-        <PaymentFilters
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          statusFilters={statusFilters}
-          setStatusFilters={setStatusFilters}
-          categoryFilters={categoryFilters}
-          setCategoryFilters={setCategoryFilters}
-          paymentCategoryFilters={paymentCategoryFilters}
-          setPaymentCategoryFilters={setPaymentCategoryFilters}
-          courseFilters={courseFilters}
-          setCourseFilters={setCourseFilters}
-          priceRange={priceRange}
-          setPriceRange={setPriceRange}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          onExport={handleExportSelectedRows}
-          columns={columns}
-          onColumnToggle={handleColumnToggle}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          sortOrder={sortOrder}
-          setSortOrder={setSortOrder}
-          records={records}
-          filteredRecords={filteredRecords}
-          totalRecords={records}
-        />
+        {/* Analytics tab: show only the three summary cards */}
+        {activeTab === 'Analytics' && (
+          <PaymentSummaryCards summary={paymentSummary} />
+        )}
+
+        {/* Payments tab: filters and the rest of the features */}
+        {activeTab === 'Payments' && (
+          <PaymentFilters
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            statusFilters={statusFilters}
+            setStatusFilters={setStatusFilters}
+            categoryFilters={categoryFilters}
+            setCategoryFilters={setCategoryFilters}
+            paymentCategoryFilters={paymentCategoryFilters}
+            setPaymentCategoryFilters={setPaymentCategoryFilters}
+            courseFilters={courseFilters}
+            setCourseFilters={setCourseFilters}
+            priceRange={priceRange}
+            setPriceRange={setPriceRange}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            onExport={handleExportSelectedRows}
+            columns={columns}
+            onColumnToggle={handleColumnToggle}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortOrder={sortOrder}
+            setSortOrder={setSortOrder}
+            records={records}
+            filteredRecords={filteredRecords}
+            totalRecords={records}
+          />
+        )}
 
         {/* Loading and Error States */}
-        {loading && (
+        {activeTab === 'Payments' && loading && !hasLoadedOnce && (
           <Card>
             <CardContent className="p-8 text-center">
               <div className="animate-spin inline-block w-6 h-6 border-2 border-current border-t-transparent text-blue-600 rounded-full" />
@@ -298,7 +326,7 @@ export default function PaymentStatusPage() {
           </Card>
         )}
 
-        {error && !loading && (
+        {activeTab === 'Payments' && error && !loading && (
           <Card>
             <CardContent className="p-8 text-center">
               <p className="text-red-600 mb-2">⚠️ {error}</p>
@@ -328,7 +356,7 @@ export default function PaymentStatusPage() {
         </Card> */}
 
         {/* Payment View - Grid or Table */}
-        {!loading && !error && (
+        {activeTab === 'Payments' && (hasLoadedOnce || !loading) && !error && (
           <div className="w-full bg-white shadow-md rounded-lg p-4" data-payment-container>
             {filteredRecords.length === 0 ? (
               <Card className="w-full">
