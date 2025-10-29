@@ -6,6 +6,10 @@ import { NextRequest, NextResponse } from "next/server";
 // One-time cleanup flag for stray root transactionId fields (defensive hardening)
 let ROOT_TXN_FIELD_CLEANED = false;
 
+// Ensure dynamic (no caching) for all payment operations
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function POST(request: NextRequest) {
   try {
     // Console messages removed

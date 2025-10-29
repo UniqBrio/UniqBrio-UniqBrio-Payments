@@ -312,19 +312,20 @@ export function usePaymentLogic() {
         setLoading(true)
         
         // First try to get synchronized payment data
-        let response = await fetch('/api/payments/sync')
+        let response = await fetch('/api/payments/sync', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
         let result = await response.json()
         
-        if (result.success) {
-          // Use synchronized data from payments collection
+        if (result.success && Array.isArray(result.data) && result.data.length > 0 && !result.fallback) {
+          // Use synchronized data from payments collection when we have real data
           setRecords(result.data)
           setError(null)
         } else {
           // Fallback to legacy student data
-          response = await fetch('/api/students')
+          response = await fetch('/api/students', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
           result = await response.json()
           
-          if (result.success) {
+          // If API explicitly signals fallback or returns empty, don't clear existing UI data
+          if (result.success && Array.isArray(result.data) && (result.data.length > 0 || !result.fallback)) {
             // Fetch courses once for triple-rule matching (activity, course, category)
             let courses: any[] = []
             try {
@@ -445,6 +446,7 @@ export function usePaymentLogic() {
                 derivedFinalPayment: !!matchedCourse // mark if computed
               }
             }))
+            // Only update records when we have a meaningful dataset
             setRecords(paymentRecords)
             setError(null)
           } else {
@@ -552,7 +554,7 @@ export function usePaymentLogic() {
       
   // Only log status code if needed; removed verbose console log
       
-      if (result.success && result.data && result.data.length > 0) {
+  if (result.success && result.data && result.data.length > 0 && !result.fallback) {
   // Only log status code if needed; removed verbose console log
         
         // Check if new students were added
@@ -576,7 +578,7 @@ export function usePaymentLogic() {
         response = await fetch('/api/students')
         result = await response.json()
         
-        if (result.success) {
+        if (result.success && Array.isArray(result.data) && (result.data.length > 0 || !result.fallback)) {
           // Fetch courses for triple-rule matching fallback
           let courses: any[] = []
           try {
@@ -683,7 +685,7 @@ export function usePaymentLogic() {
               derivedFinalPayment: !!matchedCourse
             } as PaymentRecord
           }))
-          // Only log status code if needed; removed verbose console log
+          // Only update when we actually have data to show; keep previous state on empty/fallback
           setRecords(paymentRecords)
           setError(null)
         } else {

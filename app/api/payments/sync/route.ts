@@ -11,6 +11,7 @@ interface PaymentRecordLite {
 }
 
 export const revalidate = 0;
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
@@ -392,13 +393,16 @@ export async function GET(request: NextRequest) {
     // If it's a MongoDB connection error, return empty data gracefully
     if (error.message?.includes('MongoDB Atlas cluster') || error.message?.includes('IP') || error.message?.includes('whitelist')) {
       // Console message removed
-      return NextResponse.json({
-        success: true,
-        data: [],
-        fallback: true,
-        message: "Database temporarily unavailable - check IP whitelist",
-        error: "IP_WHITELIST_ISSUE"
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          data: [],
+          fallback: true,
+          message: "Database temporarily unavailable - check IP whitelist",
+          error: "IP_WHITELIST_ISSUE"
+        },
+        { status: 503, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+      );
     }
     
     return NextResponse.json(

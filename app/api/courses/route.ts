@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Course from "@/models/course";
 
+// Ensure dynamic execution and disable caching in production
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
   try {
     await connectDB();
@@ -12,11 +16,14 @@ export async function GET() {
     
     // Return empty array instead of error when DB is unavailable
     // This allows the UI to load without crashing
-    return NextResponse.json({
-      success: true,
-      data: [], // Empty courses array
-      fallback: true,
-      message: "Database temporarily unavailable"
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: [], // Empty courses array
+        fallback: true,
+        message: "Database temporarily unavailable"
+      },
+      { status: 503, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+    );
   }
 }
