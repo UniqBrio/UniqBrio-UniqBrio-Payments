@@ -329,7 +329,7 @@ export function usePaymentLogic() {
           result = await response.json()
           
           // If API explicitly signals fallback or returns empty, don't clear existing UI data
-          if (result.success && Array.isArray(result.data) && (result.data.length > 0 || !result.fallback)) {
+          if (result.success && Array.isArray(result.data) && result.data.length > 0) {
             // Fetch courses once for triple-rule matching (activity, course, category)
             let courses: any[] = []
             try {
@@ -465,10 +465,15 @@ export function usePaymentLogic() {
                 derivedFinalPayment: !!matchedCourse // mark if computed
               }
             }))
-            // Only update records when we have a meaningful dataset
-            setRecords(paymentRecords)
-            setError(null)
-            if (paymentRecords.length > 0) setHasLoadedOnce(true)
+            // Only update records when we have a meaningful dataset (non-empty)
+            if (paymentRecords.length > 0) {
+              setRecords(paymentRecords)
+              setError(null)
+              setHasLoadedOnce(true)
+            } else {
+              // Keep previous data to prevent disappearing table on transient empty responses
+              setError(prev => prev || 'No student data returned; keeping previous data')
+            }
           } else {
             setError('Failed to fetch students')
           }
@@ -599,7 +604,7 @@ export function usePaymentLogic() {
   response = await fetch('/api/students', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
         result = await response.json()
         
-        if (result.success && Array.isArray(result.data) && (result.data.length > 0 || !result.fallback)) {
+        if (result.success && Array.isArray(result.data) && result.data.length > 0) {
           // Fetch courses for triple-rule matching fallback
           let courses: any[] = []
           try {
@@ -732,10 +737,12 @@ export function usePaymentLogic() {
               derivedFinalPayment: !!matchedCourse
             } as PaymentRecord
           }))
-          // Only update when we actually have data to show; keep previous state on empty/fallback
-          setRecords(paymentRecords)
-          setError(null)
-          if (paymentRecords.length > 0) setHasLoadedOnce(true)
+          // Only update when we actually have data to show; keep previous state on empty responses
+          if (paymentRecords.length > 0) {
+            setRecords(paymentRecords)
+            setError(null)
+            setHasLoadedOnce(true)
+          }
         } else {
           throw new Error('Failed to fetch data from both sync and students API');
         }
