@@ -26,6 +26,47 @@ export function usePaymentLogic() {
   // Cache of courses to allow dynamic recomputation of fallback finalPayment values
   const [coursesCache, setCoursesCache] = useState<any[]>([])
 
+  // Heuristic guard: avoid replacing good data with degraded refresh payloads
+  const isLikelyDegraded = (incoming: PaymentRecord[], prev: PaymentRecord[]) => {
+    if (!incoming || incoming.length === 0) return true; // empty is always degraded
+    if (!prev || prev.length === 0) return false; // first load: accept
+    let flatZero = 0;
+    for (const r of incoming) {
+      const fp = Number((r as any)?.finalPayment || 0);
+      const tp = Number((r as any)?.totalPaidAmount || 0);
+      const bal = Number((r as any)?.balancePayment || 0);
+      const cat = (r as any)?.category;
+      const ctype = (r as any)?.courseType as any;
+      if ((fp === 0 && tp === 0 && bal === 0) || ((cat === '-' || !cat) && (ctype === '-' || !ctype))) flatZero++;
+    }
+    const ratio = flatZero / incoming.length;
+    return ratio > 0.6; // if >60% rows look empty, treat as degraded
+  }
+
+  // Merge incoming data with previous to keep stable values when backend is temporarily incomplete
+  const reconcileStableData = (incoming: PaymentRecord[], prev: PaymentRecord[]) => {
+    if (!prev || prev.length === 0) return incoming;
+    const map = new Map(prev.map(r => [r.id, r]));
+    return incoming.map(r => {
+      const p = map.get(r.id);
+      if (!p) return r;
+      const suspiciousZeroFinal = (Number(r.finalPayment || 0) === 0) && Number(p.finalPayment || 0) > 0;
+      const suspiciousDashCategory = (!r.category || r.category === '-') && (p.category && p.category !== '-');
+      const suspiciousCourseType = (!r.courseType || (r.courseType as any) === '-') && (p.courseType && (p.courseType as any) !== '-');
+      const merged: PaymentRecord = { ...p, ...r };
+      if (suspiciousZeroFinal) {
+        merged.finalPayment = p.finalPayment;
+        const newPaid = Number(r.totalPaidAmount || p.totalPaidAmount || 0);
+        merged.totalPaidAmount = newPaid;
+        merged.balancePayment = Math.max(0, (p.finalPayment || 0) - newPaid);
+      }
+      if (suspiciousDashCategory) merged.category = p.category;
+      if (suspiciousCourseType) merged.courseType = p.courseType;
+      if (!r.registrationFees && p.registrationFees) merged.registrationFees = p.registrationFees;
+      return merged;
+    });
+  }
+
   // Default / initial column visibility configuration
   const DEFAULT_COLUMNS: ColumnConfig[] = [
     { key: 'id', label: 'Student ID', visible: true },
@@ -320,7 +361,8 @@ export function usePaymentLogic() {
         
         if (result.success && Array.isArray(result.data) && result.data.length > 0 && !result.fallback) {
           // Use synchronized data from payments collection when we have real data
-          setRecords(result.data)
+          const stable = isLikelyDegraded(result.data, records) ? records : reconcileStableData(result.data, records)
+          setRecords(stable)
           setError(null)
           setHasLoadedOnce(true)
         } else {
@@ -580,8 +622,6 @@ export function usePaymentLogic() {
   // Only log status code if needed; removed verbose console log
       
   if (result.success && result.data && result.data.length > 0 && !result.fallback) {
-  // Only log status code if needed; removed verbose console log
-        
   // Check if new students were added
         if (result.data.length > previousCount) {
           const newStudentCount = result.data.length - previousCount;
@@ -593,8 +633,8 @@ export function usePaymentLogic() {
           }
         }
         
-  // Only log status code if needed; removed verbose console log
-  setRecords(result.data)
+  const stable = isLikelyDegraded(result.data, records) ? records : reconcileStableData(result.data, records)
+  setRecords(stable)
   setError(null)
   if (result.data.length > 0) setHasLoadedOnce(true)
   // Only log status code if needed; removed verbose console log
