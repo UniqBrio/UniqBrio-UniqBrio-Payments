@@ -1,5 +1,4 @@
 import nodemailer from 'nodemailer'
-import twilio from 'twilio'
 
 // Types for different notification channels
 export interface NotificationPayload {
@@ -25,7 +24,7 @@ export interface WhatsAppPayload {
 
 // Email configuration
 const createEmailTransporter = () => {
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.SMTP_PORT || '587'),
     secure: false,
@@ -36,10 +35,17 @@ const createEmailTransporter = () => {
   })
 }
 
-// SMS configuration (Twilio)
-const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-  ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
-  : null
+// SMS configuration (Twilio) - optional dynamic require to avoid hard dependency during type-check
+let twilioClient: any = null
+if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const twilio = require('twilio') as any
+    twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+  } catch {
+    twilioClient = null
+  }
+}
 
 export class NotificationService {
   
