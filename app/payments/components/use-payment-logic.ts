@@ -5,7 +5,8 @@ import { PaymentRecord, PaymentSummary } from './payment-types'
 import { getCoursePricing } from './course-pricing-helper'
 
 export function usePaymentLogic() {
-  const AUTO_REFRESH_MS = 5000; // 5 seconds for real-time updates
+  // Slow down auto-refresh to avoid visible flicker and unnecessary re-renders
+  const AUTO_REFRESH_MS = 30000; // 30 seconds
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilters, setStatusFilters] = useState<string[]>([])
   const [categoryFilters, setCategoryFilters] = useState<string[]>([])
@@ -397,16 +398,31 @@ export function usePaymentLogic() {
                 return next
               })()
 
-              // Registration fees (preserve existing structure)
-              const registrationFees = student.registrationFees || {
-                studentRegistration: 500,
-                courseRegistration: 1000,
-                confirmationFee: 250,
-                paid: false
+              // Registration fees (normalize to nested shape used by UI)
+              const normalizeFees = (raw: any) => {
+                if (!raw) return undefined as any
+                const toObj = (v: any) => {
+                  if (v == null) return undefined
+                  if (typeof v === 'number') return { amount: v, paid: false }
+                  if (typeof v === 'object') {
+                    if (typeof v.amount === 'number') return { amount: v.amount, paid: Boolean(v.paid), paidDate: v.paidDate || undefined }
+                    const alt = typeof v.value === 'number' ? v.value : (typeof v.fee === 'number' ? v.fee : (typeof v.cost === 'number' ? v.cost : undefined))
+                    if (typeof alt === 'number') return { amount: alt, paid: Boolean(v.paid), paidDate: v.paidDate || undefined }
+                  }
+                  return undefined
+                }
+                const s = toObj(raw.studentRegistration)
+                const c = toObj(raw.courseRegistration)
+                const conf = toObj(raw.confirmationFee)
+                const overallPaid = [s, c, conf].filter(Boolean).every((f: any) => f.paid)
+                return {
+                  studentRegistration: s,
+                  courseRegistration: c,
+                  confirmationFee: conf,
+                  overall: { paid: overallPaid, status: overallPaid ? 'Paid' : 'Pending' }
+                }
               }
-              if (!registrationFees.paid) {
-                registrationFees.status = 'Pending'
-              }
+              const registrationFees = normalizeFees(student.registrationFees) || undefined
 
               const defaultCommunicationText = paymentStatus === 'Pending'
                 ? `Payment reminder for ${courseName}. Amount due: ₹${balance}.${nextPaymentDate ? ` Due date: ${nextPaymentDate.toLocaleDateString()}.` : ''} Please complete your payment.`
@@ -653,14 +669,39 @@ export function usePaymentLogic() {
               return null;
             })();
 
+            // Normalize registration fees to nested shape
+            const normalizeFees = (raw: any) => {
+              if (!raw) return undefined as any
+              const toObj = (v: any) => {
+                if (v == null) return undefined
+                if (typeof v === 'number') return { amount: v, paid: false }
+                if (typeof v === 'object') {
+                  if (typeof v.amount === 'number') return { amount: v.amount, paid: Boolean(v.paid), paidDate: v.paidDate || undefined }
+                  const alt = typeof v.value === 'number' ? v.value : (typeof v.fee === 'number' ? v.fee : (typeof v.cost === 'number' ? v.cost : undefined))
+                  if (typeof alt === 'number') return { amount: alt, paid: Boolean(v.paid), paidDate: v.paidDate || undefined }
+                }
+                return undefined
+              }
+              const s = toObj(student.registrationFees?.studentRegistration)
+              const c = toObj(student.registrationFees?.courseRegistration)
+              const conf = toObj(student.registrationFees?.confirmationFee)
+              const overallPaid = [s, c, conf].filter(Boolean).every((f: any) => f.paid)
+              return {
+                studentRegistration: s,
+                courseRegistration: c,
+                confirmationFee: conf,
+                overall: { paid: overallPaid, status: overallPaid ? 'Paid' : 'Pending' }
+              }
+            }
+
             return {
               id: student.studentId,
               name: student.name,
               activity: courseId,
               enrolledCourse: student.enrolledCourse || student.activity,
               program: student.program || student.course || 'General Course',
-              category: student.category || '-',
-              courseType: matchedCourse?.type || student.courseType || '-',
+              category: student.category || student.level || '-',
+              courseType: matchedCourse?.type || student.courseType || student.type || '-',
               cohort: student.cohort || `${student.course}_${new Date().getFullYear()}_Batch01`,
               paymentStatus,
               totalPaidAmount: totalPaid,
@@ -687,6 +728,7 @@ export function usePaymentLogic() {
               reminderDays: student.reminderDays || 3,
               paymentModes: student.paymentModes || ['UPI', 'Cash'],
               studentType: student.studentType || 'Regular',
+              registrationFees: normalizeFees(student.registrationFees) || undefined,
               derivedFinalPayment: !!matchedCourse
             } as PaymentRecord
           }))

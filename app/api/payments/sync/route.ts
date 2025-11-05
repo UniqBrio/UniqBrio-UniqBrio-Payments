@@ -82,6 +82,33 @@ export async function GET(request: NextRequest) {
     const processedStudents = [];
     
     for (const student of students) {
+      // Helper: normalize registration fees into consistent nested shape
+      const normalizeRegistrationFees = (raw: any) => {
+        if (!raw) return undefined as any;
+        const toObj = (v: any) => {
+          if (v == null) return undefined;
+          if (typeof v === 'number') return { amount: v, paid: false };
+          if (typeof v === 'object') {
+            if (typeof v.amount === 'number') return { amount: v.amount, paid: Boolean(v.paid), paidDate: v.paidDate || undefined };
+            // fallback keys occasionally used
+            const amt = typeof v.value === 'number' ? v.value : (typeof v.fee === 'number' ? v.fee : (typeof v.cost === 'number' ? v.cost : undefined));
+            if (typeof amt === 'number') return { amount: amt, paid: Boolean(v.paid), paidDate: v.paidDate || undefined };
+          }
+          return undefined;
+        };
+        const studentReg = toObj(raw.studentRegistration);
+        const courseReg = toObj(raw.courseRegistration);
+        const confirmation = toObj(raw.confirmationFee);
+        const overallPaid = [studentReg, courseReg, confirmation]
+          .filter(Boolean)
+          .every((f: any) => f.paid);
+        return {
+          studentRegistration: studentReg,
+          courseRegistration: courseReg,
+          confirmationFee: confirmation,
+          overall: { paid: overallPaid, status: overallPaid ? 'Paid' : 'Pending' }
+        } as any;
+      };
       const normalize = (v: any) => {
         if (!v) return '';
         return typeof v === 'string' ? v.trim() : String(v).trim();
@@ -97,14 +124,15 @@ export async function GET(request: NextRequest) {
       // Console message removed
       
       // Get exact CATEGORY field from students collection for display
-      const studentCategory = (student as any).category || '-';
+  // Prefer category; fallback to level to keep UI stable across refreshes
+  const studentCategory = (student as any).category || (student as any).level || '-';
       
       // Get normalized CATEGORY for matching logic with courses (Rule 3: student.category === course.level)
       const normalizedCategory = normalize((student as any).category);
 
-      let matchedCoursePrice = 0;
+  let matchedCoursePrice = 0;
       let matchedCourseId: string | null = null;
-      let matchedCourseType = '-'; // Store course type from matched course
+  let matchedCourseType = '-'; // Store course type from matched course
       let matchType = 'no-match';
       
       // STRICT 3-RULE MATCHING ONLY - NO FALLBACK OR PARTIAL MATCHES
@@ -256,11 +284,12 @@ export async function GET(request: NextRequest) {
         activity: studentActivity || 'N/A',
         enrolledCourse: (student as any).enrolledCourse || (student as any).activity || 'N/A',
         program: studentProgram || 'N/A', 
-        category: studentCategory, // Direct category from student collection
-        courseType: matchedCourseId ? matchedCourseType : '-', // Show type if any match found
+        category: studentCategory, // Category or level
+        // Prefer matched course type; else fall back to student's stored courseType/type
+        courseType: matchedCourseId ? (matchedCourseType || (student as any).courseType || (student as any).type || '-') : ((student as any).courseType || (student as any).type || '-'),
         finalPayment: matchedCourseId ? finalPaymentAmount : (paymentDocFallback ? finalPaymentAmount : 0),
         balancePayment: matchedCourseId ? balanceAmount : (paymentDocFallback ? balanceAmount : 0),
-  totalPaidAmount: paymentDocFallback ? paymentDocFallback.totalPaidAmount : coursePaidAmount,
+        totalPaidAmount: paymentDocFallback ? paymentDocFallback.totalPaidAmount : coursePaidAmount,
         // Paid Date: Show last payment date or "-" if no payments
         paidDate: studentPaymentDoc && studentPaymentDoc.lastPaymentDate ? 
           studentPaymentDoc.lastPaymentDate.toISOString() : null,
@@ -275,7 +304,7 @@ export async function GET(request: NextRequest) {
           nextDue.setDate(nextDue.getDate() + 30); // 30 days after course start
           return nextDue.toISOString();
         })(),
-  paymentStatus: matchType === 'exact-triple-match' ? (balanceAmount > 0 ? 'Pending' : 'Paid') : (paymentDocFallback ? paymentDocFallback.paymentStatus || (balanceAmount > 0 ? 'Pending' : 'Paid') : '-'),
+        paymentStatus: matchType === 'exact-triple-match' ? (balanceAmount > 0 ? 'Pending' : 'Paid') : (paymentDocFallback ? (paymentDocFallback.paymentStatus || (balanceAmount > 0 ? 'Pending' : 'Paid')) : '-'),
         paymentReminder: paymentDocFallback && paymentDocFallback.paymentReminder !== undefined 
           ? paymentDocFallback.paymentReminder // Use existing payment document setting if it exists
           : (matchType === 'exact-triple-match' && hasBalance), // Default: Reminder on if matched and balance > 0
@@ -292,6 +321,8 @@ export async function GET(request: NextRequest) {
           upiId: '-', 
           paymentLink: '-'
         },
+        // Normalize registration fees so UI columns remain stable
+        registrationFees: normalizeRegistrationFees((student as any).registrationFees),
         matchedCourseId: matchedCourseId,
         tripleRuleMatched: matchType === 'exact-triple-match',
         matchType: matchType,
