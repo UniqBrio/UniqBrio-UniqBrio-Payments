@@ -140,6 +140,16 @@ export interface Course {
     completionTrend: any[]
     satisfactionTrend: any[]
   }
+  // Optional gamification and pricing features used by some UI components
+  dynamicPricing?: {
+    enabled: boolean
+    suggestedPrice: number
+  }
+  streakRewards?: Array<{
+    name?: string
+    description?: string
+    points?: number
+  }>
 }
 
 export type DraftType = {

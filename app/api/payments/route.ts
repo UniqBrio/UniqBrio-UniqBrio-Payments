@@ -355,7 +355,7 @@ export async function GET(request: NextRequest) {
         totalRecords: paymentDoc.paymentRecords.length,
         paymentRecords: sortedPaymentRecords
       }
-    });
+    }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } });
     
   } catch (error) {
     console.error('Get Payments API Error:', error);
@@ -363,6 +363,6 @@ export async function GET(request: NextRequest) {
       success: false,
       error: "Internal server error",
       details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    }, { status: 500, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } });
   }
 }

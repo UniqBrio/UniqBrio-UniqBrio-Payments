@@ -184,17 +184,19 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
       
       // Handle registration fee payments
       if (payload.paymentTypes.some(type => ["studentRegistration", "courseRegistration"].includes(type))) {
-        // Build registration fees object with explicit type structure (no advance)
-        const studentReg = record.registrationFees?.studentRegistration || { amount: 'N/A', paid: false };
-        const courseReg = record.registrationFees?.courseRegistration || { amount: 'N/A', paid: false };
+        // Build registration fees object with explicit type structure (numeric amounts, typed paidDate)
+        const studentReg: NonNullable<PaymentRecord["registrationFees"]>["studentRegistration"] =
+          record.registrationFees?.studentRegistration ?? { amount: 0, paid: false, paidDate: undefined };
+        const courseReg: NonNullable<PaymentRecord["registrationFees"]>["courseRegistration"] =
+          record.registrationFees?.courseRegistration ?? { amount: 0, paid: false, paidDate: undefined };
         const updatedRegistrationFees = {
           studentRegistration: {
-            amount: typeof studentReg.amount === 'number' ? studentReg.amount : 'N/A',
+            amount: typeof studentReg.amount === 'number' ? studentReg.amount : 0,
             paid: payload.paymentTypes.includes("studentRegistration") ? true : studentReg.paid,
             paidDate: payload.paymentTypes.includes("studentRegistration") ? new Date().toISOString() : studentReg.paidDate
           },
           courseRegistration: {
-            amount: typeof courseReg.amount === 'number' ? courseReg.amount : 'N/A',
+            amount: typeof courseReg.amount === 'number' ? courseReg.amount : 0,
             paid: payload.paymentTypes.includes("courseRegistration") ? true : courseReg.paid,
             paidDate: payload.paymentTypes.includes("courseRegistration") ? new Date().toISOString() : courseReg.paidDate
           },

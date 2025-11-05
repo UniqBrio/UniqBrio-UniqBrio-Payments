@@ -9,8 +9,8 @@ export const revalidate = 0;
 export async function GET() {
   try {
     await connectDB();
-    const courses = await Course.find().lean();
-    return NextResponse.json({ success: true, data: courses });
+  const courses = await Course.find().lean();
+  return NextResponse.json({ success: true, data: courses }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } });
   } catch (error: any) {
     console.error("Database connection failed:", error.message);
     

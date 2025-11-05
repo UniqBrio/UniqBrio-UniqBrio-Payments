@@ -86,7 +86,7 @@ export default function CourseCard({ course, onView }: CourseCardProps) {
 
         {/* Feature indicators */}
         <div className="absolute top-3 right-3 flex gap-1">
-          {course.dynamicPricing.enabled && (
+          {course.dynamicPricing?.enabled && (
             <Tooltip>
               <TooltipTrigger>
                 <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
@@ -125,7 +125,7 @@ export default function CourseCard({ course, onView }: CourseCardProps) {
             </Tooltip>
           )}
 
-          {course.streakRewards.length > 0 && (
+          {course.streakRewards?.length && course.streakRewards.length > 0 ? (
             <Tooltip>
               <TooltipTrigger>
                 <div className="w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center">
@@ -136,7 +136,7 @@ export default function CourseCard({ course, onView }: CourseCardProps) {
                 <p>Gamification Enabled</p>
               </TooltipContent>
             </Tooltip>
-          )}
+          ) : null}
         </div>
 
         <CardHeader className="pb-3">
@@ -263,7 +263,9 @@ export default function CourseCard({ course, onView }: CourseCardProps) {
             </div>
             <div className="text-right">
               <div className="font-bold text-lg text-purple-600">{formatCurrency(course.priceINR, "INR")}</div>
-              {course.dynamicPricing.enabled && course.dynamicPricing.suggestedPrice !== course.priceINR && (
+              {course.dynamicPricing?.enabled &&
+                typeof course.dynamicPricing.suggestedPrice === 'number' &&
+                course.dynamicPricing.suggestedPrice !== course.priceINR && (
                 <div className="text-xs text-gray-500 line-through">
                   {formatCurrency(course.dynamicPricing.suggestedPrice, "INR")}
                 </div>

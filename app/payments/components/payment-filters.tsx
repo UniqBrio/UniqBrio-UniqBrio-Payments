@@ -93,6 +93,8 @@ export function PaymentFilters({
   const [tempPaymentCategoryFilters, setTempPaymentCategoryFilters] = useState<string[]>(paymentCategoryFilters)
   const [tempPriceRange, setTempPriceRange] = useState<{ min: number; max: number }>(priceRange)
   const [isClearing, setIsClearing] = useState(false)
+  // Protect against programmatic/autofill changes by only accepting search changes while focused
+  const [isSearchFocused, setIsSearchFocused] = useState(false)
 
   const handleStatusChange = (status: string, checked: boolean) => {
     if (checked) {
@@ -197,7 +199,14 @@ export function PaymentFilters({
                 className={`pl-10 pr-2 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300 w-full max-w-[1000px]`}
                 placeholder="Search by student name or course name"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setIsSearchFocused(false)}
+                onChange={(e) => {
+                  // Only apply search while the user is actively focused in the field
+                  if (isSearchFocused) {
+                    setSearchTerm(e.target.value)
+                  }
+                }}
               />
           </div>
           <TooltipProvider delayDuration={200}>

@@ -8,14 +8,16 @@ export async function GET() {
     
     await connectDB();
     
-    // Count total students
-    const totalStudents = await db.collection('students').countDocuments();
+    // Count total students (use Mongoose model, not an undefined `db` variable)
+    const totalStudents = await Student.countDocuments();
     // Console message removed    // Get first few students for debugging
     const students = await Student.find({}).limit(3).lean();
     // Console message removed
     
     // Check collections in database
-    const collections = await Student.db.listCollections().toArray();
+    // In newer mongodb drivers (used by mongoose@^8), listCollections returns a Promise of collection info array
+    // so we should not call .toArray() on it. Also, Model.db is a Mongoose Connection; the native Db is at `.db`.
+    const collections = (await (Student.db as any).db.listCollections({}, { nameOnly: true })) as Array<{ name: string }>;
     // Console message removed
     
     return NextResponse.json({
@@ -23,18 +25,19 @@ export async function GET() {
       debug: {
         totalStudents,
         sampleStudents: students.slice(0, 3),
-        availableCollections: collections.map(c => c.name),
-        databaseName: Student.db.databaseName,
+        availableCollections: collections.map((c: { name: string }) => c.name),
+        // Connection is a Mongoose Connection; database name is available via `.name`
+        databaseName: Student.db.name,
         connectionState: Student.db.readyState
       }
     });
-  } catch (error) {
+  } catch (error: unknown) {
     // Console message removed
     
     return NextResponse.json({
       success: false,
-      error: error.message,
-      stack: error.stack
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
     }, { status: 500 });
   }
 }
@@ -93,11 +96,11 @@ export async function POST() {
       students: createdStudents
     });
     
-  } catch (error) {
+  } catch (error: unknown) {
     // Console message removed
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
 }

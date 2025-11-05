@@ -326,13 +326,18 @@ export default function PaymentStatusPage() {
           </Card>
         )}
 
-        {activeTab === 'Payments' && error && !loading && (
+        {activeTab === 'Payments' && error && !loading && !hasLoadedOnce && (
           <Card>
             <CardContent className="p-8 text-center">
               <p className="text-red-600 mb-2">⚠️ {error}</p>
               <p className="text-gray-600">Please check your database connection and ensure the Students collection exists.</p>
             </CardContent>
           </Card>
+        )}
+        {activeTab === 'Payments' && error && hasLoadedOnce && (
+          <div className="w-full bg-yellow-50 border border-yellow-200 text-yellow-800 px-3 py-2 rounded">
+            Background refresh failed; showing last good data. Try again later.
+          </div>
         )}
 
         {/* Course Matching Section
@@ -356,7 +361,7 @@ export default function PaymentStatusPage() {
         </Card> */}
 
         {/* Payment View - Grid or Table */}
-        {activeTab === 'Payments' && (hasLoadedOnce || !loading) && !error && (
+        {activeTab === 'Payments' && (hasLoadedOnce || !loading) && (
           <div className="w-full bg-white shadow-md rounded-lg p-4" data-payment-container>
             {filteredRecords.length === 0 ? (
               <Card className="w-full">

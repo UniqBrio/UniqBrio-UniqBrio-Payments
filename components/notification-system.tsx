@@ -13,6 +13,7 @@ import { Bell, Send, Users, AlertTriangle } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import { useApp } from "@/contexts/app-context"
 import type { NotificationTemplate } from "@/types/schedule"
+import type { CheckedState } from "@radix-ui/react-checkbox"
 
 interface NotificationSystemProps {
   events: any[]
@@ -22,13 +23,14 @@ interface NotificationSystemProps {
 export default function NotificationSystem({ events, selectedEvents = [] }: NotificationSystemProps) {
   const { user, notifications } = useApp()
   const [isOpen, setIsOpen] = useState(false)
-  const [selectedTemplate, setSelectedTemplate] = useState<NotificationTemplate | null>(null)
+  type EmergencyTemplate = { id: string; name: string; template: string }
+  const [selectedTemplate, setSelectedTemplate] = useState<NotificationTemplate | EmergencyTemplate | null>(null)
   const [customMessage, setCustomMessage] = useState("")
   const [selectedChannels, setSelectedChannels] = useState<string[]>(["push"])
   const [recipientType, setRecipientType] = useState<"all" | "selected" | "custom">("all")
   const [isEmergency, setIsEmergency] = useState(false)
 
-  const emergencyTemplates = [
+  const emergencyTemplates: EmergencyTemplate[] = [
     {
       id: "weather-alert",
       name: "Weather Alert",
@@ -100,7 +102,11 @@ export default function NotificationSystem({ events, selectedEvents = [] }: Noti
         <div className="space-y-6">
           {/* Emergency Toggle */}
           <div className="flex items-center space-x-2 p-3 bg-red-50 rounded-lg border border-red-200">
-            <Checkbox id="emergency" checked={isEmergency} onCheckedChange={setIsEmergency} />
+            <Checkbox
+              id="emergency"
+              checked={isEmergency}
+              onCheckedChange={(checked: CheckedState) => setIsEmergency(checked === true)}
+            />
             <Label htmlFor="emergency" className="flex items-center gap-2 text-red-700 font-medium">
               <AlertTriangle className="h-4 w-4" />
               Emergency Notification
@@ -110,7 +116,10 @@ export default function NotificationSystem({ events, selectedEvents = [] }: Noti
           {/* Recipients */}
           <div className="space-y-3">
             <Label className="text-base font-medium">Recipients</Label>
-            <Select value={recipientType} onValueChange={(value: any) => setRecipientType(value)}>
+            <Select
+              value={recipientType}
+              onValueChange={(value: "all" | "selected" | "custom") => setRecipientType(value)}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -140,14 +149,14 @@ export default function NotificationSystem({ events, selectedEvents = [] }: Noti
           <div className="space-y-3">
             <Label className="text-base font-medium">Delivery Channels</Label>
             <div className="grid grid-cols-4 gap-3">
-              {["push", "SMS", "email", "whatsapp"].map((channel) => (
+              {["push", "SMS", "email", "whatsapp"].map((channel: string) => (
                 <div key={channel} className="flex items-center space-x-2">
                   <Checkbox
                     id={channel}
                     checked={selectedChannels.includes(channel)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedChannels([...selectedChannels, channel])
+                    onCheckedChange={(checked: CheckedState) => {
+                      if (checked === true) {
+                        setSelectedChannels([...new Set([...selectedChannels, channel])])
                       } else {
                         setSelectedChannels(selectedChannels.filter((c) => c !== channel))
                       }
@@ -184,11 +193,13 @@ export default function NotificationSystem({ events, selectedEvents = [] }: Noti
                       </div>
                       {!isEmergency && "channels" in template && (
                         <div className="flex gap-1">
-                          {template.channels.map((channel) => (
-                            <Badge key={channel} variant="outline" className="text-xs">
-                              {channel}
-                            </Badge>
-                          ))}
+                          {(template as NotificationTemplate).channels.map(
+                            (channel: NotificationTemplate["channels"][number]) => (
+                              <Badge key={channel} variant="outline" className="text-xs">
+                                {channel}
+                              </Badge>
+                            ),
+                          )}
                         </div>
                       )}
                     </div>

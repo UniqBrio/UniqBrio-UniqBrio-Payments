@@ -471,12 +471,12 @@ export default function ServicesPage() {
 
   // Handle toggling service status
   const handleToggleStatus = (service: Service) => {
-    const updatedServices = services.map((s) => {
+    const updatedServices: Service[] = services.map((s): Service => {
       if (s.id === service.id) {
         return {
           ...s,
           status: s.status === "Active" ? "Inactive" : "Active",
-        }
+        } as Service
       }
       return s
     })

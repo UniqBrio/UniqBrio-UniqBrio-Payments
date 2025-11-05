@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
     if (studentIdParam) {
       students = await Student.find({ studentId: studentIdParam });
     } else {
-      students = await Student.find({}).limit(50);
+      // Remove hard limit so full dataset is always used; rely on DB and Vercel limits instead
+      students = await Student.find({});
     }
     
     // Fetch courses (READ ONLY) 
@@ -385,7 +386,7 @@ export async function GET(request: NextRequest) {
       message: `READ-ONLY: Processed ${processedStudents.length} students with ${courses.length} courses. All calculations from payments collection.`,
       totalMatches: totalMatches,
       unmatchedStudents: unmatchedStudents
-    });
+    }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } });
     
   } catch (error: any) {
     // Console message removed

@@ -180,7 +180,8 @@ const Dashboard = () => {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      // Recharts passes a broad props object; avoid destructuring typed Props and access fields safely
+                      label={(entry: any) => `${entry.name as string} ${(((entry.percent ?? 0) * 100) as number).toFixed(0)}%`}
                       outerRadius={150}
                       fill="#8884d8"
                       dataKey="value"

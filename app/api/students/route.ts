@@ -14,7 +14,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: students
-    });
+    }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } });
   } catch (error) {
     console.error("Database connection failed:", (error as any)?.message || error);
     

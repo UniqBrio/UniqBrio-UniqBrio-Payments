@@ -7,23 +7,7 @@ import { CourseSettingsTab } from "./course-settings-tab"
 import { CourseChaptersTab } from "./course-chapters-tab"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart3, Users, TrendingUp, DollarSign } from "lucide-react"
-
-interface Course {
-  id: string
-  title: string
-  description: string
-  thumbnail: string
-  category: string
-  status: "Draft" | "Published" | "Archived" | "Under Review"
-  price: number
-  currency: string
-  enrolledStudents: number
-  duration: string
-  rating: number
-  difficulty: "Beginner" | "Intermediate" | "Advanced"
-  createdAt: string
-  updatedAt: string
-}
+import type { Course } from "@/types/course"
 
 interface CourseTabsProps {
   courses: Course[]

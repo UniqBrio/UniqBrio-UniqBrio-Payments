@@ -5,6 +5,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbConnect, getConnectionHealth } from '@/lib/db';
 import Student from '@/models/student';
 
+// Narrow typing for connection health since lib/db.js JSDoc returns generic Object
+interface ConnectionHealth {
+  status: string;
+  readyState: number;
+  readyStateNames: Record<number, string>;
+  host?: string;
+  name?: string;
+  poolSize?: number | string;
+  serverSelectionTimeoutMS?: number | string;
+  maxPoolSize?: number | string;
+  bufferMaxEntries?: number | string;
+}
+
 /**
  * APPROACH 1: Direct Connection (Current Pattern - Already Good)
  * This is what your existing routes use and it's correct
@@ -17,7 +30,7 @@ export async function GET(request: NextRequest) {
     
     // Optional: Log connection health for debugging
     if (process.env.NODE_ENV === 'development') {
-      const health = getConnectionHealth();
+      const health = getConnectionHealth() as ConnectionHealth;
       console.log(`🔍 Connection Status: ${health.status} (${health.readyStateNames[health.readyState]})`);
     }
     
@@ -33,11 +46,13 @@ export async function GET(request: NextRequest) {
       }
     });
     
-  } catch (error) {
-    console.error('❌ Database operation failed:', error.message);
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : String(error);
+    const errName = (error as any)?.name as string | undefined;
+    console.error('❌ Database operation failed:', errMessage);
     
     // ✅ CORRECT: Graceful degradation for network issues
-    if (error.name === 'MongoNetworkError' || error.name === 'MongoServerSelectionError') {
+    if (errName === 'MongoNetworkError' || errName === 'MongoServerSelectionError') {
       return NextResponse.json({
         success: false,
         data: [],
@@ -49,7 +64,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: false,
       error: 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? errMessage : undefined
     }, { status: 500 });
   }
 }
@@ -71,11 +86,13 @@ export async function POST(request: NextRequest) {
       data: student,
       message: 'Student created successfully'
     });
-  } catch (error) {
-    console.error('❌ POST operation failed:', error.message);
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : String(error);
+    const errName = (error as any)?.name as string | undefined;
+    console.error('❌ POST operation failed:', errMessage);
     
     // Graceful error handling like other routes
-    if (error.name === 'MongoNetworkError' || error.name === 'MongoServerSelectionError') {
+    if (errName === 'MongoNetworkError' || errName === 'MongoServerSelectionError') {
       return NextResponse.json({
         success: false,
         data: null,
@@ -87,7 +104,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: false,
       error: 'Failed to create student',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? errMessage : undefined
     }, { status: 500 });
   }
 }
@@ -125,10 +142,11 @@ export async function PUT(request: NextRequest) {
       data: foundStudents
     });
     
-  } catch (error) {
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: errMessage
     }, { status: 500 });
   }
 }
@@ -140,7 +158,7 @@ export async function PUT(request: NextRequest) {
 export async function HEAD() {
   try {
     await dbConnect();
-    const health = getConnectionHealth();
+    const health = getConnectionHealth() as ConnectionHealth;
     
     return new NextResponse(null, {
       status: 200,
@@ -151,11 +169,12 @@ export async function HEAD() {
         'X-DB-Pool-Size': health.poolSize?.toString() || 'unknown'
       }
     });
-  } catch (error) {
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : String(error);
     return new NextResponse(null, {
       status: 503,
       headers: {
-        'X-DB-Error': error.message
+        'X-DB-Error': errMessage
       }
     });
   }

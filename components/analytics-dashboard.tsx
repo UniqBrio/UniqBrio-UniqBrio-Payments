@@ -271,7 +271,8 @@ export default function AnalyticsDashboard({ events }: AnalyticsDashboardProps) 
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ category, percentage }) => `${category} ${percentage.toFixed(1)}%`}
+                      // Type of label render props from recharts is broad; cast to access our data fields safely
+                      label={(entry: any) => `${(entry.category ?? entry.name) as string} ${Number.parseFloat(((entry.percentage ?? (entry.percent ?? 0) * 100) as number).toString()).toFixed(1)}%`}
                       outerRadius={100}
                       fill="#8884d8"
                       dataKey="students"

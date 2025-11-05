@@ -23,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <ErrorBoundary>
+        <ErrorBoundary fallback={<div className="p-6 text-center text-red-600">An unexpected error occurred. Please refresh the page.</div>}>
           <AppProvider>
             <SidebarPositionProvider>
               {children}
