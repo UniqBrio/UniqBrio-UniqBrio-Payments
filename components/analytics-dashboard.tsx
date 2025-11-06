@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -21,7 +21,7 @@ import {
   Pie,
   Cell,
 } from "recharts"
-import { Users, Clock, AlertCircle, Download, Calendar, Target, Award, Activity } from "lucide-react"
+import { Users, Clock, AlertCircle, Download, Calendar, Target, Award, Activity, PieChart as PieChartIcon } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 
 interface AnalyticsDashboardProps {
@@ -29,8 +29,12 @@ interface AnalyticsDashboardProps {
 }
 
 export default function AnalyticsDashboard({ events }: AnalyticsDashboardProps) {
-  const [selectedPeriod, setSelectedPeriod] = useState("week")
+  const [selectedPeriod, setSelectedPeriod] = useState("month")
   const [selectedMetric, setSelectedMetric] = useState("attendance")
+  // Payments analytics state (real data)
+  const [paymentsLoading, setPaymentsLoading] = useState(false)
+  const [receivedTotal, setReceivedTotal] = useState<number>(0)
+  const [methodMix, setMethodMix] = useState<Array<{ method: string; amount: number; percentage: number }>>([])
 
   // Generate analytics data
   const generatePeakHoursData = () => {
@@ -140,6 +144,36 @@ export default function AnalyticsDashboard({ events }: AnalyticsDashboardProps) 
 
   const COLORS = ["#8b5cf6", "#f97316", "#06b6d4", "#10b981", "#f59e0b", "#ef4444"]
 
+  // Fetch payments analytics when period changes
+  useEffect(() => {
+    let ignore = false
+    async function load() {
+      setPaymentsLoading(true)
+      try {
+        const res = await fetch(`/api/payments/analytics?period=${selectedPeriod}`, {
+          cache: "no-store",
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const json = await res.json()
+        if (!ignore && json?.success) {
+          setReceivedTotal(json.data?.totalReceived || 0)
+          setMethodMix(json.data?.mix || [])
+        }
+      } catch (e) {
+        if (!ignore) {
+          setReceivedTotal(0)
+          setMethodMix([])
+        }
+      } finally {
+        if (!ignore) setPaymentsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      ignore = true
+    }
+  }, [selectedPeriod])
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -220,6 +254,18 @@ export default function AnalyticsDashboard({ events }: AnalyticsDashboardProps) 
             <p className="text-xs text-muted-foreground">+8% from last {selectedPeriod}</p>
           </CardContent>
         </Card>
+
+        {/* Received Payments (real) */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Received Payments</CardTitle>
+            <span className="text-muted-foreground text-xs">{selectedPeriod === 'week' ? 'This Week' : selectedPeriod === 'month' ? 'This Month' : selectedPeriod === 'quarter' ? 'This Quarter' : 'This Year'}</span>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">₹{receivedTotal.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">Updates with period</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Analytics Tabs */}
@@ -284,6 +330,76 @@ export default function AnalyticsDashboard({ events }: AnalyticsDashboardProps) 
                     <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Payment Method Mix (real data) */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  Payment Method Mix
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {paymentsLoading ? (
+                  <div className="w-full h-[300px] flex items-center justify-center">
+                    <div className="relative">
+                      <div className="h-40 w-40 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 animate-pulse" />
+                      <div className="absolute inset-4 rounded-full bg-white" />
+                    </div>
+                    <div className="ml-6 space-y-2">
+                      <div className="h-4 w-28 bg-gray-200 rounded animate-pulse" />
+                      <div className="h-3 w-36 bg-gray-100 rounded animate-pulse" />
+                      <div className="h-3 w-24 bg-gray-100 rounded animate-pulse" />
+                    </div>
+                  </div>
+                ) : methodMix.length === 0 || methodMix.every(m => m.amount === 0) ? (
+                  <div className="w-full h-[260px] flex flex-col items-center justify-center text-center text-muted-foreground">
+                    <div className="h-16 w-16 rounded-full bg-gray-100 border border-dashed border-gray-300 flex items-center justify-center mb-3">
+                      <PieChartIcon className="h-7 w-7 text-gray-400" />
+                    </div>
+                    <div className="text-sm font-medium">No payments in selected period</div>
+                    <div className="text-xs text-gray-400">Pick another range to view mix</div>
+                  </div>
+                ) : (
+                  <div className="w-full h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={methodMix.map(m => ({ name: m.method, value: m.amount }))}
+                          innerRadius={60}
+                          outerRadius={100}
+                          paddingAngle={2}
+                          dataKey="value"
+                          nameKey="name"
+                          labelLine={false}
+                          label={(entry: any) => (entry.value > 0 ? `₹${Number(entry.value).toLocaleString()}` : '')}
+                        >
+                          {methodMix.map((entry, index) => (
+                            <Cell key={`cell-mix-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value: any, name: any) => [
+                          `₹${Number(value || 0).toLocaleString()}`,
+                          name
+                        ]} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                      {methodMix.map((m, i) => (
+                        <div key={m.method} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                            <span>{m.method}</span>
+                          </div>
+                          <div className="text-right text-muted-foreground">
+                            <span>₹{m.amount.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

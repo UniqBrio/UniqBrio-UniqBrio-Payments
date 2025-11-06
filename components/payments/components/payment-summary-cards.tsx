@@ -5,10 +5,13 @@ import { PaymentSummary } from './payment-types'
 
 interface PaymentSummaryCardsProps {
   summary: PaymentSummary
+  receivedOverride?: number
+  receivedLabel?: string
 }
 
-export function PaymentSummaryCards({ summary }: PaymentSummaryCardsProps) {
+export function PaymentSummaryCards({ summary, receivedOverride, receivedLabel }: PaymentSummaryCardsProps) {
   const { receivedPayment, outstandingPayment, totalPayment } = summary
+  const displayReceived = typeof receivedOverride === 'number' ? receivedOverride : receivedPayment
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -18,7 +21,7 @@ export function PaymentSummaryCards({ summary }: PaymentSummaryCardsProps) {
             <div>
               <p className="text-orange-600 text-sm font-medium mb-2">Total Payments</p>
               <p className="text-2xl font-bold text-orange-800 mb-1">{totalPayment.toLocaleString()} INR</p>
-              <p className="text-orange-500 text-xs">+3% from last month</p>
+              
             </div>
             <div className="bg-orange-200 p-2 rounded-lg">
               <svg className="w-5 h-5 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
@@ -33,9 +36,14 @@ export function PaymentSummaryCards({ summary }: PaymentSummaryCardsProps) {
         <CardContent className="p-6">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-green-600 text-sm font-medium mb-2">Received Payments</p>
-              <p className="text-2xl font-bold text-green-800 mb-1">{receivedPayment.toLocaleString()} INR</p>
-              <p className="text-green-500 text-xs">+2% from last month</p>
+              <p className="text-green-600 text-sm font-medium mb-2">
+                Received Payments
+                {receivedLabel && (
+                  <span className="ml-2 text-xs text-gray-600 align-middle">{receivedLabel}</span>
+                )}
+              </p>
+              <p className="text-2xl font-bold text-green-800 mb-1">{displayReceived.toLocaleString()} INR</p>
+              
             </div>
             <div className="bg-green-200 p-2 rounded-lg">
               <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
@@ -52,8 +60,7 @@ export function PaymentSummaryCards({ summary }: PaymentSummaryCardsProps) {
             <div>
               <p className="text-red-600 text-sm font-medium mb-2">Outstanding Payments</p>
               <p className="text-2xl font-bold text-red-800 mb-1">{outstandingPayment.toLocaleString()} INR</p>
-              <p className="text-red-500 text-xs">+4% from last month</p>
-            </div>
+                          </div>
             <div className="bg-red-200 p-2 rounded-lg">
               <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />

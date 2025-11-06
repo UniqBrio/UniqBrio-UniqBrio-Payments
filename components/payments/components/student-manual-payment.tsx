@@ -11,15 +11,17 @@ function RequiredLabel({ children, htmlFor }: { children: React.ReactNode; htmlF
 }
 // Export a StudentManualPayment wrapper for compatibility
 import type { PaymentRecord } from './payment-types'
+type PaymentOption = "One time" | "Monthly" | "EMI"
 export type StudentManualPaymentPayload = {
   studentId: string
   amount: number
   date: string // ISO date
-  mode: "Cash" | "UPI" | "QR"
+  mode: "Cash" | "UPI" | "Card" | "Bank Transfer"
   notes?: string
   receivedByName: string
   receivedByRole: "instructor" | "non-instructor" | "admin" | "superadmin"
   paymentTypes: ("course" | "studentRegistration" | "courseRegistration")[] // Multiple payment types
+  paymentOption?: PaymentOption
 }
 interface StudentManualPaymentProps {
   student: PaymentRecord
@@ -44,6 +46,7 @@ export function StudentManualPayment({ student, onSubmit, open, onOpenChange }: 
         receivedByName: payload.receivedByName,
         receivedByRole: payload.receivedByRole,
         paymentTypes: payload.paymentTypes,
+        paymentOption: payload.paymentOption,
       })}
       prefillAmount={student.balancePayment > 0 ? student.balancePayment : undefined}
       isFirstPayment={isFirstPayment}
@@ -82,13 +85,14 @@ import { toast } from "@/components/ui/use-toast"
 export type ManualPaymentPayload = {
   amount: number
   date: string // ISO date
-  mode: "Cash" | "UPI" |"QR" ;
+  mode: "Cash" | "UPI" | "Card" | "Bank Transfer";
   notes?: string
   receiverName: string
   receiverId: string
   receivedByName: string
   receivedByRole: "instructor" | "non-instructor" | "admin" | "superadmin"
   paymentTypes: ("course" | "studentRegistration" | "courseRegistration")[]
+  paymentOption?: PaymentOption
 }
 
 export function ManualPaymentDialog({
@@ -115,6 +119,7 @@ export function ManualPaymentDialog({
   const [paymentTypes, setPaymentTypes] = useState<ManualPaymentPayload["paymentTypes"]>(["course"])
   const [receivedByName, setReceivedByName] = useState<string>("")
   const [receivedByRole, setReceivedByRole] = useState<ManualPaymentPayload["receivedByRole"]>("instructor")
+  const [paymentOption, setPaymentOption] = useState<PaymentOption>("Monthly")
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
   // Removed receiverName and receiverId state
@@ -125,8 +130,9 @@ export function ManualPaymentDialog({
   const [modeTouched, setModeTouched] = useState(false)
   const [receivedByNameTouched, setReceivedByNameTouched] = useState(false)
   const [receivedByRoleTouched, setReceivedByRoleTouched] = useState(false)
+  const [paymentOptionTouched, setPaymentOptionTouched] = useState(false)
   
-  // Calculate currently selected total based on chosen payment types
+  // Calculate currently selected total based on chosen payment types (for One time mode validation)
   const selectedTotal: number = useMemo(() => {
     let total = 0;
     const options = getAvailablePaymentOptions();
@@ -139,10 +145,28 @@ export function ManualPaymentDialog({
     return total;
   }, [paymentTypes, studentInfo]);
 
+  // Constants and helpers for Monthly option
+  const MONTHLY_INSTALLMENT_DEFAULT = 5000;
+  const getRegistrationPendingTotal = () => {
+    let total = 0;
+    const s = getActualFeeData(studentInfo?.registrationFees?.studentRegistration);
+    const c = getActualFeeData(studentInfo?.registrationFees?.courseRegistration);
+    if (s && !s.paid && typeof s.amount === 'number') total += s.amount;
+    if (c && !c.paid && typeof c.amount === 'number') total += c.amount;
+    return total;
+  };
+  const registrationPending = getRegistrationPendingTotal();
+  const defaultMonthlyAmount = MONTHLY_INSTALLMENT_DEFAULT + registrationPending;
+
   // Validation helpers
   const enteredAmount = parseFloat(amount) || 0
-  const isAmountValid = amount.trim() !== "" && enteredAmount > 0 && enteredAmount === selectedTotal
-  const isAmountMismatch = amount.trim() !== "" && enteredAmount !== selectedTotal
+  const isPaymentOptionValid = paymentOption === "One time" || paymentOption === "Monthly" || paymentOption === "EMI"
+  const isAmountValid = paymentOption === "One time"
+    ? (amount.trim() !== "" && enteredAmount > 0 && enteredAmount === selectedTotal)
+    : (amount.trim() !== "" && enteredAmount > 0) // Monthly can be edited freely
+  const isAmountMismatch = paymentOption === "One time" 
+    ? (amount.trim() !== "" && enteredAmount !== selectedTotal)
+    : false
   const isDateValid = date.trim() !== ""
   const isModeValid = mode && mode.length > 0
   const isReceivedByNameValid = receivedByName.trim() !== ""
@@ -211,26 +235,23 @@ export function ManualPaymentDialog({
     return options;
   };
 
-  // Auto-fill amount based on selected payment types when dialog opens
+  // Initialize fields when dialog opens and reset when it closes
   useEffect(() => {
-    if (open && studentInfo) {
-      // Only set initial values when dialog first opens, not on every change
-      // Start with course payment if there's a balance, otherwise start with available unpaid registration fees
+  if (open && studentInfo) {
+      // Apply defaults based on current paymentOption
       const options = getAvailablePaymentOptions();
-      const unpaidOptions = options.filter(opt => !opt.paid);
-      
-      if (unpaidOptions.length > 0) {
-        // Default to course payment if available and has balance, otherwise first unpaid option
-        const courseOption = unpaidOptions.find(opt => opt.value === "course");
-        const defaultType = (courseOption && courseOption.amount > 0) ? "course" : unpaidOptions[0].value;
-        setPaymentTypes([defaultType as any]);
-        
-        // Initial amount equals the selected option's amount; subsequent updates follow selectedTotal
-        const selectedOption = options.find(opt => opt.value === defaultType);
-        setAmount((selectedOption?.amount || 0).toString());
-      } else {
-        setPaymentTypes([]);
-        setAmount("0");
+      if (paymentOption === "One time") {
+        const allUnpaid = options.filter(o => !o.paid && typeof o.amount === 'number').map(o => o.value as any);
+        setPaymentTypes(allUnpaid);
+        const sum = options.filter(o => !o.paid && typeof o.amount === 'number').reduce((acc, o) => acc + (o.amount as number), 0);
+        setAmount(sum > 0 ? String(sum) : "");
+      } else if (paymentOption === "Monthly") {
+        // Include course always; include registration fees only if unpaid
+        const monthlyTypes = options
+          .filter(o => o.value === 'course' || ((o.value === 'studentRegistration' || o.value === 'courseRegistration') && !o.paid))
+          .map(o => o.value as any);
+        setPaymentTypes(monthlyTypes as any);
+        setAmount(defaultMonthlyAmount > 0 ? String(defaultMonthlyAmount) : "");
       }
     } else if (!open) {
       // Reset when dialog closes
@@ -239,15 +260,37 @@ export function ManualPaymentDialog({
       setNotes("");
       setReceivedByName("");
       setReceivedByRole("instructor");
+      setPaymentOption("Monthly");
+      setPaymentOptionTouched(false);
     }
-  }, [open, isFirstPayment]); // Added isFirstPayment to dependency array
+  }, [open]);
 
-  // Calculate/auto-fill amount when payment types change (always to selectedTotal)
+  // Recalculate when payment option changes explicitly
   useEffect(() => {
-    if (studentInfo) {
+    if (!open || !studentInfo) return;
+    const options = getAvailablePaymentOptions();
+    if (paymentOption === "One time") {
+      const allUnpaid = options.filter(o => !o.paid && typeof o.amount === 'number').map(o => o.value as any);
+      setPaymentTypes(allUnpaid);
+      const sum = options.filter(o => !o.paid && typeof o.amount === 'number').reduce((acc, o) => acc + (o.amount as number), 0);
+      setAmount(sum > 0 ? String(sum) : "");
+    } else if (paymentOption === "Monthly") {
+      const monthlyTypes = options
+        .filter(o => o.value === 'course' || ((o.value === 'studentRegistration' || o.value === 'courseRegistration') && !o.paid))
+        .map(o => o.value as any);
+      setPaymentTypes(monthlyTypes as any);
+      setAmount(defaultMonthlyAmount > 0 ? String(defaultMonthlyAmount) : "");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentOption]);
+
+  // Calculate/auto-fill amount when payment types change
+  useEffect(() => {
+    if (!studentInfo) return;
+    if (paymentOption === "One time") {
       setAmount(selectedTotal > 0 ? selectedTotal.toString() : "");
     }
-  }, [paymentTypes, studentInfo, isFirstPayment, selectedTotal]);
+  }, [paymentTypes, studentInfo, selectedTotal, paymentOption]);
 
 
   const handleSubmit = () => {
@@ -259,20 +302,20 @@ export function ManualPaymentDialog({
     if (
       isNaN(value) || value <= 0 ||
       !date ||
-      !mode ||
+      !mode || !isPaymentOptionValid ||
       !receivedByName.trim() ||
       !receivedByRole
     ) {
       toast({
         title: "Required fields missing",
-        description: "Please fill all required fields including payment received by name and role.",
+        description: "Please fill all required fields including payment option, amount, date, mode, receiver name and role.",
         variant: "destructive",
       });
       return;
     }
 
-    // Validation: amount must exactly match sum of selected payment types
-    if (value !== selectedTotal) {
+    // For One time, amount must exactly match sum of selected payment types
+    if (paymentOption === "One time" && value !== selectedTotal) {
       toast({
         title: "Amount must match selection",
         description: `Entered amount ₹${value.toLocaleString()} must equal the total of selected payment types ₹${selectedTotal.toLocaleString()}.`,
@@ -280,6 +323,8 @@ export function ManualPaymentDialog({
       });
       return;
     }
+
+    // Monthly: allow edited amount even after registrations paid (no locking)
     
     onSubmit({
       amount: value,
@@ -291,6 +336,7 @@ export function ManualPaymentDialog({
       receivedByName: receivedByName.trim(),
       receivedByRole,
       paymentTypes,
+      paymentOption,
     });
     
     // Show success dialog
@@ -307,6 +353,7 @@ export function ManualPaymentDialog({
     setNotes("");
     setReceivedByName("");
     setReceivedByRole("instructor");
+    setPaymentOption("Monthly");
     onClose();
   }
 
@@ -411,21 +458,41 @@ export function ManualPaymentDialog({
               </p>
             </div>
           )}
-          
+          {/* Payment option dropdown - moved above amount and mandatory */}
+          <div className="grid gap-1">
+            <RequiredLabel>Payment option</RequiredLabel>
+            <Select 
+              value={paymentOption}
+              onValueChange={(v) => { setPaymentOption(v as PaymentOption); setPaymentOptionTouched(true); }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select payment option" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="One time">One time</SelectItem>
+                <SelectItem value="Monthly">Monthly</SelectItem>
+                <SelectItem value="EMI" disabled>EMI</SelectItem>
+              </SelectContent>
+            </Select>
+            {paymentOptionTouched && !isPaymentOptionValid && (
+              <span className="text-red-500 text-xs">Please select a payment option</span>
+            )}
+          </div>
+
           <div className="grid gap-1">
             <RequiredLabel htmlFor="mp-amount">
-              Payment Amount {isFirstPayment ? "(Editable - First Payment)" : "(Fixed - Subsequent Payment)"}
+              Payment Amount 
             </RequiredLabel>
             <Input
               id="mp-amount"
               type="text"
               value={amount}
               required
-              disabled={!isFirstPayment}
+              disabled={paymentOption === 'One time' ? !isFirstPayment : false}
               onBlur={() => setAmountTouched(true)}
               onChange={(e) => {
                 // Only allow editing on first payment
-                if (!isFirstPayment) return;
+                if (paymentOption === 'One time' && !isFirstPayment) return;
                 
                 // Only allow numbers and decimal point
                 const value = e.target.value.replace(/[^0-9.]/g, '');
@@ -438,8 +505,8 @@ export function ManualPaymentDialog({
                 // Check if the entered amount exceeds the selected total of payment types
                 const numericValue = parseFloat(value) || 0;
                 
-                // If user enters more than selected total, cap it at selectedTotal
-                if (numericValue > selectedTotal && selectedTotal > 0) {
+                // One time: cap to selected total; Monthly: free input
+                if (paymentOption === 'One time' && numericValue > selectedTotal && selectedTotal > 0) {
                   setAmount(selectedTotal.toString());
                   toast({
                     title: "Amount capped to selection",
@@ -450,26 +517,36 @@ export function ManualPaymentDialog({
                   setAmount(value);
                 }
               }}
-              placeholder={isFirstPayment ? "Enter custom amount" : "Full remaining balance"}
+              placeholder={isFirstPayment ? "Enter amount" : "Full remaining balance"}
               className={`text-left ${amountTouched && !isAmountValid ? 'border-red-500 focus:border-red-500' : ''} ${!isFirstPayment ? 'bg-gray-100 cursor-not-allowed' : ''}`}
             />
             {amountTouched && !isAmountValid && (
               <span className="text-red-500 text-xs">
-                {isAmountMismatch && selectedTotal > 0
+                {paymentOption === 'One time' && isAmountMismatch && selectedTotal > 0
                   ? `Amount must equal the total of selected payment types (₹${selectedTotal.toLocaleString()})`
                   : "Please enter a valid amount"}
               </span>
             )}
             {/* Helper: show selected total for clarity */}
-            <p className="text-xs text-gray-600 mt-1">Selected total: ₹{selectedTotal.toLocaleString()}</p>
+            {paymentOption === 'One time' ? (
+              <p className="text-xs text-gray-600 mt-1">Selected total: ₹{selectedTotal.toLocaleString()}</p>
+            ) : (
+              <div className="text-xs text-gray-600 mt-1 space-y-1">
+                <p>Default monthly total: ₹{defaultMonthlyAmount.toLocaleString()}</p>
+                <p className="text-[11px] text-gray-500">Includes: Monthly installment ₹{MONTHLY_INSTALLMENT_DEFAULT.toLocaleString()} + Registration fees ₹{registrationPending.toLocaleString()} (Student ₹{(getActualFeeData(studentInfo?.registrationFees?.studentRegistration)?.paid ? 0 : (getActualFeeData(studentInfo?.registrationFees?.studentRegistration)?.amount || 0)).toLocaleString()} + Course ₹{(getActualFeeData(studentInfo?.registrationFees?.courseRegistration)?.paid ? 0 : (getActualFeeData(studentInfo?.registrationFees?.courseRegistration)?.amount || 0)).toLocaleString()})</p>
+              </div>
+            )}
             {/* Payment type indicator */}
             {isFirstPayment ? (
               <p className="text-xs text-green-600 mt-1">
-                ✏️ <strong>Conforme Fee :</strong> You can enter any custom amount.
+                {paymentOption === 'Monthly' ? '✏️ You can edit the monthly amount if needed.' : '✏️ Amount auto-calculated from selected items.'}
               </p>
             ) : (
               <p className="text-xs text-blue-600 mt-1">
-                🔒 <strong>Course Fee:</strong> Amount is set to full remaining balance (₹{(studentInfo?.balancePayment || 0).toLocaleString()}).
+                {paymentOption === 'Monthly'
+                  ? `✏️ Monthly default is ₹${MONTHLY_INSTALLMENT_DEFAULT.toLocaleString()} (editable).`
+                  : `🔒 `}
+                {paymentOption !== 'Monthly' && (<strong>Course Fee:</strong>)} {paymentOption !== 'Monthly' && ` Amount is set to full remaining balance (₹${(studentInfo?.balancePayment || 0).toLocaleString()}).`}
               </p>
             )}
           </div>
@@ -509,7 +586,8 @@ export function ManualPaymentDialog({
               <SelectContent>
                 <SelectItem value="Cash">Cash</SelectItem>
                 <SelectItem value="UPI">UPI</SelectItem>
-                <SelectItem value="QR">QR</SelectItem>
+                <SelectItem value="Card">Card</SelectItem>
+                <SelectItem value="Bank Transfer">Bank transfer</SelectItem>
               </SelectContent>
             </Select>
             {modeTouched && !isModeValid && (
@@ -519,7 +597,7 @@ export function ManualPaymentDialog({
               <span className="text-gray-500 text-xs">Complete the amount and date fields first</span>
             )}
           </div>
-        {(mode === "UPI" ||mode === "QR") && (
+        {(mode === "UPI" || mode === "Card" || mode === "Bank Transfer") && (
           <div className="grid gap-1">
             <Label htmlFor="mp-file">Upload File (Reference Only)</Label>
             <Input

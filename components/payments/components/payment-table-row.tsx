@@ -448,48 +448,49 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )} */}
       {isColumnVisible('reminder') && (
         <TableCell className="text-[11px] p-1 text-center">
-          <Badge 
-            variant={record.paymentStatus === 'Paid' || !record.paymentReminder ? "secondary" : "default"} 
-            className={`text-[11px] ${record.paymentStatus !== 'Paid' ? 'cursor-pointer hover:opacity-80' : ''} ${
-              record.paymentStatus !== 'Paid' && record.paymentReminder 
-                ? 'bg-purple-600 text-white border-purple-600 hover:bg-[#9234ea]' 
-                : ''
-            }`}
-            onClick={async () => {
-              // Console messages removed
-              
-              if (record.paymentStatus !== 'Paid') {
-                const newReminderState = !record.paymentReminder;
-                // Console message removed
-                
-                try {
-                  const courseKey = record.matchedCourseId || record.activity || record.enrolledCourse || 'NA';
-                  await onUpdateRecord(`${record.id}::${courseKey}`, { paymentReminder: newReminderState });
-                  toast({
-                    title: newReminderState ? "✔ Reminder Enabled" : "❌ Reminder Disabled",
-                    description: `Payment reminders ${newReminderState ? 'enabled' : 'disabled'} for ${record.name}`,
-                  });
-                } catch (error) {
-                  // Console message removed
-                  toast({
-                    title: "❌ Update Failed",
-                    description: "Failed to update reminder setting. Please try again.",
-                    variant: "destructive",
-                  });
-                }
-              } else {
-                // Console message removed
-                toast({
-                  title: "⚠️ Cannot Update",
-                  description: "Reminders are automatically disabled for paid payments.",
-                  variant: "default",
-                });
-              }
-            }}
-            title={record.paymentStatus === 'Paid' ? 'Reminders automatically disabled for paid payments' : 'Click to toggle reminder'}
-          >
-            {record.paymentStatus === 'Paid' ? "Off (Paid)" : (record.paymentReminder ? "On" : "Off")}
-          </Badge>
+          {(() => {
+            // Effective reminder state: default ON when pending (if unset/falsey), OFF when fully paid
+            const isPaid = record.paymentStatus === 'Paid' || dynamicStatus === 'Paid' || overallBalance === 0;
+            const effectiveReminder = isPaid ? false : (record.paymentReminder ?? (dynamicStatus === 'Pending'));
+            return (
+              <Badge
+                role="button"
+                variant={isPaid || !effectiveReminder ? 'secondary' : 'default'}
+                className={`text-[11px] ${!isPaid ? 'cursor-pointer hover:opacity-80' : ''} ${
+                  !isPaid && effectiveReminder ? 'bg-purple-600 text-white border-purple-600 hover:bg-[#9234ea]' : ''
+                } rdd-ignore-row-click`}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  if (!isPaid) {
+                    const newReminderState = !effectiveReminder;
+                    try {
+                      const courseKey = record.matchedCourseId || record.activity || record.enrolledCourse || 'NA';
+                      await onUpdateRecord(`${record.id}::${courseKey}`, { paymentReminder: newReminderState });
+                      toast({
+                        title: newReminderState ? '✔ Reminder Enabled' : '❌ Reminder Disabled',
+                        description: `Payment reminders ${newReminderState ? 'enabled' : 'disabled'} for ${record.name}`,
+                      });
+                    } catch (error) {
+                      toast({
+                        title: '❌ Update Failed',
+                        description: 'Failed to update reminder setting. Please try again.',
+                        variant: 'destructive',
+                      });
+                    }
+                  } else {
+                    toast({
+                      title: '⚠️ Cannot Update',
+                      description: 'Reminders are automatically disabled for paid payments.',
+                      variant: 'default',
+                    });
+                  }
+                }}
+                title={isPaid ? 'Reminders automatically disabled for paid payments' : 'Click to toggle reminder'}
+              >
+                {isPaid ? 'Off (Paid)' : effectiveReminder ? 'On' : 'Off'}
+              </Badge>
+            );
+          })()}
         </TableCell>
       )}
       {/* {isColumnVisible('mode') && (
@@ -657,7 +658,11 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
               <>
                 {/* Send Reminder Logic - Only show for students with balance > 0 */}
                 {record.balancePayment > 0 && dynamicStatus === 'Pending' ? (
-                  record.paymentReminder ? (
+                  (() => {
+                    // We're inside the branch where dynamicStatus === 'Pending'
+                    const isPaid = record.paymentStatus === 'Paid' || overallBalance === 0;
+                    const effectiveReminder = isPaid ? false : (record.paymentReminder ?? true);
+                    return effectiveReminder ? (
                     // Show Send Reminder button when reminder is ON and balance > 0
                     <Button
                       size="sm"
@@ -672,10 +677,11 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
                     >
                       <Send className="h-4 w-4 text-[#9234ea] group-hover:text-white transition-colors duration-200" />
                     </Button>
-                  ) : (
-                    // Show "-" when reminder is OFF but balance > 0
-                    <span className="text-gray-400 italic">-</span>
-                  )
+                    ) : (
+                      // Show "-" when reminder is OFF but balance > 0
+                      <span className="text-gray-400 italic">-</span>
+                    );
+                  })()
                 ) : dynamicStatus === 'Paid' ? (
                   // Show "Paid" when payment is completed
                   <span 
