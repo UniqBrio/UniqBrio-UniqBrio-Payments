@@ -1,6 +1,7 @@
 import { connectDB } from "@/lib/db";
 import Payment from "@/models/payment";
 import Student from "@/models/student";
+import Course from "@/models/course";
 import { NextRequest, NextResponse } from "next/server";
 
 // One-time cleanup flag for stray root transactionId fields (defensive hardening)
@@ -92,6 +93,25 @@ export async function POST(request: NextRequest) {
 
     // Determine courseId for this payment (prefer explicit body, else from student)
     const resolvedCourseId = providedCourseId || (student as any).enrolledCourse || (student as any).activity || 'UNKNOWN';
+    // Resolve course name/type from Course; fallback to student snapshot
+    let resolvedCourseType = '-';
+    let resolvedCourseName = 'Unknown Course';
+    try {
+      // Support both modern 'id' and legacy 'courseId' fields for maximum compatibility
+      let courseDoc: any = await Course.findOne({ $or: [ { id: resolvedCourseId }, { courseId: resolvedCourseId } ] });
+      // If not found, try by name from student's enrolledCourseName/program
+      if (!courseDoc) {
+        const tryName = (student as any).enrolledCourseName || (student as any).program || (student as any).course;
+        if (tryName) {
+          courseDoc = await Course.findOne({ name: tryName });
+        }
+      }
+      resolvedCourseType = courseDoc?.type || (student as any).courseType || (student as any).type || '-';
+      resolvedCourseName = courseDoc?.name || (student as any).enrolledCourseName || (student as any).program || (student as any).course || 'Unknown Course';
+    } catch {
+      resolvedCourseType = (student as any).courseType || (student as any).type || '-';
+      resolvedCourseName = (student as any).enrolledCourseName || (student as any).program || (student as any).course || 'Unknown Course';
+    }
 
     let paymentDoc = await Payment.findOne({ studentId, courseId: resolvedCourseId });
     if (!paymentDoc) {
@@ -99,7 +119,8 @@ export async function POST(request: NextRequest) {
         studentId: student.studentId,
         studentName: student.name,
         courseId: resolvedCourseId,
-        courseName: student.program || 'Unknown Course',
+        courseName: resolvedCourseName,
+        courseType: resolvedCourseType,
         cohort: student.cohort || '',
         batch: student.batch || '',
         totalCourseFee: Number(finalPayment) || 0,
@@ -127,6 +148,17 @@ export async function POST(request: NextRequest) {
           overall: { paid: false, status: 'Pending' }
         }
       });
+    } else {
+      // Backfill/align course metadata on existing document
+      try {
+        // Always align with authoritative Course values when available
+        if (resolvedCourseType && resolvedCourseType !== '-' && (paymentDoc as any).courseType !== resolvedCourseType) {
+          (paymentDoc as any).courseType = resolvedCourseType;
+        }
+        if (resolvedCourseName && resolvedCourseName !== 'Unknown Course' && (paymentDoc as any).courseName !== resolvedCourseName) {
+          (paymentDoc as any).courseName = resolvedCourseName;
+        }
+      } catch {}
     }
 
     const validPaymentTypes = ["Course Fee", "Registration Fee", "Installment", "Late Fee", "Refund"];
@@ -236,6 +268,13 @@ export async function POST(request: NextRequest) {
 
       // Prepare registration fee updates if the new record is a registration payment
       const regSet: any = {};
+      // Keep course metadata in sync if we fall back to manual update
+      if (resolvedCourseType && resolvedCourseType !== '-') {
+        regSet['courseType'] = resolvedCourseType;
+      }
+      if (resolvedCourseName && resolvedCourseName !== 'Unknown Course') {
+        regSet['courseName'] = resolvedCourseName;
+      }
       if (isStudentReg) {
         regSet['registrationFees.studentRegistration.paid'] = true;
         regSet['registrationFees.studentRegistration.paidDate'] = newPaymentRecord.paymentDate;
@@ -350,6 +389,8 @@ export async function POST(request: NextRequest) {
         paymentDocument: verifiedDoc ? {
           studentId: verifiedDoc.studentId,
           courseId: verifiedDoc.courseId,
+          courseName: verifiedDoc.courseName,
+          courseType: (verifiedDoc as any).courseType || '-',
           totalRecords: verifiedDoc.paymentRecords?.length || 0,
           totalCourseFee: verifiedDoc.totalCourseFee,
           totalPaidAmount: verifiedDoc.totalPaidAmount,
@@ -363,6 +404,8 @@ export async function POST(request: NextRequest) {
         summary: verifiedDoc ? {
           studentId: verifiedDoc.studentId,
           courseId: verifiedDoc.courseId,
+          courseName: verifiedDoc.courseName,
+          courseType: (verifiedDoc as any).courseType || '-',
           totalCourseFee: verifiedDoc.totalCourseFee,
           totalPaidAmount: verifiedDoc.totalPaidAmount,
           coursePaidAmount: verifiedDoc.coursePaidAmount,
@@ -444,6 +487,7 @@ export async function GET(request: NextRequest) {
         studentName: paymentDoc.studentName,
         courseId: paymentDoc.courseId,
         courseName: paymentDoc.courseName,
+        courseType: (paymentDoc as any).courseType || '-',
         totalCourseFee: paymentDoc.totalCourseFee,
         totalPaidAmount: paymentDoc.totalPaidAmount,
         coursePaidAmount: paymentDoc.coursePaidAmount,

@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Specify an action query param',
-        actions: ['backfill-transaction-ids']
+        actions: ['backfill-transaction-ids', 'inspect-indexes', 'drop-root-transactionid-index', 'rebuild-embedded-transactionid-index', 'backfill-course-type']
       });
     }
 
@@ -90,6 +90,40 @@ export async function GET(request: NextRequest) {
         updatedRecords,
         totalDocs: docs.length
       });
+    }
+
+    if (action === 'backfill-course-type') {
+      // Populate missing or placeholder courseType values from Course or Student collections
+      try {
+  const Course = (await import('@/models/course')).default as any;
+        const Student = (await import('@/models/student')).default as any;
+
+        // Find candidate docs where courseType missing or placeholder '-'
+        const candidates = await Payment.find({ $or: [ { courseType: { $exists: false } }, { courseType: '-' }, { courseType: null } ] });
+        let updated = 0;
+        for (const doc of candidates) {
+          try {
+            // Resolve by both 'id' and legacy 'courseId'; if not found, try by stored courseName
+            let course = await Course.findOne({ $or: [ { id: (doc as any).courseId }, { courseId: (doc as any).courseId } ] });
+            if (!course && (doc as any).courseName) {
+              course = await Course.findOne({ name: (doc as any).courseName });
+            }
+            let type = course?.type || '-';
+            if (!type || type === '-') {
+              const student = await Student.findOne({ studentId: (doc as any).studentId });
+              type = (student as any)?.courseType || (student as any)?.type || '-';
+            }
+            if (type && type !== ((doc as any).courseType || '-')) {
+              (doc as any).courseType = type;
+              await doc.save();
+              updated++;
+            }
+          } catch { /* continue */ }
+        }
+        return NextResponse.json({ success: true, action, candidates: candidates.length, updated });
+      } catch (err: any) {
+        return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+      }
     }
 
     return NextResponse.json({ success: false, error: 'Unknown action' }, { status: 400 });

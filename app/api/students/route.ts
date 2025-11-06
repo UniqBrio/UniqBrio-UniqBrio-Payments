@@ -8,8 +8,9 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
-    await connectDB();
-    const students = await Student.find({});
+  await connectDB();
+  // Only return non-deleted students (treat missing isDeleted as not deleted)
+  const students = await Student.find({ isDeleted: { $ne: true } });
     
     return NextResponse.json({
       success: true,

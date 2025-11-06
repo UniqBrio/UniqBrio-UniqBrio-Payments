@@ -79,6 +79,9 @@ const PaymentSchema = new mongoose.Schema({
   // Course Information
   courseId: { type: String, required: true },
   courseName: { type: String, required: true },
+  // Persist the course type at the time of payment doc creation for stable reporting
+  // Keep flexible (no enum) since sources may use values like Online/Offline/Individual/Group/Hybrid
+  courseType: { type: String, default: "-" },
   cohort: { type: String, default: "" },
   batch: { type: String, default: "" },
   
@@ -242,5 +245,19 @@ PaymentSchema.pre('save', function(next) {
   });
   next();
 });
+
+// In dev/edge environments, an older cached model may not include newly added fields (e.g., courseType).
+// If a cached model exists but is missing the path, delete and recompile to pick up schema changes without restart.
+try {
+  const existing = mongoose.models?.Payment;
+  if (existing && !existing.schema?.paths?.courseType) {
+    // Best-effort refresh
+    if (typeof mongoose.deleteModel === 'function') {
+      mongoose.deleteModel('Payment');
+    } else if (mongoose.connection?.models?.Payment) {
+      delete mongoose.connection.models.Payment;
+    }
+  }
+} catch { /* no-op */ }
 
 export default mongoose.models.Payment || mongoose.model("Payment", PaymentSchema, "payments");

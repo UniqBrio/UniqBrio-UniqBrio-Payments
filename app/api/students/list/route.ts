@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
     
   // Console message removed as requested
     
-    // Find all students
-    const students = await StudentModel.find({}).limit(10).sort({ createdAt: -1 })
+  // Find all non-deleted students (treat missing isDeleted as not deleted)
+  const students = await StudentModel.find({ isDeleted: { $ne: true } }).limit(10).sort({ createdAt: -1 })
     
     // Console message removed as requested
     

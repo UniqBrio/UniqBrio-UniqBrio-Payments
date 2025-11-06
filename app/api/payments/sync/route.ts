@@ -36,10 +36,17 @@ export async function GET(request: NextRequest) {
     // Fetch students (READ ONLY)
     let students;
     if (studentIdParam) {
-      students = await Student.find({ studentId: studentIdParam });
+      // Only include non-deleted students (treat missing isDeleted as not deleted)
+      students = await Student.find({
+        studentId: studentIdParam,
+        isDeleted: { $ne: true }
+      });
     } else {
+      // Only include non-deleted students (treat missing isDeleted as not deleted)
       // Remove hard limit so full dataset is always used; rely on DB and Vercel limits instead
-      students = await Student.find({});
+      students = await Student.find({
+        isDeleted: { $ne: true }
+      });
     }
     
     // Fetch courses (READ ONLY) 
@@ -124,7 +131,8 @@ export async function GET(request: NextRequest) {
       const normLower = (v: any) => normalize(v).toLowerCase();
 
       const studentActivity = normalize((student as any).enrolledCourse || (student as any).activity);
-      const studentProgram = normalize((student as any).program || (student as any).course);
+  // Prefer the user-facing enrolled course name stored on the student document
+  const studentProgram = normalize((student as any).enrolledCourseName || (student as any).program || (student as any).course);
       
       // DEBUG: Check what category/level data exists
       const rawCategory = (student as any).category;
@@ -303,10 +311,13 @@ export async function GET(request: NextRequest) {
         name: (student as any).name || 'Unknown',
         activity: studentActivity || 'N/A',
         enrolledCourse: (student as any).enrolledCourse || (student as any).activity || 'N/A',
-        program: studentProgram || 'N/A', 
+  // Enrolled Course column should display the human-readable name from students.enrolledCourseName
+  program: studentProgram || 'N/A', 
         category: studentCategory, // Category or level
-        // Prefer matched course type; else fall back to student's stored courseType/type
-        courseType: matchedCourseId ? (matchedCourseType || (student as any).courseType || (student as any).type || '-') : ((student as any).courseType || (student as any).type || '-'),
+        // Prefer matched course type; else fall back to persisted payment doc's courseType, then student's stored courseType/type
+        courseType: matchedCourseId
+          ? (matchedCourseType || (studentCoursePaymentDoc as any)?.courseType || (student as any).courseType || (student as any).type || '-')
+          : ((studentCoursePaymentDoc as any)?.courseType || (paymentDocFallback as any)?.courseType || (student as any).courseType || (student as any).type || '-'),
         finalPayment: matchedCourseId ? finalPaymentAmount : (paymentDocFallback ? finalPaymentAmount : 0),
         balancePayment: matchedCourseId ? balanceAmount : (paymentDocFallback ? balanceAmount : 0),
   // Never borrow paid amount from another course: if no doc for matched course, show 0
@@ -435,8 +446,9 @@ export async function GET(request: NextRequest) {
           if (!doc || !doc.courseId) continue;
           if (matchedCourseId && doc.courseId === matchedCourseId) continue; // already accounted as main row
           const docCourse = (courses as any[]).find(c => (c as any).id === doc.courseId) as any;
-          const histCourseName = docCourse?.name || doc.courseName || (student as any).program || 'Unknown Course';
-          const histCourseType = docCourse?.type || '-';
+          // Prefer the name persisted on the payment document; then Course model; then student's enrolledCourseName/program
+          const histCourseName = (doc as any).courseName || docCourse?.name || (student as any).enrolledCourseName || (student as any).program || 'Unknown Course';
+          const histCourseType = (doc as any).courseType || docCourse?.type || '-';
           const histCoursePrice = Number(docCourse?.priceINR) || Number(doc.totalCourseFee) || 0;
           const histCoursePaidAmount = Number(doc.coursePaidAmount) || 0;
           const histBalance = typeof doc.currentBalance === 'number' ? doc.currentBalance : Math.max(0, histCoursePrice - histCoursePaidAmount);
