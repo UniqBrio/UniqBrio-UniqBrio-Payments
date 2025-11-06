@@ -8,8 +8,8 @@ export async function POST(request: Request) {
     
     await connectDB();
     
-    const body = await request.json();
-    const { id, updates } = body;
+  const body = await request.json();
+  const { id, courseId, updates } = body;
     
     console.log('🔄 Updating payment record:', { id, updates });
     
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     
     // Find and update the payment record
     const updatedPayment = await PaymentModel.findOneAndUpdate(
-      { studentId: id }, // Match by studentId
+      courseId ? { studentId: id, courseId } : { studentId: id }, // Prefer per-course update
       { 
         $set: {
           // Update the specific fields
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       }
     );
     
-    if (!updatedPayment) {
+  if (!updatedPayment) {
       console.log('⚠️ Payment record not found for student:', id);
       
       // For simple updates like paymentReminder, fetch student data and create proper record
@@ -61,13 +61,13 @@ export async function POST(request: Request) {
           }
           
           // Get course data  
-          const courseId = student.enrolledCourse || student.activity || 'unknown';
-          const course = await Course.findOne({ id: courseId });
+          const resolvedCourseId = courseId || student.enrolledCourse || student.activity || 'unknown';
+          const course = await Course.findOne({ id: resolvedCourseId });
           
           const minimalPayment = new PaymentModel({
             studentId: id,
             studentName: student.name || 'Unknown Student',
-            courseId: courseId,
+            courseId: resolvedCourseId,
             courseName: course?.name || student.program || student.course || 'Unknown Course',
             totalCourseFee: course?.priceINR || 0,
             paymentRecords: [],

@@ -1,0 +1,217 @@
+/* Root */
+.rdd-overlay {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in oklab, black 55%, transparent);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 1000;
+}
+
+.rdd-dialog {
+  width: 100%;
+  max-width: 880px;
+  max-height: min(85vh, 900px);
+  overflow: hidden;
+  background: #ffffff;
+  color: #1f2937;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.rdd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  gap: 16px;
+}
+.rdd-header-gradient {
+  background: linear-gradient(90deg, #7c3aed 0%, #a855f7 45%, #f97316 100%);
+  color: #fff;
+}
+
+.rdd-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.rdd-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: #fff;
+  font-weight: 600;
+}
+.rdd-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.rdd-avatar span {
+  font-size: 14px;
+}
+
+.rdd-titles {
+  display: grid;
+  align-items: start;
+  gap: 4px;
+}
+.rdd-title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+.rdd-subtitle {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+/* Chips under title */
+.rdd-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.rdd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.35);
+  font-size: 12px;
+}
+
+/* Status badge */
+.rdd-badge {
+  display: inline-block;
+  width: fit-content;
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.35);
+}
+.rdd-badge-success { background: #16a34a; color: #ecfdf5; border-color: #16a34a; }
+.rdd-badge-warning { background: #f59e0b; color: #fff7ed; border-color: #f59e0b; }
+.rdd-badge-danger  { background: #ef4444; color: #fee2e2; border-color: #ef4444; }
+.rdd-badge-info    { background: #0ea5e9; color: #e0f2fe; border-color: #0ea5e9; }
+
+/* Close button */
+.rdd-icon-btn {
+  border: 1px solid rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  transition: all 0.15s ease;
+}
+.rdd-icon-btn:hover { background: rgba(255,255,255,0.3); }
+.rdd-icon-btn:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Content */
+.rdd-content {
+  padding: 16px 20px 6px;
+  overflow: auto;
+}
+
+.rdd-section + .rdd-section {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed color-mix(in oklab, white 10%, transparent);
+}
+
+.rdd-section-title {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #6b7280;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.rdd-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px 14px;
+}
+@media (min-width: 720px) {
+  .rdd-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.rdd-field {
+  min-width: 0;
+  border: 1px solid #eef2f7;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.05);
+}
+.rdd-span-2 {
+  grid-column: 1 / -1;
+}
+.rdd-field-label {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 6px;
+  letter-spacing: 0.2px;
+}
+.rdd-field-value {
+  font-size: 14px;
+  color: #111827;
+  word-break: break-word;
+}
+
+/* Footer */
+.rdd-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 20px 16px;
+  border-top: 1px solid #f1f5f9;
+  background: #ffffff;
+}
+
+/* Suggested button styles for footer (optional) */
+.rdd-btn {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
+  font-weight: 550;
+}
+.rdd-btn:hover { background: #f9fafb; }
+.rdd-btn-primary {
+  background: #7c3aed;
+  border-color: #7c3aed;
+  color: #ffffff;
+}
+.rdd-btn-primary:hover { background: #6d28d9; }

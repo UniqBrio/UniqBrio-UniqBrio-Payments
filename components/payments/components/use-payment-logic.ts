@@ -46,9 +46,10 @@ export function usePaymentLogic() {
   // Merge incoming data with previous to keep stable values when backend is temporarily incomplete
   const reconcileStableData = (incoming: PaymentRecord[], prev: PaymentRecord[]) => {
     if (!prev || prev.length === 0) return incoming;
-    const map = new Map(prev.map(r => [r.id, r]));
+    const kf = (x: any) => `${x.id}::${x.matchedCourseId || x.activity || x.enrolledCourse || 'NA'}`;
+    const map = new Map(prev.map(r => [kf(r), r]));
     return incoming.map(r => {
-      const p = map.get(r.id);
+      const p = map.get(kf(r));
       if (!p) return r;
       const suspiciousZeroFinal = (Number(r.finalPayment || 0) === 0) && Number(p.finalPayment || 0) > 0;
       const suspiciousDashCategory = (!r.category || r.category === '-') && (p.category && p.category !== '-');
@@ -567,20 +568,39 @@ export function usePaymentLogic() {
     
     // Store original state before making any changes
     const originalRecords = [...records];
+    // Helper to parse composite key
+    const parseKey = (key: string): { studentId: string, courseId?: string } => {
+      if (!key) return { studentId: key } as any;
+      const parts = key.split('::');
+      if (parts.length >= 2) return { studentId: parts[0], courseId: parts.slice(1).join('::') } as any;
+      return { studentId: key } as any;
+    };
+    const { studentId, courseId } = parseKey(id);
+    const matchesRecord = (r: PaymentRecord) => {
+      if (r.id !== studentId) return false;
+      if (!courseId) return true;
+      const rcid = r.matchedCourseId || (r as any).activity || (r as any).enrolledCourse || 'NA';
+      return rcid === courseId;
+    };
     
     try {
       // Update local state immediately for responsiveness
-      const updatedRecords = records.map((record: PaymentRecord) => (record.id === id ? { ...record, ...updates } : record))
+      const updatedRecords = records.map((record: PaymentRecord) => (matchesRecord(record) ? { ...record, ...updates } : record))
       setRecords(updatedRecords)
       
       // Persist changes to the database
+      // Resolve courseId for per-course updates
+      const recForUpdate = records.find((r: PaymentRecord) => matchesRecord(r));
+      const resolvedCourseId = courseId || recForUpdate?.matchedCourseId || (recForUpdate as any)?.activity || (recForUpdate as any)?.enrolledCourse;
+
       const response = await fetch('/api/payments/update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: id,
+          id: studentId,
+          courseId: resolvedCourseId,
           updates: updates
         })
       });

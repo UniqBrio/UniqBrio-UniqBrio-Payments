@@ -146,12 +146,13 @@ export function PaymentGrid({ filteredRecords, onUpdateRecord, refreshPaymentDat
 
   const startEditingText = (record: PaymentRecord) => {
     const defaultText = `Make a payment quickly - Balance: ₹${(record.balancePayment || 0).toLocaleString()}`;
-    setEditingText({ id: record.id, text: record.communicationText || defaultText })
+    const courseKey = record.matchedCourseId || record.activity || record.enrolledCourse || 'NA';
+    setEditingText({ id: `${record.id}::${courseKey}`, text: record.communicationText || defaultText })
   }
 
   const saveEditedText = () => {
     if (!editingText) return
-    onUpdateRecord(editingText.id, { communicationText: editingText.text })
+  onUpdateRecord(editingText.id, { communicationText: editingText.text })
     setEditingText(null)
     toast({
       title: "✔ Communication Updated",
@@ -190,7 +191,8 @@ export function PaymentGrid({ filteredRecords, onUpdateRecord, refreshPaymentDat
     const channelsMap: { [key: string]: string[] | null } = {}
     filteredRecords.forEach(record => {
       if (record.id) {
-        channelsMap[record.id] = [] // Default to empty channels
+        const key = `${record.id}::${record.matchedCourseId || record.activity || record.enrolledCourse || 'NA'}`
+        channelsMap[key] = [] // Default to empty channels
       }
     })
     setCommunicationChannels(channelsMap)
@@ -201,11 +203,11 @@ export function PaymentGrid({ filteredRecords, onUpdateRecord, refreshPaymentDat
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredRecords.map((record) => (
           <PaymentGridCard
-            key={record.id}
+            key={`${record.id}::${record.matchedCourseId || record.activity || record.enrolledCourse || 'NA'}`}
             record={record}
             editingText={editingText}
             setEditingText={setEditingText}
-            communicationChannels={communicationChannels[record.id] || []}
+            communicationChannels={communicationChannels[`${record.id}::${record.matchedCourseId || record.activity || record.enrolledCourse || 'NA'}`] || []}
             onUpdateRecord={onUpdateRecord}
             onStartEditingText={startEditingText}
             onSaveEditedText={saveEditedText}
@@ -537,7 +539,8 @@ function PaymentGridCard({
                     const newReminderState = !record.paymentReminder;
                     
                     try {
-                      await onUpdateRecord(record.id, { paymentReminder: newReminderState });
+                      const courseKey = record.matchedCourseId || record.activity || record.enrolledCourse || 'NA';
+                      await onUpdateRecord(`${record.id}::${courseKey}`, { paymentReminder: newReminderState });
                       toast({
                         title: newReminderState ? "✔ Reminder Enabled" : "❌ Reminder Disabled",
                         description: `Payment reminders ${newReminderState ? 'enabled' : 'disabled'} for ${record.name}`,

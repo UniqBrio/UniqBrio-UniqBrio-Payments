@@ -18,7 +18,7 @@ import { ReminderPreviewDialog } from "./reminder-preview-dialog"
 import { CommunicationModeColumnCompact } from '@/components/communication-mode-column'
 import { usePaymentActions } from "./payment-actions"
 import { EmailPreviewDialog } from "./email-preview-dialog"
-import { RegistrationFeesDisplay, calculateRegistrationStatus } from "./registration-fees-display"
+import { RegistrationFeesDisplay, calculateRegistrationStatus, getRegistrationSummary } from "./registration-fees-display"
 import QRCodeLib from 'qrcode'
 
 // Utility function for formatting currency
@@ -131,9 +131,10 @@ interface PaymentTableRowProps {
   selectable?: boolean
   selected?: boolean
   onSelectRow?: () => void
+  onViewDetails?: () => void
 }
 
-export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refreshPaymentData, selectable, selected, onSelectRow }: PaymentTableRowProps) {
+export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refreshPaymentData, selectable, selected, onSelectRow, onViewDetails }: PaymentTableRowProps) {
   const [editingText, setEditingText] = useState<{ id: string; text: string } | null>(null)
   const [qrCodeOpen, setQrCodeOpen] = useState(false)
   const [emailPreviewOpen, setEmailPreviewOpen] = useState(false)
@@ -141,20 +142,19 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
   const [generatedQR, setGeneratedQR] = useState<string>('')
   const [communicationChannels, setCommunicationChannels] = useState<string[] | null>(null)
 
-  // Calculate dynamic payment status based on final payment and balance
+  // Registration fees summary for totals
+  const regSummary = getRegistrationSummary(record.registrationFees);
+  const totalRegAmount = regSummary?.totalAmount || 0;
+  const totalPaid = record.totalPaidAmount || 0;
+  const overallDue = (record.finalPayment || 0) + totalRegAmount;
+  const overallBalance = Math.max(overallDue - totalPaid, 0);
+
+  // Calculate dynamic payment status based on overall due vs paid
   const calculateDynamicStatus = (): "Paid" | "Pending" | "-" => {
-    // If final payment is 0 (unmatched students), show "-"
     if (record.finalPayment === 0 || record.finalPayment === null || record.finalPayment === undefined) {
       return "-";
     }
-    
-    // If balance is 0, show "Paid"
-    if (record.balancePayment === 0) {
-      return "Paid";
-    }
-    
-    // If balance is not 0, show "Pending"
-    return "Pending";
+    return overallBalance === 0 ? "Paid" : "Pending";
   };
 
   const dynamicStatus = calculateDynamicStatus();
@@ -162,7 +162,9 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
   // Show payment options only if course balance > 0 OR any registration fee is unpaid
   const courseHasBalance = record.balancePayment > 0;
   const registrationStatus = calculateRegistrationStatus(record.registrationFees);
-  const showPaymentOptions = courseHasBalance || registrationStatus === "Pending";
+  const hasAnyRegFees = Boolean(record.registrationFees?.studentRegistration || record.registrationFees?.courseRegistration);
+  // Show payment options when there is any outstanding amount by the overall calculation
+  const showPaymentOptions = overallBalance > 0 || (hasAnyRegFees && registrationStatus === "Pending") || courseHasBalance;
 
   // Use extracted hooks
   const { handleSendReminder } = useReminderActions({ record })
@@ -280,12 +282,13 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
 
   const startEditingText = (record: PaymentRecord) => {
     const defaultText = `Make a payment quickly - Balance: ₹${(record.balancePayment || 0).toLocaleString()}`;
-    setEditingText({ id: record.id, text: record.communicationText || defaultText })
+    const courseKey = record.matchedCourseId || record.activity || record.enrolledCourse || 'NA';
+    setEditingText({ id: `${record.id}::${courseKey}` , text: record.communicationText || defaultText })
   }
 
   const saveEditedText = () => {
     if (!editingText) return
-    onUpdateRecord(editingText.id, { communicationText: editingText.text })
+  onUpdateRecord(editingText.id, { communicationText: editingText.text })
     setEditingText(null)
     toast({
       title: "✔ Communication Updated",
@@ -295,7 +298,21 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
 
   return (
     <>
-      <TableRow key={record.id} className="hover:bg-[#9234ea]/5 border-[#9234ea]/10">
+      <TableRow
+        key={record.id}
+        className="hover:bg-[#9234ea]/5 border-[#9234ea]/10 cursor-pointer"
+        onClick={(e) => {
+          // If any modal/dialog is open (manual payment, shadcn dialog, or our details dialog),
+          // do not trigger the row-level details popup.
+          if (typeof document !== 'undefined') {
+            const modalOpen = document.querySelector('.rdd-overlay,[role="dialog"][aria-modal="true"],[data-state="open"][role="dialog"]');
+            if (modalOpen) return;
+          }
+          const el = e.target as HTMLElement
+          if (el.closest('button, a, input, select, textarea, [role="button"], .rdd-ignore-row-click')) return
+          onViewDetails?.()
+        }}
+      >
       {selectable && (
         <TableCell className="p-3 w-8 text-center">
           <input
@@ -303,6 +320,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
             checked={!!selected}
             onChange={onSelectRow}
             aria-label="Select row"
+            className="rdd-ignore-row-click"
           />
         </TableCell>
       )}
@@ -312,18 +330,18 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       {isColumnVisible('name') && (
         <TableCell className="text-sm p-3 text-center">{record.name}</TableCell>
       )}
-      {isColumnVisible('program') && (
-        <TableCell className="text-sm p-3 text-center">{record.program || 'N/A'}</TableCell>
-      )}
-      {isColumnVisible('course') && (
-        <TableCell className="text-sm p-3 text-center">{record.enrolledCourse || record.activity}</TableCell>
-      )}
       {isColumnVisible('category') && (
         <TableCell className="text-sm p-3 text-center">
           <Badge variant="outline" className="text-sm border-purple-200">
             {record.category}
           </Badge>
         </TableCell>
+      )}
+      {isColumnVisible('program') && (
+        <TableCell className="text-sm p-3 text-center">{record.program || 'N/A'}</TableCell>
+      )}
+      {isColumnVisible('course') && (
+        <TableCell className="text-sm p-3 text-center">{record.enrolledCourse || record.activity}</TableCell>
       )}
       {isColumnVisible('courseType') && (
         <TableCell className="text-sm p-3 text-center">
@@ -364,8 +382,11 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       )}
       {isColumnVisible('balance') && (
         <TableCell className="text-[11px] p-2 min-w-[120px] text-center">
-          <span className={(record.balancePayment || 0) > 0 ? "text-red-600 font-medium" : "text-green-600"}>
-            {(record.balancePayment || 0).toLocaleString()}
+          <span
+            className={overallBalance > 0 ? "text-red-600 font-medium" : "text-green-600"}
+            title={`Due: ₹${overallDue.toLocaleString()}\nPaid: ₹${totalPaid.toLocaleString()}\nBalance: ₹${overallBalance.toLocaleString()}`}
+          >
+            {overallBalance.toLocaleString()}
           </span>
         </TableCell>
       )}
@@ -442,7 +463,8 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
                 // Console message removed
                 
                 try {
-                  await onUpdateRecord(record.id, { paymentReminder: newReminderState });
+                  const courseKey = record.matchedCourseId || record.activity || record.enrolledCourse || 'NA';
+                  await onUpdateRecord(`${record.id}::${courseKey}`, { paymentReminder: newReminderState });
                   toast({
                     title: newReminderState ? "✔ Reminder Enabled" : "❌ Reminder Disabled",
                     description: `Payment reminders ${newReminderState ? 'enabled' : 'disabled'} for ${record.name}`,

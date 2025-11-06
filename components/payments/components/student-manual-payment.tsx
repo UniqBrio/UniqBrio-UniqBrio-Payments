@@ -70,7 +70,7 @@ export function StudentManualPayment({ student, onSubmit, open, onOpenChange }: 
 
 
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -126,11 +126,23 @@ export function ManualPaymentDialog({
   const [receivedByNameTouched, setReceivedByNameTouched] = useState(false)
   const [receivedByRoleTouched, setReceivedByRoleTouched] = useState(false)
   
+  // Calculate currently selected total based on chosen payment types
+  const selectedTotal: number = useMemo(() => {
+    let total = 0;
+    const options = getAvailablePaymentOptions();
+    paymentTypes.forEach((type) => {
+      const opt = options.find((o) => o.value === type);
+      if (opt && !opt.paid && typeof opt.amount === 'number') {
+        total += opt.amount;
+      }
+    });
+    return total;
+  }, [paymentTypes, studentInfo]);
+
   // Validation helpers
-  const maxAllowedAmount = studentInfo?.balancePayment || 0
   const enteredAmount = parseFloat(amount) || 0
-  const isAmountValid = amount.trim() !== "" && enteredAmount > 0 && enteredAmount <= maxAllowedAmount
-  const isAmountExceedsBalance = enteredAmount > maxAllowedAmount && amount.trim() !== ""
+  const isAmountValid = amount.trim() !== "" && enteredAmount > 0 && enteredAmount === selectedTotal
+  const isAmountMismatch = amount.trim() !== "" && enteredAmount !== selectedTotal
   const isDateValid = date.trim() !== ""
   const isModeValid = mode && mode.length > 0
   const isReceivedByNameValid = receivedByName.trim() !== ""
@@ -143,7 +155,7 @@ export function ManualPaymentDialog({
   const canEnableReceivedByRole = isAmountValid && isDateValid && isModeValid && isReceivedByNameValid
 
   // Helper function to safely extract fee data from actual database values
-  const getActualFeeData = (feeObj: any) => {
+  function getActualFeeData(feeObj: any) {
     if (!feeObj) return null;
     // If it's already in the correct format with amount property
     if (typeof feeObj === 'object' && feeObj.hasOwnProperty('amount')) {
@@ -170,7 +182,7 @@ export function ManualPaymentDialog({
   const isRegistrationPaid = studentInfo?.registrationFees?.overall?.paid;
   
   // Get available payment options
-  const getAvailablePaymentOptions = () => {
+  function getAvailablePaymentOptions() {
     const courseBalance = studentInfo?.balancePayment || 0;
     const options = [
       { value: "course", label: "Course Payment", amount: courseBalance, paid: courseBalance <= 0 }
@@ -213,15 +225,9 @@ export function ManualPaymentDialog({
         const defaultType = (courseOption && courseOption.amount > 0) ? "course" : unpaidOptions[0].value;
         setPaymentTypes([defaultType as any]);
         
-        // Set amount logic based on payment history:
-        if (!isFirstPayment) {
-          // Subsequent payments: Always use full remaining balance (non-editable)
-          setAmount((studentInfo.balancePayment || 0).toString());
-        } else {
-          // First payment: Allow custom amount (editable)
-          const selectedOption = options.find(opt => opt.value === defaultType);
-          setAmount((selectedOption?.amount || 0).toString());
-        }
+        // Initial amount equals the selected option's amount; subsequent updates follow selectedTotal
+        const selectedOption = options.find(opt => opt.value === defaultType);
+        setAmount((selectedOption?.amount || 0).toString());
       } else {
         setPaymentTypes([]);
         setAmount("0");
@@ -236,34 +242,18 @@ export function ManualPaymentDialog({
     }
   }, [open, isFirstPayment]); // Added isFirstPayment to dependency array
 
-  // Calculate amount when payment types change
+  // Calculate/auto-fill amount when payment types change (always to selectedTotal)
   useEffect(() => {
     if (studentInfo) {
-      if (!isFirstPayment) {
-        // Subsequent payments: Always use full remaining balance (force update)
-        setAmount((studentInfo.balancePayment || 0).toString());
-      } else {
-        // First payment: Only auto-set if amount is empty (preserve user entry)
-        if (amount === "") {
-          let totalAmount = 0;
-          const options = getAvailablePaymentOptions();
-          paymentTypes.forEach(type => {
-            const option = options.find(opt => opt.value === type);
-            if (option && !option.paid && typeof option.amount === 'number') {
-              totalAmount += option.amount;
-            }
-          });
-          setAmount(totalAmount > 0 ? totalAmount.toString() : "-");
-        }
-      }
+      setAmount(selectedTotal > 0 ? selectedTotal.toString() : "");
     }
-  }, [paymentTypes, studentInfo, isFirstPayment]);
+  }, [paymentTypes, studentInfo, isFirstPayment, selectedTotal]);
 
 
   const handleSubmit = () => {
     // Always use the user input from the amount field, not the balance amount
     const value = parseFloat(amount);
-    const balancePayment = studentInfo?.balancePayment || 0;
+  const balancePayment = studentInfo?.balancePayment || 0;
     
     // Validation for required fields
     if (
@@ -281,11 +271,11 @@ export function ManualPaymentDialog({
       return;
     }
 
-    // Validation for amount exceeding balance
-    if (value > balancePayment) {
+    // Validation: amount must exactly match sum of selected payment types
+    if (value !== selectedTotal) {
       toast({
-        title: "Invalid Payment Amount",
-        description: `Payment amount (₹${value.toLocaleString()}) cannot exceed the balance payment of ₹${balancePayment.toLocaleString()}`,
+        title: "Amount must match selection",
+        description: `Entered amount ₹${value.toLocaleString()} must equal the total of selected payment types ₹${selectedTotal.toLocaleString()}.`,
         variant: "destructive",
       });
       return;
@@ -417,7 +407,7 @@ export function ManualPaymentDialog({
                 })}
               </div>
               <p className="text-xs text-gray-600">
-                Select multiple payment types to pay together. Amount will be calculated automatically.
+                Select multiple payment types to pay together. Amount is calculated automatically and must match the selected total.
               </p>
             </div>
           )}
@@ -445,17 +435,15 @@ export function ManualPaymentDialog({
                   return;
                 }
                 
-                // Check if the entered amount exceeds balance payment
+                // Check if the entered amount exceeds the selected total of payment types
                 const numericValue = parseFloat(value) || 0;
-                const balancePayment = studentInfo?.balancePayment || 0;
                 
-                // If user tries to enter amount exceeding balance, cap it at balance
-                if (numericValue > balancePayment && balancePayment > 0) {
-                  setAmount(balancePayment.toString());
-                  // Show a toast notification to inform user
+                // If user enters more than selected total, cap it at selectedTotal
+                if (numericValue > selectedTotal && selectedTotal > 0) {
+                  setAmount(selectedTotal.toString());
                   toast({
-                    title: "Amount Capped",
-                    description: `Maximum allowed amount is ₹${balancePayment.toLocaleString()}`,
+                    title: "Amount capped to selection",
+                    description: `Maximum allowed based on selected types is ₹${selectedTotal.toLocaleString()}`,
                     variant: "default",
                   });
                 } else {
@@ -467,12 +455,13 @@ export function ManualPaymentDialog({
             />
             {amountTouched && !isAmountValid && (
               <span className="text-red-500 text-xs">
-                {isAmountExceedsBalance 
-                  ? `Amount cannot exceed balance payment of ₹${maxAllowedAmount.toLocaleString()}` 
-                  : "Please enter a valid amount"
-                }
+                {isAmountMismatch && selectedTotal > 0
+                  ? `Amount must equal the total of selected payment types (₹${selectedTotal.toLocaleString()})`
+                  : "Please enter a valid amount"}
               </span>
             )}
+            {/* Helper: show selected total for clarity */}
+            <p className="text-xs text-gray-600 mt-1">Selected total: ₹{selectedTotal.toLocaleString()}</p>
             {/* Payment type indicator */}
             {isFirstPayment ? (
               <p className="text-xs text-green-600 mt-1">

@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     // Fetch courses (READ ONLY) 
     const courses = await Course.find({});
     
-    // Fetch all payment documents (one per student) - Source of truth for all calculations
+  // Fetch all payment documents (one per student-course) - Source of truth for all calculations
     const studentIds = students.map(s => s.studentId);
     // Console message removed
     
@@ -55,9 +55,17 @@ export async function GET(request: NextRequest) {
     
     // Console message removed
     
-    // Create lookup map for payment documents by studentId
-    const paymentsByStudent = allPaymentDocs.reduce((acc, paymentDoc) => {
-      acc[paymentDoc.studentId] = paymentDoc;
+    // Create lookup maps for payment documents
+    // 1) Map of studentId -> array of docs
+    const paymentsByStudentArray = allPaymentDocs.reduce((acc, paymentDoc) => {
+      (acc[paymentDoc.studentId] ||= []).push(paymentDoc);
+      return acc;
+    }, {} as Record<string, any[]>);
+    // 2) Map of composite key studentId::courseId -> doc
+    const paymentsByStudentCourse = allPaymentDocs.reduce((acc, paymentDoc) => {
+      if (paymentDoc && paymentDoc.studentId && paymentDoc.courseId) {
+        acc[`${paymentDoc.studentId}::${paymentDoc.courseId}`] = paymentDoc;
+      }
       return acc;
     }, {} as Record<string, any>);
     
@@ -203,7 +211,12 @@ export async function GET(request: NextRequest) {
       }
 
       // Fallback: if no matched course, use payment document's stored totals so manual payments still appear
-      const paymentDocFallback = paymentsByStudent[student.studentId];
+  // Try to pick the exact student-course payment doc if a matched course exists
+  const studentIdKey = student.studentId;
+  const compositeKey = matchedCourseId ? `${studentIdKey}::${matchedCourseId}` : '';
+  const studentCoursePaymentDoc = matchedCourseId ? paymentsByStudentCourse[compositeKey] : undefined;
+  // Fallback: any payment doc for this student (for display continuity)
+  const paymentDocFallback = studentCoursePaymentDoc || (paymentsByStudentArray[studentIdKey]?.[0]);
       let finalPaymentAmount = matchedCourseId ? Number(matchedCoursePrice) || 0 : 0;
       if (!matchedCourseId && paymentDocFallback) {
         finalPaymentAmount = Number(paymentDocFallback.totalCourseFee) || 0;
@@ -214,19 +227,20 @@ export async function GET(request: NextRequest) {
       // Courses collection: READ ONLY (never updated)
       // Payments collection: Source of truth for all payment data
       
-      const studentPaymentDoc = paymentsByStudent[student.studentId];
+      const studentPaymentDoc = studentCoursePaymentDoc || null;
       let coursePaidAmount = 0;
       let totalPaymentRecords = 0;
       
       if (studentPaymentDoc && Array.isArray(studentPaymentDoc.paymentRecords)) {
         const records = studentPaymentDoc.paymentRecords as PaymentRecordLite[];
         // Calculate from payment records within the student's payment document
+        // IMPORTANT: Only course payments reduce the course balance. Registration fees should NOT reduce course balance.
         const courseRecords = records.filter((record: PaymentRecordLite) =>
-          ['Course Payment', 'Course Registration'].includes(record.paymentCategory || '')
+          (record.paymentCategory || '') === 'Course Payment'
         );
         coursePaidAmount = courseRecords.reduce((sum: number, record: PaymentRecordLite) => {
           const amt = Number(record.amount) || 0;
-            return sum + amt;
+          return sum + amt;
         }, 0);
         totalPaymentRecords = records.length;
       }
@@ -236,8 +250,8 @@ export async function GET(request: NextRequest) {
       // Total Paid = Sum from payment records in student's payment document
       // Balance = Final Payment - Total Paid (real-time calculation)
       let balanceAmount = Math.max(0, finalPaymentAmount - coursePaidAmount);
-      // If we have a fallback doc and its currentBalance differs (because of registration fees etc.), trust backend doc
-      if (paymentDocFallback && typeof paymentDocFallback.currentBalance === 'number' && !matchedCourseId) {
+      // If we have a payment doc (student-course) and its backend-calculated balance exists, prefer it when no course match
+      if (!matchedCourseId && paymentDocFallback && typeof paymentDocFallback.currentBalance === 'number') {
         balanceAmount = paymentDocFallback.currentBalance;
       }
         
@@ -278,6 +292,12 @@ export async function GET(request: NextRequest) {
         paymentOptionsText = '\n📱 QR Code available\n💳 UPI: uniqbrio@upi\n🔗 Link: https://pay.uniqbrio.com';
       }
 
+      // Prefer registration fees snapshot from payments collection (authoritative),
+      // fallback to students collection if payments doc missing
+      const registrationFeesSource = studentCoursePaymentDoc && studentCoursePaymentDoc.registrationFees
+        ? studentCoursePaymentDoc.registrationFees
+        : normalizeRegistrationFees((student as any).registrationFees);
+
       const studentResult = {
         id: student.studentId,
         name: (student as any).name || 'Unknown',
@@ -289,9 +309,10 @@ export async function GET(request: NextRequest) {
         courseType: matchedCourseId ? (matchedCourseType || (student as any).courseType || (student as any).type || '-') : ((student as any).courseType || (student as any).type || '-'),
         finalPayment: matchedCourseId ? finalPaymentAmount : (paymentDocFallback ? finalPaymentAmount : 0),
         balancePayment: matchedCourseId ? balanceAmount : (paymentDocFallback ? balanceAmount : 0),
-        totalPaidAmount: paymentDocFallback ? paymentDocFallback.totalPaidAmount : coursePaidAmount,
+  // Never borrow paid amount from another course: if no doc for matched course, show 0
+  totalPaidAmount: studentCoursePaymentDoc ? studentCoursePaymentDoc.totalPaidAmount : 0,
         // Paid Date: Show last payment date or "-" if no payments
-        paidDate: studentPaymentDoc && studentPaymentDoc.lastPaymentDate ? 
+        paidDate: (studentPaymentDoc && studentPaymentDoc.lastPaymentDate) ? 
           studentPaymentDoc.lastPaymentDate.toISOString() : null,
         // Next Due Date: Always show for matched students (even if fully paid) - monthly cadence from courseStartDate
         nextPaymentDate: (() => {
@@ -304,7 +325,7 @@ export async function GET(request: NextRequest) {
           nextDue.setDate(nextDue.getDate() + 30); // 30 days after course start
           return nextDue.toISOString();
         })(),
-        paymentStatus: matchType === 'exact-triple-match' ? (balanceAmount > 0 ? 'Pending' : 'Paid') : (paymentDocFallback ? (paymentDocFallback.paymentStatus || (balanceAmount > 0 ? 'Pending' : 'Paid')) : '-'),
+  paymentStatus: matchType === 'exact-triple-match' ? (balanceAmount > 0 ? 'Pending' : 'Paid') : (paymentDocFallback ? (paymentDocFallback.paymentStatus || (balanceAmount > 0 ? 'Pending' : 'Paid')) : '-'),
         paymentReminder: paymentDocFallback && paymentDocFallback.paymentReminder !== undefined 
           ? paymentDocFallback.paymentReminder // Use existing payment document setting if it exists
           : (matchType === 'exact-triple-match' && hasBalance), // Default: Reminder on if matched and balance > 0
@@ -321,8 +342,11 @@ export async function GET(request: NextRequest) {
           upiId: '-', 
           paymentLink: '-'
         },
-        // Normalize registration fees so UI columns remain stable
-        registrationFees: normalizeRegistrationFees((student as any).registrationFees),
+  // Registration fees: use payments collection when available for up-to-date paid flags and dates
+  registrationFees: registrationFeesSource,
+  // Expose flat fields for clients that want quick checks (optional)
+  studentRegistration: (studentCoursePaymentDoc?.studentRegistration) ?? (paymentDocFallback?.studentRegistration) ?? 0,
+  courseRegistration: (studentCoursePaymentDoc?.courseRegistration) ?? (paymentDocFallback?.courseRegistration) ?? 0,
         matchedCourseId: matchedCourseId,
         tripleRuleMatched: matchType === 'exact-triple-match',
         matchType: matchType,
@@ -403,6 +427,94 @@ export async function GET(request: NextRequest) {
       };
       
       processedStudents.push(studentResult);
+
+      // Also include historical/payment documents for this student that belong to other courseIds
+      const docsForStudent = paymentsByStudentArray[studentIdKey] || [];
+      for (const doc of docsForStudent) {
+        try {
+          if (!doc || !doc.courseId) continue;
+          if (matchedCourseId && doc.courseId === matchedCourseId) continue; // already accounted as main row
+          const docCourse = (courses as any[]).find(c => (c as any).id === doc.courseId) as any;
+          const histCourseName = docCourse?.name || doc.courseName || (student as any).program || 'Unknown Course';
+          const histCourseType = docCourse?.type || '-';
+          const histCoursePrice = Number(docCourse?.priceINR) || Number(doc.totalCourseFee) || 0;
+          const histCoursePaidAmount = Number(doc.coursePaidAmount) || 0;
+          const histBalance = typeof doc.currentBalance === 'number' ? doc.currentBalance : Math.max(0, histCoursePrice - histCoursePaidAmount);
+          const histRegFees = doc.registrationFees || undefined;
+          const histPaidDate = doc.lastPaymentDate ? new Date(doc.lastPaymentDate).toISOString() : null;
+          const histHasBalance = histBalance > 0;
+
+          const histRow = {
+            id: student.studentId,
+            name: (student as any).name || 'Unknown',
+            activity: doc.courseId,
+            enrolledCourse: doc.courseId,
+            program: histCourseName,
+            category: studentCategory,
+            courseType: histCourseType,
+            finalPayment: histCoursePrice,
+            balancePayment: histBalance,
+            totalPaidAmount: Number(doc.totalPaidAmount) || histCoursePaidAmount,
+            paidDate: histPaidDate,
+            nextPaymentDate: null as any,
+            paymentStatus: doc.paymentStatus || (histBalance > 0 ? 'Pending' : 'Paid'),
+            paymentReminder: Boolean(doc.paymentReminder),
+            communicationPreferences: commPreferences,
+            communicationText: '-',
+            paymentDetails: {
+              qrCode: 'QR_CODE_AVAILABLE',
+              upiId: (student as any).upiId || 'uniqbrio@upi',
+              paymentLink: (student as any).paymentLink || 'https://pay.uniqbrio.com'
+            },
+            registrationFees: histRegFees,
+            studentRegistration: (doc as any).studentRegistration || 0,
+            courseRegistration: (doc as any).courseRegistration || 0,
+            matchedCourseId: doc.courseId,
+            tripleRuleMatched: false,
+            matchType: 'historical-doc',
+            manualPayment: {
+              enabled: histHasBalance,
+              showDialog: false,
+              receivedByName: '',
+              receivedByRole: '',
+              paymentAmount: histHasBalance ? histBalance : 0,
+              paymentDate: new Date().toISOString().split('T')[0],
+              paymentMethod: 'Cash',
+              notes: '',
+              dialogFields: {
+                receivedByName: { type: 'text', label: 'Payment Received By (Name)', placeholder: 'Enter name of person who received payment', required: true },
+                receivedByRole: { type: 'dropdown', label: 'Role', options: [
+                  { value: 'instructor', label: 'Instructor' },
+                  { value: 'non-instructor', label: 'Non-Instructor' },
+                  { value: 'admin', label: 'Admin' },
+                  { value: 'superadmin', label: 'Super Admin' }
+                ], required: true },
+                paymentAmount: { type: 'number', label: 'Payment Amount (₹)', min: 0, max: histBalance, required: true },
+                paymentDate: { type: 'date', label: 'Payment Date', required: true },
+                paymentMethod: { type: 'dropdown', label: 'Payment Method', options: [
+                  { value: 'Cash', label: 'Cash' },
+                  { value: 'UPI', label: 'UPI' },
+                  { value: 'Card', label: 'Credit/Debit Card' },
+                  { value: 'Bank Transfer', label: 'Bank Transfer' },
+                  { value: 'Cheque', label: 'Cheque' },
+                  { value: 'Online', label: 'Online Payment' }
+                ], required: true },
+                notes: { type: 'textarea', label: 'Notes (Optional)', placeholder: 'Additional notes about the payment...', required: false }
+              }
+            },
+            courseStartDate: (() => {
+              const startDate = (student as any).courseStartDate;
+              if (startDate) return new Date(startDate).toISOString();
+              const createdAt = (student as any).createdAt;
+              if (createdAt) return new Date(createdAt).toISOString();
+              return new Date().toISOString();
+            })()
+          } as any;
+          processedStudents.push(histRow);
+        } catch(_e) {
+          // ignore malformed docs
+        }
+      }
     }
     
     // Count matches and unmatched students

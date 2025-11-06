@@ -29,6 +29,7 @@ interface PaymentFiltersProps {
   viewMode: "grid" | "list"
   setViewMode: (mode: "grid" | "list") => void
   onExport: () => void
+  selectedCount?: number
   columns: ColumnConfig[]
   onColumnToggle: (key: string, visible: boolean) => void
   sortBy: string
@@ -39,6 +40,7 @@ interface PaymentFiltersProps {
   records?: any[]
   filteredRecords?: any[]
   totalRecords?: any[]
+  embedded?: boolean
 }
 
 
@@ -58,6 +60,7 @@ export function PaymentFilters({
   viewMode,
   setViewMode,
   onExport,
+  selectedCount = 0,
   columns,
   onColumnToggle,
   sortBy,
@@ -68,6 +71,7 @@ export function PaymentFilters({
   records = [],
   filteredRecords = [],
   totalRecords = [],
+  embedded = false,
 }: PaymentFiltersProps) {
 
   // Use totalRecords or records for generating filter options (all available data)
@@ -182,8 +186,10 @@ export function PaymentFilters({
   const filteredCount = filteredRecords.length
   const totalCount = totalRecords.length > 0 ? totalRecords.length : records.length
 
+  const exportLabel = selectedCount > 0 ? `Export (${selectedCount})` : 'Export';
+
   return (
-    <div className={`p-4 bg-white rounded-lg shadow-sm mb-4 ${hasRecords ? 'w-full' : ''}`}>
+    <div className={`${embedded ? 'p-0 bg-transparent shadow-none' : 'p-4 bg-white rounded-lg shadow-sm'} mb-4 ${hasRecords ? 'w-full' : ''}`}>
       <div className="flex flex-col gap-2 w-full">
         <div className="flex items-center gap-2 w-full">
           <div className={`relative ${hasRecords ? 'flex-grow' : 'flex-1 min-w-[120px] max-w-[900px]'}`}>
@@ -512,10 +518,10 @@ export function PaymentFilters({
           <TooltipButton
             onClick={onExport}
             className="h-10 px-3 py-2 bg-white text-black border-gray-300 hover:bg-gray-50 rounded-md shadow-sm flex items-center gap-2"
-            tooltip="Export"
+            tooltip={exportLabel}
           >
             <Download className="h-4 w-4" />
-            <span className="text-sm font-medium">Export</span>
+            <span className="text-sm font-medium">{exportLabel}</span>
           </TooltipButton>
 
          
@@ -525,8 +531,8 @@ export function PaymentFilters({
           <div className={`flex items-center justify-between gap-2 mt-2 px-4 py-2 bg-[#f6f3ff]  rounded-lg ${hasRecords ? 'w-full' : 'w-fit'}`}>
             <div className="flex items-center gap-2">
               {/* <Info className="h-4 w-4 text-[#9234ea]" /> */}
-              <span className="text-base text-[#9234ea] font-medium">
-                Showing {filteredCount} of {totalCount} payments
+              <span className="text-sm text-[#9234ea] font-medium">
+                Showing {filteredCount} payments
               </span>
             </div>
             <ColumnVisibility

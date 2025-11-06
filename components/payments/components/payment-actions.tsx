@@ -106,6 +106,7 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
         // Debug the payment data being sent
         const paymentData = {
           studentId: record.id,
+          courseId: record.matchedCourseId || record.activity || record.enrolledCourse,
           amount: paymentAmount,
           paymentMethod: payload.mode,
           paymentType: paymentTypeLabel,
@@ -148,7 +149,7 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
 
       // Inspect backend authoritative state after processing payments
       try {
-        const inspectResp = await fetch(`/api/payments/inspect?studentId=${encodeURIComponent(record.id)}`, { cache: 'no-store' });
+  const inspectResp = await fetch(`/api/payments/inspect?studentId=${encodeURIComponent(record.id)}&courseId=${encodeURIComponent(record.matchedCourseId || record.activity || '')}`.replace(/\&courseId=$/, ''), { cache: 'no-store' });
         if (!inspectResp.ok) {
           // Console message removed - only log HTTP status if needed
         }
@@ -233,7 +234,8 @@ export function usePaymentActions({ record, onUpdateRecord, refreshPaymentData }
       // Console message removed
         
         // Update the record in the parent component immediately for responsive UI
-        onUpdateRecord(record.id, updatedRecord);
+  const cid = record.matchedCourseId || record.activity || record.enrolledCourse || 'NA';
+  onUpdateRecord(`${record.id}::${cid}`, updatedRecord);
         
         // Show success message
         toast({

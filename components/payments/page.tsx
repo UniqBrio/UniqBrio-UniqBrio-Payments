@@ -87,7 +87,7 @@ export default function PaymentStatusPage() {
     try {
       const filteredRecords = filteredRecordsRef.current || [];
       const selected = selectedRows.length > 0 
-        ? filteredRecords.filter(r => selectedRows.includes(r.id))
+        ? filteredRecords.filter(r => selectedRows.includes(`${r.id}::${r.matchedCourseId || r.activity || r.enrolledCourse || 'NA'}`))
         : filteredRecords; // Export all if none selected
       
       console.log('Export triggered - Records:', selected.length, 'Selected rows:', selectedRows.length);
@@ -304,35 +304,7 @@ export default function PaymentStatusPage() {
           <PaymentSummaryCards summary={paymentSummary} />
         )}
 
-        {/* Payments tab: filters and the rest of the features */}
-        {activeTab === 'Payments' && (
-          <PaymentFilters
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            statusFilters={statusFilters}
-            setStatusFilters={setStatusFilters}
-            categoryFilters={categoryFilters}
-            setCategoryFilters={setCategoryFilters}
-            paymentCategoryFilters={paymentCategoryFilters}
-            setPaymentCategoryFilters={setPaymentCategoryFilters}
-            courseFilters={courseFilters}
-            setCourseFilters={setCourseFilters}
-            priceRange={priceRange}
-            setPriceRange={setPriceRange}
-            viewMode={viewMode}
-            setViewMode={setViewMode}
-            onExport={handleExportSelectedRows}
-            columns={columns}
-            onColumnToggle={handleColumnToggle}
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            sortOrder={sortOrder}
-            setSortOrder={setSortOrder}
-            records={records}
-            filteredRecords={filteredRecords}
-            totalRecords={records}
-          />
-        )}
+        {/* Payments tab: filters will be rendered inside the same section as table below */}
 
         {/* Loading and Error States */}
         {activeTab === 'Payments' && loading && !hasLoadedOnce && (
@@ -381,6 +353,35 @@ export default function PaymentStatusPage() {
         {/* Payment View - Grid or Table */}
         {activeTab === 'Payments' && (hasLoadedOnce || !loading) && (
           <div className="w-full bg-white shadow-md rounded-lg p-4" data-payment-container>
+            {/* Embedded Filters + Toolbar inside same section */}
+            <PaymentFilters
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              statusFilters={statusFilters}
+              setStatusFilters={setStatusFilters}
+              categoryFilters={categoryFilters}
+              setCategoryFilters={setCategoryFilters}
+              paymentCategoryFilters={paymentCategoryFilters}
+              setPaymentCategoryFilters={setPaymentCategoryFilters}
+              courseFilters={courseFilters}
+              setCourseFilters={setCourseFilters}
+              priceRange={priceRange}
+              setPriceRange={setPriceRange}
+              viewMode={viewMode}
+              setViewMode={setViewMode}
+              onExport={handleExportSelectedRows}
+              selectedCount={selectedRows.length}
+              columns={columns}
+              onColumnToggle={handleColumnToggle}
+              sortBy={sortBy}
+              setSortBy={setSortBy}
+              sortOrder={sortOrder}
+              setSortOrder={setSortOrder}
+              records={records}
+              filteredRecords={filteredRecords}
+              totalRecords={records}
+              embedded
+            />
             {filteredRecords.length === 0 ? (
               <Card className="w-full">
                 <CardContent className="p-8 text-center">

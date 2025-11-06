@@ -69,10 +69,11 @@ const PaymentRecordSchema = new mongoose.Schema({
   isEMI: { type: Boolean, default: false }
 }, { _id: true, timestamps: true });
 
-// Main Payment Document Schema (One per Student)
+// Main Payment Document Schema (One per Student-Course)
 const PaymentSchema = new mongoose.Schema({
   // Student Reference - UNIQUE per student
-  studentId: { type: String, required: true, unique: true },
+  // IMPORTANT: Do NOT keep a unique index on studentId alone; we enforce uniqueness on (studentId, courseId)
+  studentId: { type: String, required: true },
   studentName: { type: String, required: true },
   
   // Course Information
@@ -87,6 +88,13 @@ const PaymentSchema = new mongoose.Schema({
   coursePaidAmount: { type: Number, default: 0, min: 0 }, // Only course payments
   currentBalance: { type: Number, required: true, min: 0 },
   currency: { type: String, default: "INR" },
+  
+  // Flat fields requested for quick lookups/filters
+  // Store the amounts paid for registration components (0 when unpaid)
+  // These mirror registrationFees.studentRegistration.amount and registrationFees.courseRegistration.amount
+  // and are set when their respective payments are completed via API.
+  studentRegistration: { type: Number, default: 0, min: 0 },
+  courseRegistration: { type: Number, default: 0, min: 0 },
   
   // Payment Status
   paymentStatus: { 
@@ -148,7 +156,10 @@ const PaymentSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Indexes for performance (studentId already indexed via unique: true)
+// Indexes for performance
+// Compound unique index ensures one payment document per student-course pair
+PaymentSchema.index({ studentId: 1, courseId: 1 }, { unique: true });
+// Helpful secondary indexes
 PaymentSchema.index({ paymentStatus: 1 });
 PaymentSchema.index({ courseId: 1 });
 PaymentSchema.index({ "paymentRecords.paymentDate": -1 });

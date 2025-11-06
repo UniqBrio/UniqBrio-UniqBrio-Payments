@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    // One-time defensive cleanup: remove any accidental root-level transactionId fields
+    // One-time defensive cleanup: remove any accidental root-level transactionId fields and legacy unique indexes
     if (!ROOT_TXN_FIELD_CLEANED) {
       try {
         // Aggressive audit: drop any root-level transactionId index BEFORE operations
@@ -31,6 +31,15 @@ export async function POST(request: NextRequest) {
               // Console message removed
             } catch (dErr: any) {
               // Console message removed
+            }
+          }
+          // Drop legacy unique index on studentId (we now use compound unique {studentId, courseId})
+          const legacyStudentIdx = idxList.filter((i: any) => i.name === 'studentId_1' || (i.key && Object.keys(i.key).length === 1 && i.key.studentId === 1));
+          for (const idx of legacyStudentIdx) {
+            try {
+              await Payment.collection.dropIndex(idx.name as string);
+            } catch (e:any) {
+              // ignore if can't drop
             }
           }
         } catch (listErr: any) {
@@ -54,6 +63,7 @@ export async function POST(request: NextRequest) {
 
     const {
       studentId,
+      courseId: providedCourseId,
       amount,
       paymentMethod,
       paymentType,
@@ -80,12 +90,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Student not found' }, { status: 404 });
     }
 
-    let paymentDoc = await Payment.findOne({ studentId });
+    // Determine courseId for this payment (prefer explicit body, else from student)
+    const resolvedCourseId = providedCourseId || (student as any).enrolledCourse || (student as any).activity || 'UNKNOWN';
+
+    let paymentDoc = await Payment.findOne({ studentId, courseId: resolvedCourseId });
     if (!paymentDoc) {
       paymentDoc = new Payment({
         studentId: student.studentId,
         studentName: student.name,
-        courseId: student.enrolledCourse || student.activity || 'UNKNOWN',
+        courseId: resolvedCourseId,
         courseName: student.program || 'Unknown Course',
         cohort: student.cohort || '',
         batch: student.batch || '',
@@ -93,7 +106,26 @@ export async function POST(request: NextRequest) {
         totalPaidAmount: 0,
         coursePaidAmount: 0,
         currentBalance: Number(finalPayment) || 0,
-        paymentRecords: []
+        paymentRecords: [],
+        // Initialize registration fees snapshot from student document if available
+        registrationFees: {
+          studentRegistration: {
+            amount: Number((student as any)?.registrationFees?.studentRegistration) || 500,
+            paid: false,
+            paidDate: null
+          },
+          courseRegistration: {
+            amount: Number((student as any)?.registrationFees?.courseRegistration) || 1000,
+            paid: false,
+            paidDate: null
+          },
+          confirmationFee: {
+            amount: Number((student as any)?.registrationFees?.confirmationFee) || 250,
+            paid: false,
+            paidDate: null
+          },
+          overall: { paid: false, status: 'Pending' }
+        }
       });
     }
 
@@ -139,6 +171,31 @@ export async function POST(request: NextRequest) {
       // Console message removed
     }
 
+    // If this is a registration fee payment, update registration fee flags on the document
+    const isStudentReg = newPaymentRecord.paymentCategory === 'Student Registration';
+    const isCourseReg = newPaymentRecord.paymentCategory === 'Course Registration';
+    if (isStudentReg) {
+      paymentDoc.registrationFees.studentRegistration.amount = paymentDoc.registrationFees.studentRegistration.amount || Number((student as any)?.registrationFees?.studentRegistration) || 500;
+      paymentDoc.registrationFees.studentRegistration.paid = true;
+      paymentDoc.registrationFees.studentRegistration.paidDate = newPaymentRecord.paymentDate;
+      // Update flat field for quick access
+      try { (paymentDoc as any).studentRegistration = Number(paymentDoc.registrationFees.studentRegistration.amount) || Number(amount) || 0; } catch {}
+    }
+    if (isCourseReg) {
+      paymentDoc.registrationFees.courseRegistration.amount = paymentDoc.registrationFees.courseRegistration.amount || Number((student as any)?.registrationFees?.courseRegistration) || 1000;
+      paymentDoc.registrationFees.courseRegistration.paid = true;
+      paymentDoc.registrationFees.courseRegistration.paidDate = newPaymentRecord.paymentDate;
+      // Update flat field for quick access
+      try { (paymentDoc as any).courseRegistration = Number(paymentDoc.registrationFees.courseRegistration.amount) || Number(amount) || 0; } catch {}
+    }
+    if (isStudentReg || isCourseReg) {
+      const srPaid = Boolean(paymentDoc.registrationFees.studentRegistration?.paid);
+      const crPaid = Boolean(paymentDoc.registrationFees.courseRegistration?.paid);
+      const allPaid = srPaid && crPaid;
+      paymentDoc.registrationFees.overall.paid = allPaid;
+      paymentDoc.registrationFees.overall.status = allPaid ? 'Paid' : 'Pending';
+    }
+
     paymentDoc.paymentRecords.push(newPaymentRecord);
 
     // SANITATION: Ensure every payment record (including historical) has a transactionId to avoid duplicate null index errors
@@ -176,22 +233,44 @@ export async function POST(request: NextRequest) {
       let paymentStatus: any = 'Pending';
       if (coursePaidAmount > 0 && currentBalance > 0) paymentStatus = 'Partial';
       if (coursePaidAmount > 0 && currentBalance === 0) paymentStatus = 'Paid';
+
+      // Prepare registration fee updates if the new record is a registration payment
+      const regSet: any = {};
+      if (isStudentReg) {
+        regSet['registrationFees.studentRegistration.paid'] = true;
+        regSet['registrationFees.studentRegistration.paidDate'] = newPaymentRecord.paymentDate;
+        regSet['registrationFees.studentRegistration.amount'] = paymentDoc.registrationFees.studentRegistration?.amount || Number((student as any)?.registrationFees?.studentRegistration) || 500;
+        regSet['studentRegistration'] = paymentDoc.registrationFees.studentRegistration?.amount || Number((student as any)?.registrationFees?.studentRegistration) || 500;
+      }
+      if (isCourseReg) {
+        regSet['registrationFees.courseRegistration.paid'] = true;
+        regSet['registrationFees.courseRegistration.paidDate'] = newPaymentRecord.paymentDate;
+        regSet['registrationFees.courseRegistration.amount'] = paymentDoc.registrationFees.courseRegistration?.amount || Number((student as any)?.registrationFees?.courseRegistration) || 1000;
+        regSet['courseRegistration'] = paymentDoc.registrationFees.courseRegistration?.amount || Number((student as any)?.registrationFees?.courseRegistration) || 1000;
+      }
+      if (isStudentReg || isCourseReg) {
+        const srPaid = isStudentReg ? true : Boolean(paymentDoc.registrationFees.studentRegistration?.paid);
+        const crPaid = isCourseReg ? true : Boolean(paymentDoc.registrationFees.courseRegistration?.paid);
+        regSet['registrationFees.overall.paid'] = srPaid && crPaid;
+        regSet['registrationFees.overall.status'] = (srPaid && crPaid) ? 'Paid' : 'Pending';
+      }
       await Payment.updateOne(
-        { studentId },
+        { studentId, courseId: resolvedCourseId },
         {
           $set: {
             totalPaidAmount,
             coursePaidAmount,
             currentBalance,
             paymentStatus,
-            lastPaymentDate: newPaymentRecord.paymentDate
+            lastPaymentDate: newPaymentRecord.paymentDate,
+            ...regSet
           },
           $push: { paymentRecords: newPaymentRecord }
         },
         { upsert: true }
       );
       console.log('🛠 Fallback update applied');
-      verifiedDoc = await Payment.findOne({ studentId }).lean();
+      verifiedDoc = await Payment.findOne({ studentId, courseId: resolvedCourseId }).lean();
     };
 
     // Attempt up to 3 tries with escalating cleanup
@@ -201,7 +280,7 @@ export async function POST(request: NextRequest) {
         if ((paymentDoc as any).transactionId !== undefined) delete (paymentDoc as any).transactionId;
         await paymentDoc.save();
         console.log(`✅ Payment document saved on attempt ${attempt}`);
-        verifiedDoc = await Payment.findOne({ studentId }).lean();
+        verifiedDoc = await Payment.findOne({ studentId, courseId: resolvedCourseId }).lean();
       } catch (err: any) {
         primaryErrCaptured = err;
         console.error(`❌ Save attempt ${attempt} failed:`, err.message);
@@ -260,7 +339,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!verifiedDoc) {
-      verifiedDoc = await Payment.findOne({ studentId }).lean();
+      verifiedDoc = await Payment.findOne({ studentId, courseId: resolvedCourseId }).lean();
     }
 
     return NextResponse.json({
@@ -270,20 +349,28 @@ export async function POST(request: NextRequest) {
         paymentRecord: newPaymentRecord,
         paymentDocument: verifiedDoc ? {
           studentId: verifiedDoc.studentId,
+          courseId: verifiedDoc.courseId,
           totalRecords: verifiedDoc.paymentRecords?.length || 0,
           totalCourseFee: verifiedDoc.totalCourseFee,
           totalPaidAmount: verifiedDoc.totalPaidAmount,
           coursePaidAmount: verifiedDoc.coursePaidAmount,
           currentBalance: verifiedDoc.currentBalance,
-          paymentStatus: verifiedDoc.paymentStatus
+          paymentStatus: verifiedDoc.paymentStatus,
+          registrationFees: verifiedDoc.registrationFees,
+          studentRegistration: (verifiedDoc as any).studentRegistration || 0,
+          courseRegistration: (verifiedDoc as any).courseRegistration || 0
         } : null,
         summary: verifiedDoc ? {
           studentId: verifiedDoc.studentId,
+          courseId: verifiedDoc.courseId,
           totalCourseFee: verifiedDoc.totalCourseFee,
           totalPaidAmount: verifiedDoc.totalPaidAmount,
           coursePaidAmount: verifiedDoc.coursePaidAmount,
           currentBalance: verifiedDoc.currentBalance,
-          paymentStatus: verifiedDoc.paymentStatus
+          paymentStatus: verifiedDoc.paymentStatus,
+          registrationFees: verifiedDoc.registrationFees,
+          studentRegistration: (verifiedDoc as any).studentRegistration || 0,
+          courseRegistration: (verifiedDoc as any).courseRegistration || 0
         } : null,
         paymentRecordsCount: verifiedDoc?.paymentRecords?.length || 0
       }
@@ -313,8 +400,9 @@ export async function GET(request: NextRequest) {
       }, { status: 503 });
     }
     
-    const url = new URL(request.url);
-    const studentId = url.searchParams.get('studentId');
+  const url = new URL(request.url);
+  const studentId = url.searchParams.get('studentId');
+  const courseId = url.searchParams.get('courseId');
     
     if (!studentId) {
       return NextResponse.json({
@@ -323,7 +411,14 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
     
-    const paymentDoc = await Payment.findOne({ studentId });
+  let paymentDoc = null as any;
+  if (courseId) {
+    paymentDoc = await Payment.findOne({ studentId, courseId });
+  } else {
+    // Backward compatible: if courseId not provided, return the first doc for the student
+    const docs = await Payment.find({ studentId }).sort({ updatedAt: -1 }).limit(1);
+    paymentDoc = docs && docs[0] ? docs[0] : null;
+  }
     
     if (!paymentDoc) {
       return NextResponse.json({
@@ -347,11 +442,14 @@ export async function GET(request: NextRequest) {
       data: {
         studentId: paymentDoc.studentId,
         studentName: paymentDoc.studentName,
+        courseId: paymentDoc.courseId,
+        courseName: paymentDoc.courseName,
         totalCourseFee: paymentDoc.totalCourseFee,
         totalPaidAmount: paymentDoc.totalPaidAmount,
         coursePaidAmount: paymentDoc.coursePaidAmount,
         currentBalance: paymentDoc.currentBalance,
         paymentStatus: paymentDoc.paymentStatus,
+        registrationFees: paymentDoc.registrationFees,
         totalRecords: paymentDoc.paymentRecords.length,
         paymentRecords: sortedPaymentRecords
       }
