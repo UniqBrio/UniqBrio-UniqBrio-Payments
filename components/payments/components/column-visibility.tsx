@@ -316,18 +316,16 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
           <DialogTitle className="text-xl font-semibold">Select Displayed Columns</DialogTitle>
           <div className="text-sm text-gray-600 mb-3 p-3 bg-gray-50 rounded-lg border">
             <div className="text-xs font-semibold mb-2 text-gray-800">Keyboard Shortcuts:</div>
-            <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs">
-              <div><kbd className="px-1 py-0.5 bg-white border rounded text-gray-700">↑↓</kbd> Navigate</div>
+            <div className="grid grid-cols-4 gap-x-4 gap-y-1 text-xs">
+              
               <div><kbd className="px-1 py-0.5 bg-white border rounded text-gray-700">Shift+↑↓</kbd> Multi-select</div>
               <div><kbd className="px-1 py-0.5 bg-white border rounded text-gray-700">Space/Enter</kbd> Toggle</div>
-              <div><kbd className="px-1 py-0.5 bg-white border rounded text-gray-700">Tab</kbd> Switch list</div>
+              
               <div><kbd className="px-1 py-0.5 bg-white border rounded text-gray-700">Ctrl+A</kbd> Select all</div>
               <div><kbd className="px-1 py-0.5 bg-white border rounded text-gray-700">Ctrl+D</kbd> Deselect all</div>
               
               
-              <div><kbd className="px-1 py-0.5 bg-white border rounded text-gray-700">Ctrl+S</kbd> Save</div>
-              <div><kbd className="px-1 py-0.5 bg-white border rounded text-gray-700">Ctrl+R</kbd> Reset</div>
-              <div><kbd className="px-1 py-0.5 bg-white border rounded text-gray-700">Escape</kbd> Close</div>
+              
             </div>
           </div>
         </DialogHeader>
