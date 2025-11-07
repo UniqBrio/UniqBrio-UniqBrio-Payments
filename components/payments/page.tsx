@@ -5,9 +5,8 @@ import MainLayout from "@/components/main-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/use-toast"
-import { FileText, LayoutDashboard, CreditCard, PieChart as PieChartIcon } from "lucide-react"
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { FileText, LayoutDashboard, CreditCard } from "lucide-react"
+
 
 // Payment components
 import { PaymentFilters } from './components/payment-filters'
@@ -17,6 +16,7 @@ import { CourseWisePaymentPopup } from './components/course-wise-payment-popup'
 import { PaymentTable } from './components/payment-table'
 import { PaymentGrid } from './components/payment-grid'
 import { usePaymentLogic } from './components/use-payment-logic'
+import { PaymentsAnalytics } from './components/payments-analytics'
 import CourseMatchingComponent from '@/components/course-matching'
 
 // PaymentStatusPage: Main payment management page
@@ -60,84 +60,6 @@ export default function PaymentStatusPage() {
   const [showCourseWisePopup, setShowCourseWisePopup] = useState(false)
   const [showCourseMatching, setShowCourseMatching] = useState(false)
   const [activeTab, setActiveTab] = useState<'Analytics' | 'Payments'>('Payments')
-  // Month selector state for Analytics tab
-  const [analyticsMonth, setAnalyticsMonth] = useState<string>('this-month')
-  // Payments analytics (real data)
-  const [paymentsLoading, setPaymentsLoading] = useState(false)
-  const [receivedTotal, setReceivedTotal] = useState<number>(0)
-  const [methodMix, setMethodMix] = useState<Array<{ method: string; amount: number; percentage: number }>>([])
-
-  // Compute date range for dropdown values
-  const selectedRange = useMemo(() => {
-    const now = new Date()
-    const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1)
-    const endOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0)
-
-    let base = new Date(now)
-    switch (analyticsMonth) {
-      case 'past-month':
-        base = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-        break
-      case 'next-month':
-        base = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-        break
-      case 'two-months-before':
-        base = new Date(now.getFullYear(), now.getMonth() - 2, 1)
-        break
-      case 'this-month':
-      default:
-        base = new Date(now.getFullYear(), now.getMonth(), 1)
-        break
-    }
-
-    const from = startOfMonth(base)
-    const to = endOfMonth(base)
-    // Return ISO dates yyyy-mm-dd for API
-    const toISODate = (d: Date) => d.toISOString().slice(0, 10)
-    return { from: toISODate(from), to: toISODate(to) }
-  }, [analyticsMonth])
-
-  useEffect(() => {
-    let ignore = false
-    async function load() {
-      if (activeTab !== 'Analytics') return
-      setPaymentsLoading(true)
-      try {
-  const res = await fetch(`/api/payments/analytics?period=month&from=${selectedRange.from}&to=${selectedRange.to}` as const, { cache: 'no-store' })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const json = await res.json()
-        if (!ignore && json?.success) {
-          setReceivedTotal(json.data?.totalReceived || 0)
-          setMethodMix(json.data?.mix || [])
-        }
-      } catch (e) {
-        if (!ignore) {
-          setReceivedTotal(0)
-          setMethodMix([])
-        }
-      } finally {
-        if (!ignore) setPaymentsLoading(false)
-      }
-    }
-    load()
-    return () => { ignore = true }
-  }, [activeTab, selectedRange])
-
-  const COLORS = ["#8b5cf6", "#f97316", "#06b6d4", "#10b981", "#f59e0b", "#ef4444"]
-
-  const analyticsLabel = useMemo(() => {
-    switch (analyticsMonth) {
-      case 'past-month':
-        return 'Past Month'
-      case 'next-month':
-        return 'Next Month'
-      case 'two-months-before':
-        return '2 Months Before'
-      case 'this-month':
-      default:
-        return 'This Month'
-    }
-  }, [analyticsMonth])
 
   // Selected rows state lifted up
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
@@ -326,21 +248,6 @@ export default function PaymentStatusPage() {
             <p className="text-gray-600 mt-1">Track student payments, send reminders, and manage financial records</p>
           </div>
           <div className="flex gap-2 items-center">
-            {activeTab === 'Analytics' && (
-              <div className="min-w-[180px]">
-                <Select value={analyticsMonth} onValueChange={setAnalyticsMonth}>
-                  <SelectTrigger aria-label="Select month range">
-                    <SelectValue placeholder="Select Month" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="this-month">This Month</SelectItem>
-                    <SelectItem value="past-month">Past Month</SelectItem>
-                    <SelectItem value="next-month">Next Month</SelectItem>
-                    <SelectItem value="two-months-before">2 Months Before</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
             <div className="tooltip-container">
               <Button
                 onClick={() => setShowCourseWisePopup(true)}
@@ -376,78 +283,9 @@ export default function PaymentStatusPage() {
           </button>
         </div>
 
-        {/* Analytics tab: summary cards + real-data mix chart */}
+        {/* Analytics tab: comprehensive analytics dashboard */}
         {activeTab === 'Analytics' && (
-          <>
-            <PaymentSummaryCards summary={paymentSummary} receivedOverride={receivedTotal} receivedLabel={analyticsLabel} />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-xl border p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-base font-semibold">Payment Method Mix</h3>
-                  <span className="text-xs text-gray-500">{analyticsLabel}</span>
-                </div>
-                {paymentsLoading ? (
-                  <div className="w-full h-[300px] flex items-center justify-center">
-                    <div className="relative">
-                      <div className="h-40 w-40 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 animate-pulse" />
-                      <div className="absolute inset-4 rounded-full bg-white" />
-                    </div>
-                    <div className="ml-6 space-y-2">
-                      <div className="h-4 w-28 bg-gray-200 rounded animate-pulse" />
-                      <div className="h-3 w-36 bg-gray-100 rounded animate-pulse" />
-                      <div className="h-3 w-24 bg-gray-100 rounded animate-pulse" />
-                    </div>
-                  </div>
-                ) : methodMix.length === 0 || methodMix.every(m => m.amount === 0) ? (
-                  <div className="w-full h-[260px] flex flex-col items-center justify-center text-center text-gray-500">
-                    <div className="h-16 w-16 rounded-full bg-gray-100 border border-dashed border-gray-300 flex items-center justify-center mb-3">
-                      <PieChartIcon className="h-7 w-7 text-gray-400" />
-                    </div>
-                    <div className="text-sm font-medium">No payments in selected period</div>
-                    <div className="text-xs text-gray-400">Try a different month to see method mix</div>
-                  </div>
-                ) : (
-                  <div className="w-full h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={methodMix.map(m => ({ name: m.method, value: m.amount }))}
-                          innerRadius={60}
-                          outerRadius={100}
-                          paddingAngle={2}
-                          dataKey="value"
-                          nameKey="name"
-                          labelLine={false}
-                          label={(entry: any) => (entry.value > 0 ? `₹${Number(entry.value).toLocaleString()}` : '')}
-                        >
-                          {methodMix.map((entry, index) => (
-                            <Cell key={`cell-mix-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value: any, name: any) => [
-                          `₹${Number(value || 0).toLocaleString()}`,
-                          name
-                        ]} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-                      {methodMix.map((m, i) => (
-                        <div key={m.method} className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                            <span>{m.method}</span>
-                          </div>
-                          <div className="text-right text-gray-500">
-                            <span>₹{m.amount.toLocaleString()}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
+          <PaymentsAnalytics records={records} />
         )}
 
         {/* Payments tab: filters will be rendered inside the same section as table below */}
