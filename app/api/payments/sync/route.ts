@@ -437,108 +437,34 @@ export async function GET(request: NextRequest) {
         })()
       };
       
+      // Push only one row per student (no extra historical rows)
       processedStudents.push(studentResult);
-
-      // Also include historical/payment documents for this student that belong to other courseIds
-      const docsForStudent = paymentsByStudentArray[studentIdKey] || [];
-      for (const doc of docsForStudent) {
-        try {
-          if (!doc || !doc.courseId) continue;
-          if (matchedCourseId && doc.courseId === matchedCourseId) continue; // already accounted as main row
-          const docCourse = (courses as any[]).find(c => (c as any).id === doc.courseId) as any;
-          // Prefer the name persisted on the payment document; then Course model; then student's enrolledCourseName/program
-          const histCourseName = (doc as any).courseName || docCourse?.name || (student as any).enrolledCourseName || (student as any).program || 'Unknown Course';
-          const histCourseType = (doc as any).courseType || docCourse?.type || '-';
-          const histCoursePrice = Number(docCourse?.priceINR) || Number(doc.totalCourseFee) || 0;
-          const histCoursePaidAmount = Number(doc.coursePaidAmount) || 0;
-          const histBalance = typeof doc.currentBalance === 'number' ? doc.currentBalance : Math.max(0, histCoursePrice - histCoursePaidAmount);
-          const histRegFees = doc.registrationFees || undefined;
-          const histPaidDate = doc.lastPaymentDate ? new Date(doc.lastPaymentDate).toISOString() : null;
-          const histHasBalance = histBalance > 0;
-
-          const histRow = {
-            id: student.studentId,
-            name: (student as any).name || 'Unknown',
-            activity: doc.courseId,
-            enrolledCourse: doc.courseId,
-            program: histCourseName,
-            category: studentCategory,
-            courseType: histCourseType,
-            finalPayment: histCoursePrice,
-            balancePayment: histBalance,
-            totalPaidAmount: Number(doc.totalPaidAmount) || histCoursePaidAmount,
-            paidDate: histPaidDate,
-            nextPaymentDate: null as any,
-            paymentStatus: doc.paymentStatus || (histBalance > 0 ? 'Pending' : 'Paid'),
-            paymentReminder: Boolean(doc.paymentReminder),
-            communicationPreferences: commPreferences,
-            communicationText: '-',
-            paymentDetails: {
-              qrCode: 'QR_CODE_AVAILABLE',
-              upiId: (student as any).upiId || 'uniqbrio@upi',
-              paymentLink: (student as any).paymentLink || 'https://pay.uniqbrio.com'
-            },
-            registrationFees: histRegFees,
-            studentRegistration: (doc as any).studentRegistration || 0,
-            courseRegistration: (doc as any).courseRegistration || 0,
-            matchedCourseId: doc.courseId,
-            tripleRuleMatched: false,
-            matchType: 'historical-doc',
-            manualPayment: {
-              enabled: histHasBalance,
-              showDialog: false,
-              receivedByName: '',
-              receivedByRole: '',
-              paymentAmount: histHasBalance ? histBalance : 0,
-              paymentDate: new Date().toISOString().split('T')[0],
-              paymentMethod: 'Cash',
-              notes: '',
-              dialogFields: {
-                receivedByName: { type: 'text', label: 'Payment Received By (Name)', placeholder: 'Enter name of person who received payment', required: true },
-                receivedByRole: { type: 'dropdown', label: 'Role', options: [
-                  { value: 'instructor', label: 'Instructor' },
-                  { value: 'non-instructor', label: 'Non-Instructor' },
-                  { value: 'admin', label: 'Admin' },
-                  { value: 'superadmin', label: 'Super Admin' }
-                ], required: true },
-                paymentAmount: { type: 'number', label: 'Payment Amount (₹)', min: 0, max: histBalance, required: true },
-                paymentDate: { type: 'date', label: 'Payment Date', required: true },
-                paymentMethod: { type: 'dropdown', label: 'Payment Method', options: [
-                  { value: 'Cash', label: 'Cash' },
-                  { value: 'UPI', label: 'UPI' },
-                  { value: 'Card', label: 'Credit/Debit Card' },
-                  { value: 'Bank Transfer', label: 'Bank Transfer' },
-                  { value: 'Cheque', label: 'Cheque' },
-                  { value: 'Online', label: 'Online Payment' }
-                ], required: true },
-                notes: { type: 'textarea', label: 'Notes (Optional)', placeholder: 'Additional notes about the payment...', required: false }
-              }
-            },
-            courseStartDate: (() => {
-              const startDate = (student as any).courseStartDate;
-              if (startDate) return new Date(startDate).toISOString();
-              const createdAt = (student as any).createdAt;
-              if (createdAt) return new Date(createdAt).toISOString();
-              return new Date().toISOString();
-            })()
-          } as any;
-          processedStudents.push(histRow);
-        } catch(_e) {
-          // ignore malformed docs
-        }
-      }
     }
     
-    // Count matches and unmatched students
-    const totalMatches = processedStudents.filter(s => s.matchedCourseId).length;
-    const unmatchedStudents = processedStudents.filter(s => !s.matchedCourseId).length;
+    // Deduplicate by student id just in case (keep the best matched row if duplicates slipped in)
+    const bestOf = new Map<string, any>();
+    for (const row of processedStudents) {
+      const existing = bestOf.get(row.id);
+      if (!existing) {
+        bestOf.set(row.id, row);
+        continue;
+      }
+      // Prefer rows with exact triple match; else keep the one with a matchedCourseId; else keep first
+      const score = (r: any) => (r.tripleRuleMatched ? 2 : (r.matchedCourseId ? 1 : 0));
+      if (score(row) > score(existing)) bestOf.set(row.id, row);
+    }
+    const dedupedStudents = Array.from(bestOf.values());
+    
+    // Count matches and unmatched students after dedupe
+    const totalMatches = dedupedStudents.filter(s => s.matchedCourseId).length;
+    const unmatchedStudents = dedupedStudents.filter(s => !s.matchedCourseId).length;
     
     // Console message removed
     
     return NextResponse.json({
       success: true,
-      data: processedStudents,
-      message: `READ-ONLY: Processed ${processedStudents.length} students with ${courses.length} courses. All calculations from payments collection.`,
+      data: dedupedStudents,
+      message: `READ-ONLY: Processed ${dedupedStudents.length} students (deduped) with ${courses.length} courses. All calculations from payments collection.`,
       totalMatches: totalMatches,
       unmatchedStudents: unmatchedStudents
     }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } });
