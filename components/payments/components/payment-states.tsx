@@ -11,7 +11,7 @@ export function PaymentLoadingState() {
   return (
     <Card>
       <CardContent className="p-8 text-center">
-        <div className="animate-spin inline-block w-6 h-6 border-2 border-current border-t-transparent text-blue-600 rounded-full" />
+  <div className="animate-spin inline-block w-6 h-6 border-2 border-current border-t-transparent text-[#9234ea] rounded-full" />
         <p className="mt-2 text-gray-600">Loading student payment data from database...</p>
       </CardContent>
     </Card>
