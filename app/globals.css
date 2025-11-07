@@ -685,6 +685,10 @@ button:focus,
   border-color: #d1d5db;
 }
 
+/* Removed colored top gradient bar from analytics cards per request */
+/* .analytics-card::before previously created a 4px gradient line */
+/* If reintroducing later, restore the block below */
+/*
 .analytics-card::before {
   content: "";
   position: absolute;
@@ -694,6 +698,7 @@ button:focus,
   height: 4px;
   background: linear-gradient(90deg, var(--analytics-primary) 0%, var(--analytics-secondary) 100%);
 }
+*/
 
 .metric-card {
   position: relative;

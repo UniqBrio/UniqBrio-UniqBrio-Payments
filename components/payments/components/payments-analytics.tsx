@@ -315,7 +315,7 @@ export function PaymentsAnalytics({ records }: PaymentsAnalyticsProps) {
               </div>
             ) : (
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={localAnalytics.courseBreakdown.slice(0,3)}>
+              <BarChart data={localAnalytics.courseBreakdown.slice(0,3)} margin={{ top: 30, right: 10, left: 10, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="course"
@@ -324,10 +324,15 @@ export function PaymentsAnalytics({ records }: PaymentsAnalyticsProps) {
                   height={90}
                   tick={{ fontSize: 11 }}
                   interval={0}
+                  label={{ value: 'Courses', position: 'insideBottom', offset: -2, style: { fill: '#6b7280', fontSize: 12 } }}
                 />
                 <YAxis
-                  tickFormatter={(value) => `INR ${(value / 1000).toFixed(1)}K`}
-                  width={70}
+                  tickFormatter={(value) => `${Math.round(Number(value))}`}
+                  allowDecimals={false}
+                  tick={{ fontSize: 10, fill: '#6b7280' }}
+                  width={60}
+                  label={{ value: 'Amount (INR)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#6b7280', fontSize: 12 } }}
+                  domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.2)]}
                 />
                 <Tooltip
                   formatter={(value: any) => [
@@ -338,7 +343,7 @@ export function PaymentsAnalytics({ records }: PaymentsAnalyticsProps) {
                   cursor={{ fill: 'rgba(0,0,0,0.04)' }}
                 />
                 <Bar dataKey="amount" fill="#8b5cf6" radius={[4,4,0,0]}>
-                  <LabelList dataKey="amount" position="top" formatter={(v: any) => `INR ${Number(v).toLocaleString('en-IN')}`} className="text-[10px] fill-[#374151]" />
+                  <LabelList dataKey="amount" position="top" formatter={(v: any) => `${Number(v)}`} className="text-[10px] fill-[#374151]" />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
