@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/use-toast"
 import { FileText, LayoutDashboard, CreditCard } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 
 // Payment components
@@ -262,27 +263,19 @@ export default function PaymentStatusPage() {
           </div>
         </div>
 
-        {/* Tabs before content */}
-        <div className="tabs">
-          <button
-            className={`tab ${activeTab === 'Analytics' ? 'tab--active' : ''}`}
-            onClick={() => setActiveTab('Analytics')}
-            type="button"
-            aria-pressed={activeTab === 'Analytics'}
-          >
-            <span className="tab__icon"><LayoutDashboard className="h-5 w-5" /></span>
-            <span>Analytics</span>
-          </button>
-          <button
-            className={`tab ${activeTab === 'Payments' ? 'tab--active' : ''}`}
-            onClick={() => setActiveTab('Payments')}
-            type="button"
-            aria-pressed={activeTab === 'Payments'}
-          >
-            <span className="tab__icon"><CreditCard className="h-5 w-5" /></span>
-            <span>Payments</span>
-          </button>
-        </div>
+        {/* Tabs before content (shared UI tabs with pill styling) */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'Analytics' | 'Payments')}>
+          <TabsList className="mb-2">
+            <TabsTrigger value="Analytics">
+              <LayoutDashboard className="h-5 w-5 mr-2" />
+              Analytics
+            </TabsTrigger>
+            <TabsTrigger value="Payments">
+              <CreditCard className="h-5 w-5 mr-2" />
+              Payments
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         {/* Analytics tab: comprehensive analytics dashboard */}
         {activeTab === 'Analytics' && (

@@ -596,8 +596,9 @@ button:focus,
   --tab-radius: 12px;
   --tab-gap: 16px;
 
-  --tab-primary: #7B61FF;      /* active fill (purple) */
-  --tab-secondary: #F2994A;    /* inactive border/icon (orange) */
+  /* Brand-aligned purple tab palette */
+  --tab-primary: #9234ea;      /* active fill (solid purple) */
+  --tab-secondary: #9234ea;    /* inactive border & text now also purple */
 
   --tab-text: #1f2937;         /* default text */
   --tab-bg: #ffffff;           /* inactive background */
@@ -621,7 +622,7 @@ button:focus,
   border-radius: var(--tab-radius);
   border: 2px solid var(--tab-secondary);
   background: var(--tab-bg);
-  color: var(--tab-secondary);
+  color: var(--tab-secondary); /* purple text for inactive */
   font-weight: 600;
   cursor: pointer;
   user-select: none;
@@ -629,7 +630,8 @@ button:focus,
 }
 
 .tab:hover {
-  box-shadow: 0 0 0 4px rgba(242, 153, 74, 0.12);
+  /* subtle purple glow */
+  box-shadow: 0 0 0 4px rgba(146, 52, 234, 0.15);
 }
 
 .tab:active {
@@ -640,7 +642,8 @@ button:focus,
   background: var(--tab-primary);
   color: #ffffff;
   border-color: var(--tab-primary);
-  box-shadow: 0 0 0 4px rgba(123, 97, 255, 0.15);
+  /* brighter purple focus ring */
+  box-shadow: 0 0 0 4px rgba(146, 52, 234, 0.25);
 }
 
 .tab__icon {
