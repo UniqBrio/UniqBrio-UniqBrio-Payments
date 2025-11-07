@@ -59,7 +59,8 @@ export default function PaymentStatusPage() {
 
   const [showCourseWisePopup, setShowCourseWisePopup] = useState(false)
   const [showCourseMatching, setShowCourseMatching] = useState(false)
-  const [activeTab, setActiveTab] = useState<'Analytics' | 'Payments'>('Payments')
+  // Default to Analytics tab on initial load so analytics is shown first
+  const [activeTab, setActiveTab] = useState<'Analytics' | 'Payments'>('Analytics')
 
   // Selected rows state lifted up
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
