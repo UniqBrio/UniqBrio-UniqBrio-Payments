@@ -361,35 +361,22 @@ export function usePaymentLogic() {
         let result = await response.json()
         
         if (result.success && Array.isArray(result.data) && result.data.length > 0 && !result.fallback) {
-          // Fetch cohorts to enrich the payment data with cohort IDs
-          let cohorts: any[] = []
-          try {
-            const cohortsResp = await fetch('/api/cohorts', { cache: 'no-store' })
-            if (cohortsResp.ok) {
-              const cohJson = await cohortsResp.json()
-              cohorts = Array.isArray(cohJson.data) ? cohJson.data : []
-            }
-          } catch (_) {
-            // silently ignore
-          }
-
-          // Create cohort lookup map by cohortId
-          const cohortIdToObjMap = new Map<string, any>()
-          cohorts.forEach((cohort: any) => {
-            if (cohort.cohortId) {
-              cohortIdToObjMap.set(cohort.cohortId, cohort)
-            }
-          })
-
-          // Enrich payment data with cohort names from cohort IDs
+          // Enrich payment data with parsed cohort information
           // Communication preferences are already in the payment records from sync API
           const enrichedData = result.data.map((record: any) => {
-            const cohortId = record.cohortId || ''
+            // Parse cohort field (format: "COHORTID - Name")
+            const cohortField = record.cohort || ''
+            let cohortId = ''
             let cohortName = ''
             
-            if (cohortId) {
-              const cohortFromDB = cohortIdToObjMap.get(cohortId)
-              cohortName = cohortFromDB?.name || ''
+            if (cohortField && cohortField.includes(' - ')) {
+              const parts = cohortField.split(' - ')
+              cohortId = parts[0].trim()
+              cohortName = parts.slice(1).join(' - ').trim()
+            } else if (cohortField) {
+              // If no separator, use the whole string as both ID and name
+              cohortId = cohortField
+              cohortName = cohortField
             }
             
             return {
@@ -746,24 +733,6 @@ export function usePaymentLogic() {
             }
           } catch (_) {}
 
-          // Fetch cohorts to enrich with cohort names
-          let cohorts: any[] = []
-          try {
-            const cohortsResp = await fetch('/api/cohorts', { cache: 'no-store' })
-            if (cohortsResp.ok) {
-              const cohJson = await cohortsResp.json()
-              cohorts = Array.isArray(cohJson.data) ? cohJson.data : []
-            }
-          } catch (_) {}
-
-          // Create cohort lookup map
-          const cohortIdToObjMap = new Map<string, any>()
-          cohorts.forEach((cohort: any) => {
-            if (cohort.cohortId) {
-              cohortIdToObjMap.set(cohort.cohortId, cohort)
-            }
-          })
-
           // Batch fetch communication preferences for all students
           const commPrefsMap = new Map<string, string[]>()
           try {
@@ -865,13 +834,19 @@ export function usePaymentLogic() {
               }
             }
 
-            // Get cohort data from student
-            const cohortId = student.cohortId || ''
+            // Get cohort data from student.cohort field (format: "COHORTID - Name")
+            const cohortField = student.cohort || ''
+            let cohortId = ''
             let cohortName = ''
             
-            if (cohortId) {
-              const cohortFromDB = cohortIdToObjMap.get(cohortId)
-              cohortName = cohortFromDB?.name || ''
+            if (cohortField && cohortField.includes(' - ')) {
+              const parts = cohortField.split(' - ')
+              cohortId = parts[0].trim()
+              cohortName = parts.slice(1).join(' - ').trim()
+            } else if (cohortField) {
+              // If no separator, use the whole string as both ID and name
+              cohortId = cohortField
+              cohortName = cohortField
             }
 
             // Get communication preferences from batch fetch
