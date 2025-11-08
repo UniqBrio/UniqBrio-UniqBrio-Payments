@@ -376,6 +376,7 @@ export function usePaymentLogic() {
           cohorts.forEach((cohort: any) => {
             if (cohort?.cohortId) {
               cohortIdToObjMap.set(cohort.cohortId, cohort)
+              cohortIdToObjMap.set(cohort.cohortId.toUpperCase(), cohort)
             }
           })
 
@@ -390,15 +391,16 @@ export function usePaymentLogic() {
               cohortName = parts.slice(1).join(' - ').trim() || cohortName
             }
 
-            if (cohortId && cohortIdToObjMap.has(cohortId)) {
-              const cohortFromDB = cohortIdToObjMap.get(cohortId)
+            const lookupId = cohortId.toUpperCase()
+            if (lookupId && cohortIdToObjMap.has(lookupId)) {
+              const cohortFromDB = cohortIdToObjMap.get(lookupId)
               cohortName = cohortFromDB?.name || cohortName
             }
 
             return {
               ...record,
               cohortId,
-              cohort: cohortName || 'Unassigned',
+              cohort: cohortName || cohortId || 'Unassigned',
               communicationChannels: record.communicationPreferences?.enabled && record.communicationPreferences?.channels
                 ? record.communicationPreferences.channels
                 : []
@@ -762,6 +764,7 @@ export function usePaymentLogic() {
           cohorts.forEach((cohort: any) => {
             if (cohort?.cohortId) {
               cohortIdToObjMap.set(cohort.cohortId, cohort)
+              cohortIdToObjMap.set(cohort.cohortId.toUpperCase(), cohort)
             }
           })
 
@@ -893,8 +896,9 @@ export function usePaymentLogic() {
               cohortId = cohortName
             }
 
-            if (cohortId && cohortIdToObjMap.has(cohortId)) {
-              const cohortFromDB = cohortIdToObjMap.get(cohortId)
+            const lookupId = cohortId.toUpperCase()
+            if (lookupId && cohortIdToObjMap.has(lookupId)) {
+              const cohortFromDB = cohortIdToObjMap.get(lookupId)
               cohortName = cohortFromDB?.name || cohortName
             }
 
@@ -909,7 +913,7 @@ export function usePaymentLogic() {
               program: student.program || student.course || 'General Course',
               category: student.category || student.level || '-',
               courseType: matchedCourse?.type || student.courseType || student.type || '-',
-              cohort: cohortName || 'Unassigned',
+              cohort: cohortName || cohortId || 'Unassigned',
               cohortId: cohortId,
               paymentStatus,
               totalPaidAmount: totalPaid,
