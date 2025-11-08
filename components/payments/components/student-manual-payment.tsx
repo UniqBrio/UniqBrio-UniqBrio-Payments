@@ -81,6 +81,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/components/ui/use-toast"
+import { formatDateToDisplay } from "@/lib/date-utils"
 
 export type ManualPaymentPayload = {
   amount: number
@@ -114,6 +115,7 @@ export function ManualPaymentDialog({
 }) {
   const [amount, setAmount] = useState<string>("")
   const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10))
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false)
   const [mode, setMode] = useState<ManualPaymentPayload["mode"]>(defaultMode)
   const [notes, setNotes] = useState<string>("")
   const [paymentTypes, setPaymentTypes] = useState<ManualPaymentPayload["paymentTypes"]>(["course"])
@@ -552,16 +554,36 @@ export function ManualPaymentDialog({
           </div>
           <div className="grid gap-1">
             <RequiredLabel htmlFor="mp-date">Date</RequiredLabel>
-            <Input 
-              id="mp-date" 
-              type="date" 
-              value={date} 
-              onChange={(e) => setDate(e.target.value)}
-              onBlur={() => setDateTouched(true)}
-              disabled={!canEnableDate}
-              required 
-              className={`${dateTouched && !isDateValid ? 'border-red-500 focus:border-red-500' : ''} ${!canEnableDate ? 'opacity-50 cursor-not-allowed' : ''}`}
-            />
+            <div className="relative">
+              {showDatePicker ? (
+                <Input 
+                  id="mp-date" 
+                  type="date" 
+                  value={date} 
+                  onChange={(e) => setDate(e.target.value)}
+                  onBlur={() => {
+                    setDateTouched(true);
+                    setShowDatePicker(false);
+                  }}
+                  disabled={!canEnableDate}
+                  required 
+                  autoFocus
+                  className={`${dateTouched && !isDateValid ? 'border-red-500 focus:border-red-500' : ''} ${!canEnableDate ? 'opacity-50 cursor-not-allowed' : ''}`}
+                />
+              ) : (
+                <Input 
+                  id="mp-date-display" 
+                  type="text" 
+                  value={date ? formatDateToDisplay(date) : ''} 
+                  onFocus={() => setShowDatePicker(true)}
+                  disabled={!canEnableDate}
+                  readOnly
+                  placeholder="Select date"
+                  required 
+                  className={`${dateTouched && !isDateValid ? 'border-red-500 focus:border-red-500' : ''} ${!canEnableDate ? 'opacity-50 cursor-not-allowed' : ''} cursor-pointer`}
+                />
+              )}
+            </div>
             {dateTouched && !isDateValid && (
               <span className="text-red-500 text-xs">Please select a date</span>
             )}

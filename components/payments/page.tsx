@@ -272,7 +272,7 @@ export default function PaymentStatusPage() {
             </TabsTrigger>
             <TabsTrigger value="Payments" className="w-full">
               <CreditCard className="h-5 w-5 mr-2" />
-              Payments
+              Student-wise payments
             </TabsTrigger>
           </TabsList>
         </Tabs>

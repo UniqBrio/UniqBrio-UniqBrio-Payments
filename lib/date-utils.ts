@@ -3,10 +3,10 @@
  */
 
 /**
- * Formats a date string to MM/DD/YYYY format
+ * Formats a date string to dd-mmm-yyyy format
  * Handles various input formats including ISO strings like "2025-02-05T00:00:00.000+00:00"
  * @param dateInput - Date string, Date object, or null
- * @returns Formatted date string in MM/DD/YYYY format or "-" if invalid
+ * @returns Formatted date string in dd-mmm-yyyy format (e.g., 13-Nov-2025) or "-" if invalid
  */
 export function formatDateToDisplay(dateInput: string | Date | null | undefined): string {
   if (!dateInput || dateInput === 'N/A') {
@@ -30,12 +30,13 @@ export function formatDateToDisplay(dateInput: string | Date | null | undefined)
       return "-";
     }
     
-    // Format to MM/DD/YYYY with zero-padding
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    // Format to dd-mmm-yyyy with month abbreviation
     const day = date.getDate().toString().padStart(2, '0');
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = monthNames[date.getMonth()];
     const year = date.getFullYear();
     
-    return `${month}/${day}/${year}`;
+    return `${day}-${month}-${year}`;
   } catch (error) {
     console.error('formatDateToDisplay: Date formatting error:', error, 'Input:', dateInput);
     return "-";

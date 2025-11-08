@@ -247,48 +247,48 @@ export function PaymentsAnalytics({ records }: PaymentsAnalyticsProps) {
       {/* Summary cards: This Month, This Week, Outstanding */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Total Revenue - This Month */}
-        <Card className="bg-orange-50 border-orange-200 rounded-2xl">
+        <Card className="bg-green-50 border-green-200 rounded-2xl">
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-orange-600 text-sm font-medium mb-2">Total Revenue</p>
-                <p className="text-3xl font-bold text-orange-800 mb-1">{formatINR(monthlyReceived)}</p>
-                <p className="text-xs text-orange-600">This month</p>
+                <p className="text-green-600 text-sm font-medium mb-2">Total Revenue</p>
+                <p className="text-3xl font-bold text-green-800 mb-1">{formatINR(monthlyReceived)}</p>
+                <p className="text-xs text-green-600">This month</p>
               </div>
-              <div className="bg-orange-200 p-2 rounded-lg">
-                <svg className="w-5 h-5 text-orange-600" viewBox="0 0 20 20" fill="currentColor"><path d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zM18 9H2v6a2 2 0 002 2h12a2 2 0 002-2V9z"/></svg>
+              <div className="bg-green-200 p-2 rounded-lg">
+                <svg className="w-5 h-5 text-green-600" viewBox="0 0 20 20" fill="currentColor"><path d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zM18 9H2v6a2 2 0 002 2h12a2 2 0 002-2V9z"/></svg>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Total Revenue - This Week */}
-        <Card className="bg-rose-50 border-rose-200 rounded-2xl">
+        <Card className="bg-blue-50 border-blue-200 rounded-2xl">
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-rose-600 text-sm font-medium mb-2">Revenue</p>
-                <p className="text-3xl font-bold text-rose-800 mb-1">{formatINR(weeklyReceived)}</p>
-                <p className="text-xs text-rose-600">This week</p>
+                <p className="text-blue-600 text-sm font-medium mb-2">Revenue</p>
+                <p className="text-3xl font-bold text-blue-800 mb-1">{formatINR(weeklyReceived)}</p>
+                <p className="text-xs text-blue-600">This week</p>
               </div>
-              <div className="bg-rose-200 p-2 rounded-lg">
-                <svg className="w-5 h-5 text-rose-600" viewBox="0 0 20 20" fill="currentColor"><path d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zM18 9H2v6a2 2 0 002 2h12a2 2 0 002-2V9z"/></svg>
+              <div className="bg-blue-200 p-2 rounded-lg">
+                <svg className="w-5 h-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor"><path d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zM18 9H2v6a2 2 0 002 2h12a2 2 0 002-2V9z"/></svg>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Outstanding Payments */}
-        <Card className="bg-green-50 border-green-200 rounded-2xl">
+        <Card className="bg-rose-50 border-rose-200 rounded-2xl">
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-green-600 text-sm font-medium mb-2">Outstanding Payments</p>
-                <p className="text-3xl font-bold text-green-800 mb-1">{formatINR(localAnalytics.outstandingAmount)}</p>
-                <p className="text-xs text-green-700">Across all students</p>
+                <p className="text-rose-600 text-sm font-medium mb-2">Outstanding Payments</p>
+                <p className="text-3xl font-bold text-rose-800 mb-1">{formatINR(localAnalytics.outstandingAmount)}</p>
+                <p className="text-xs text-rose-700">Across all students</p>
               </div>
-              <div className="bg-green-200 p-2 rounded-lg">
-                <svg className="w-5 h-5 text-green-700" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm2 4h2v2H6V8zm0 3h2v2H6v-2zm3-3h2v2H9V8zm0 3h2v2H9v-2zm3-3h2v2h-2V8z"/></svg>
+              <div className="bg-rose-200 p-2 rounded-lg">
+                <svg className="w-5 h-5 text-rose-700" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm2 4h2v2H6V8zm0 3h2v2H6v-2zm3-3h2v2H9V8zm0 3h2v2H9v-2zm3-3h2v2h-2V8z"/></svg>
               </div>
             </div>
           </CardContent>
