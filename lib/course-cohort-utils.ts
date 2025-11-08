@@ -351,8 +351,10 @@ export function generateCourseWiseSummaryWithProperIDs(
 ): CoursePaymentWithCohorts[] {
   // Create lookup maps
   const courseNameToIdMap = new Map<string, CourseFromDB>()
+  const courseIdToObjMap = new Map<string, CourseFromDB>()
   coursesFromDB.forEach(course => {
     courseNameToIdMap.set(course.name.toLowerCase(), course)
+    courseIdToObjMap.set(course.id, course)
   })
 
   const cohortNameToCohortMap = new Map<string, CohortFromDB>()
@@ -369,12 +371,23 @@ export function generateCourseWiseSummaryWithProperIDs(
   }>()
 
   records.forEach(record => {
-    const courseNameFromRecord = record.activity || record.enrolledCourse || 'Unknown Course'
+    // First try to use matchedCourseId if available (authoritative course ID from sync)
+    let courseId: string
+    let courseName: string
     
-    // Try to find the proper course from database
-    const courseFromDB = courseNameToIdMap.get(courseNameFromRecord.toLowerCase())
-    const courseId = courseFromDB?.id || 'COURSE00'
-    const courseName = courseFromDB?.name || courseNameFromRecord
+    if ((record as any).matchedCourseId) {
+      // Use the matched course ID from the record
+      courseId = (record as any).matchedCourseId
+      // Find the course in database by ID
+      const courseFromDB = courseIdToObjMap.get(courseId)
+      courseName = courseFromDB?.name || record.activity || record.enrolledCourse || 'Unknown Course'
+    } else {
+      // Fallback: Try to match by course name
+      const courseNameFromRecord = record.activity || record.enrolledCourse || 'Unknown Course'
+      const courseFromDB = courseNameToIdMap.get(courseNameFromRecord.toLowerCase())
+      courseId = courseFromDB?.id || `COURSE00-${courseNameFromRecord.replace(/\s+/g, '')}`
+      courseName = courseFromDB?.name || courseNameFromRecord
+    }
     
     if (!courseMap.has(courseId)) {
       courseMap.set(courseId, {
