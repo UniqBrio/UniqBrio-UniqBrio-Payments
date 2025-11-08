@@ -68,11 +68,164 @@ export default function PaymentStatusPage() {
   // Selected rows state lifted up
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
+  // Course & Cohort tab filters
+  const [courseSearch, setCourseSearch] = useState('')
+  const [courseSortBy, setCourseSortBy] = useState<'name' | 'students' | 'amount' | 'received' | 'outstanding' | 'rate'>('name')
+  const [courseSortOrder, setCourseSortOrder] = useState<'asc' | 'desc'>('asc')
+
   // Generate course summary with cohort breakdown
   const courseSummaryWithCohorts = useMemo(
     () => generateCourseWiseSummaryWithCohorts(records),
     [records]
   )
+
+  // Filtered and sorted course summary
+  const filteredCourseSummary = useMemo(() => {
+    let filtered = [...courseSummaryWithCohorts]
+
+    // Apply search filter
+    if (courseSearch.trim()) {
+      const searchLower = courseSearch.toLowerCase()
+      filtered = filtered.filter(course => 
+        course.course.toLowerCase().includes(searchLower) ||
+        course.program.toLowerCase().includes(searchLower)
+      )
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aVal: any, bVal: any
+      
+      switch (courseSortBy) {
+        case 'name':
+          aVal = a.course.toLowerCase()
+          bVal = b.course.toLowerCase()
+          break
+        case 'students':
+          aVal = a.students
+          bVal = b.students
+          break
+        case 'amount':
+          aVal = a.amount
+          bVal = b.amount
+          break
+        case 'received':
+          aVal = a.received
+          bVal = b.received
+          break
+        case 'outstanding':
+          aVal = a.outstanding
+          bVal = b.outstanding
+          break
+        case 'rate':
+          aVal = a.amount > 0 ? (a.received / a.amount) * 100 : 0
+          bVal = b.amount > 0 ? (b.received / b.amount) * 100 : 0
+          break
+        default:
+          return 0
+      }
+
+      if (typeof aVal === 'string') {
+        return courseSortOrder === 'asc' 
+          ? aVal.localeCompare(bVal) 
+          : bVal.localeCompare(aVal)
+      }
+      
+      return courseSortOrder === 'asc' ? aVal - bVal : bVal - aVal
+    })
+
+    return filtered
+  }, [courseSummaryWithCohorts, courseSearch, courseSortBy, courseSortOrder])
+
+  // Export course summary to CSV
+  const handleExportCourseSummary = () => {
+    try {
+      const headers = [
+        'Course ID',
+        'Course Name',
+        'Program',
+        'Students',
+        'Total Amount (INR)',
+        'Received (INR)',
+        'Outstanding (INR)',
+        'Collection Rate (%)',
+        'Status',
+        'Cohort',
+        'Cohort Students',
+        'Cohort Amount (INR)',
+        'Cohort Received (INR)',
+        'Cohort Outstanding (INR)',
+        'Cohort Rate (%)'
+      ]
+
+      const rows: string[] = []
+      
+      filteredCourseSummary.forEach(course => {
+        const collectionRate = course.amount > 0 ? ((course.received / course.amount) * 100).toFixed(2) : '0.00'
+        const status = course.outstanding === 0 ? 'Complete' : 
+                      collectionRate >= '50' ? 'Partial' : 'Pending'
+        
+        const courseId = course.course.replace(/\s+/g, '').substring(0, 8).toUpperCase()
+        
+        if (course.cohorts && course.cohorts.length > 0) {
+          // Export with cohort breakdown
+          course.cohorts.forEach(cohort => {
+            const cohortRate = cohort.amount > 0 ? ((cohort.received / cohort.amount) * 100).toFixed(2) : '0.00'
+            rows.push([
+              escapeCSV(courseId),
+              escapeCSV(course.course),
+              escapeCSV(course.program),
+              course.students,
+              course.amount,
+              course.received,
+              course.outstanding,
+              collectionRate,
+              status,
+              escapeCSV(cohort.cohort),
+              cohort.students,
+              cohort.amount,
+              cohort.received,
+              cohort.outstanding,
+              cohortRate
+            ].join(','))
+          })
+        } else {
+          // Export without cohort breakdown
+          rows.push([
+            escapeCSV(courseId),
+            escapeCSV(course.course),
+            escapeCSV(course.program),
+            course.students,
+            course.amount,
+            course.received,
+            course.outstanding,
+            collectionRate,
+            status,
+            '', '', '', '', '', ''
+          ].join(','))
+        }
+      })
+
+      const csv = [headers.join(','), ...rows].join('\n')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `course-cohort-summary-${new Date().toISOString().split('T')[0]}.csv`
+      link.click()
+
+      toast({
+        title: "Export Successful",
+        description: `Exported ${filteredCourseSummary.length} courses with cohort details`,
+      })
+    } catch (error) {
+      console.error('Export error:', error)
+      toast({
+        title: "Export Failed",
+        description: "Failed to export course summary",
+        variant: "destructive"
+      })
+    }
+  }
 
   // Auto-refresh handled centrally inside usePaymentLogic now
 
@@ -285,7 +438,174 @@ export default function PaymentStatusPage() {
         {/* Course & Cohort tab: course-wise summary with cohort breakdown */}
         {activeTab === 'CourseCohort' && (
           <div className="space-y-4">
-            <CourseWiseSummary coursePayments={courseSummaryWithCohorts} />
+            {/* Summary Statistics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-purple-600 font-medium">Total Courses</p>
+                      <p className="text-2xl font-bold text-purple-900">{filteredCourseSummary.length}</p>
+                    </div>
+                    <div className="bg-purple-200 p-3 rounded-full">
+                      <FileText className="h-6 w-6 text-purple-700" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-blue-600 font-medium">Total Students</p>
+                      <p className="text-2xl font-bold text-blue-900">
+                        {filteredCourseSummary.reduce((sum, c) => sum + c.students, 0)}
+                      </p>
+                    </div>
+                    <div className="bg-blue-200 p-3 rounded-full">
+                      <svg className="h-6 w-6 text-blue-700" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                      </svg>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-green-600 font-medium">Total Received</p>
+                      <p className="text-2xl font-bold text-green-900">
+                        ₹{new Intl.NumberFormat('en-IN').format(filteredCourseSummary.reduce((sum, c) => sum + c.received, 0))}
+                      </p>
+                    </div>
+                    <div className="bg-green-200 p-3 rounded-full">
+                      <svg className="h-6 w-6 text-green-700" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-red-600 font-medium">Outstanding</p>
+                      <p className="text-2xl font-bold text-red-900">
+                        ₹{new Intl.NumberFormat('en-IN').format(filteredCourseSummary.reduce((sum, c) => sum + c.outstanding, 0))}
+                      </p>
+                    </div>
+                    <div className="bg-red-200 p-3 rounded-full">
+                      <svg className="h-6 w-6 text-red-700" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Search, Filter, Sort, and Export Bar */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                  {/* Search */}
+                  <div className="flex-1 w-full md:w-auto">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search by course name or program..."
+                        value={courseSearch}
+                        onChange={(e) => setCourseSearch(e.target.value)}
+                        className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                      <svg
+                        className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                      {courseSearch && (
+                        <button
+                          onClick={() => setCourseSearch('')}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          title="Clear search"
+                        >
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Sort Controls */}
+                  <div className="flex gap-2 items-center">
+                    <label className="text-sm text-gray-600 whitespace-nowrap">Sort by:</label>
+                    <select
+                      value={courseSortBy}
+                      onChange={(e) => setCourseSortBy(e.target.value as any)}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                    >
+                      <option value="name">Course Name</option>
+                      <option value="students">Students</option>
+                      <option value="amount">Total Amount</option>
+                      <option value="received">Received</option>
+                      <option value="outstanding">Outstanding</option>
+                      <option value="rate">Collection Rate</option>
+                    </select>
+
+                    <button
+                      onClick={() => setCourseSortOrder(courseSortOrder === 'asc' ? 'desc' : 'asc')}
+                      className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      title={courseSortOrder === 'asc' ? 'Sort Descending' : 'Sort Ascending'}
+                    >
+                      {courseSortOrder === 'asc' ? (
+                        <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        </svg>
+                      ) : (
+                        <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      )}
+                    </button>
+
+                    {/* Export Button */}
+                    <Button
+                      onClick={handleExportCourseSummary}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      title="Export to CSV"
+                    >
+                      <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Export
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Results count */}
+                <div className="mt-3 text-sm text-gray-600">
+                  Showing {filteredCourseSummary.length} of {courseSummaryWithCohorts.length} courses
+                  {courseSearch && ` (filtered by "${courseSearch}")`}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Course Summary Table */}
+            <CourseWiseSummary coursePayments={filteredCourseSummary} />
           </div>
         )}
 
