@@ -383,10 +383,28 @@ export function usePaymentLogic() {
 
           // Enrich payment data with cohort IDs
           const enrichedData = result.data.map((record: any) => {
-            const cohortName = record.cohort || ''
-            const cohortId = cohortName ? cohortNameToIdMap.get(cohortName.toLowerCase()) : undefined
+            let cohortName = ''
+            let cohortId: string | undefined = undefined
+            
+            if (record.cohort && typeof record.cohort === 'string') {
+              const cohortStr = record.cohort.trim()
+              if (cohortStr) {
+                // Check if cohort has format "ID - Name" or "ID-Name"
+                const dashMatch = cohortStr.match(/^([A-Z0-9]+)\s*-\s*(.+)$/)
+                if (dashMatch) {
+                  cohortId = dashMatch[1]
+                  cohortName = dashMatch[2].trim()
+                } else {
+                  // Try to lookup in cohorts collection
+                  cohortName = cohortStr
+                  cohortId = cohortNameToIdMap.get(cohortStr.toLowerCase())
+                }
+              }
+            }
+            
             return {
               ...record,
+              cohort: cohortName,
               cohortId: cohortId
             }
           })
@@ -517,9 +535,26 @@ export function usePaymentLogic() {
                 ? `Payment reminder for ${courseName}. Amount due: ₹${balance}.${nextPaymentDate ? ` Due date: ${nextPaymentDate.toLocaleDateString()}.` : ''} Please complete your payment.`
                 : `Payment for ${courseName} is complete. Thank you!`
 
-              // Lookup cohort ID from cohort name (only if student has cohort)
-              const cohortName = student.cohort || ''
-              const cohortId = cohortName ? cohortNameToIdMap.get(cohortName.toLowerCase()) : undefined
+              // Extract cohort ID and name from student cohort field
+              // Cohort might be stored as "COHORTID - Name" or just the ID or just the name
+              let cohortName = ''
+              let cohortId: string | undefined = undefined
+              
+              if (student.cohort && typeof student.cohort === 'string') {
+                const cohortStr = student.cohort.trim()
+                if (cohortStr) {
+                  // Check if cohort has format "ID - Name" or "ID-Name"
+                  const dashMatch = cohortStr.match(/^([A-Z0-9]+)\s*-\s*(.+)$/)
+                  if (dashMatch) {
+                    cohortId = dashMatch[1]
+                    cohortName = dashMatch[2].trim()
+                  } else {
+                    // Try to lookup in cohorts collection
+                    cohortName = cohortStr
+                    cohortId = cohortNameToIdMap.get(cohortStr.toLowerCase())
+                  }
+                }
+              }
 
               return {
                 id: student.studentId || student._id || `STU${Date.now()}`,
@@ -529,7 +564,7 @@ export function usePaymentLogic() {
                 program: student.program || student.course || courseName,
                 category: student.category || '-',
                 courseType: matchedCourse?.type || student.courseType || '-',
-                cohort: cohortName || '',
+                cohort: cohortName,
                 cohortId: cohortId,
                 batch: student.batch || 'Morning Batch',
                 instructor: student.instructor || matchedCourse?.instructor || 'TBD',
