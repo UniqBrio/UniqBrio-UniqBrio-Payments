@@ -6,6 +6,7 @@ import { PaymentRecord } from '@/components/payments/components/payment-types'
 
 export interface CohortPayment {
   cohort: string
+  cohortId?: string
   students: number
   amount: number
   received: number
@@ -414,6 +415,7 @@ export function generateCourseWiseSummaryWithProperIDs(
 
     // Group by cohort within this course
     const cohortMap = new Map<string, {
+      cohortId?: string
       students: number
       amount: number
       received: number
@@ -423,9 +425,10 @@ export function generateCourseWiseSummaryWithProperIDs(
     courseRecords.forEach(record => {
       const cohortNameFromRecord = record.cohort || 'Unassigned'
       
-      // Try to find proper cohort name from database
+      // Try to find proper cohort name and ID from database
       const cohortFromDB = cohortNameToCohortMap.get(cohortNameFromRecord.toLowerCase())
       const cohortName = cohortFromDB?.name || cohortNameFromRecord
+      const cohortId = cohortFromDB?.cohortId
       
       // Calculate registration fees
       const registrationTotal = 
@@ -444,6 +447,7 @@ export function generateCourseWiseSummaryWithProperIDs(
       // Update cohort data
       if (!cohortMap.has(cohortName)) {
         cohortMap.set(cohortName, {
+          cohortId: cohortId,
           students: 0,
           amount: 0,
           received: 0,
@@ -464,6 +468,7 @@ export function generateCourseWiseSummaryWithProperIDs(
       .forEach(cohort => {
         if (!cohortMap.has(cohort.name)) {
           cohortMap.set(cohort.name, {
+            cohortId: cohort.cohortId,
             students: 0,
             amount: 0,
             received: 0,
@@ -476,6 +481,7 @@ export function generateCourseWiseSummaryWithProperIDs(
     const cohorts: CohortPayment[] = Array.from(cohortMap.entries())
       .map(([cohortName, data]) => ({
         cohort: cohortName,
+        cohortId: data.cohortId,
         students: data.students,
         amount: data.amount,
         received: data.received,

@@ -9,6 +9,7 @@ import { BookOpen, Users, AlertTriangle, ChevronDown, ChevronRight } from "lucid
 
 interface CohortPayment {
   cohort: string
+  cohortId?: string
   students: number
   amount: number
   received: number
@@ -170,6 +171,7 @@ export function CourseWiseSummary({ coursePayments }: CourseWiseSummaryProps) {
                             <Table>
                               <TableHeader>
                                 <TableRow className="border-b bg-purple-100/50">
+                                  <TableHead className="font-semibold text-xs p-2 text-left text-purple-700">Cohort ID</TableHead>
                                   <TableHead className="font-semibold text-xs p-2 text-left text-purple-700">Cohort</TableHead>
                                   <TableHead className="font-semibold text-xs p-2 text-center text-purple-700">Students</TableHead>
                                   <TableHead className="font-semibold text-xs p-2 text-center text-purple-700">Total Amount (INR)</TableHead>
@@ -186,6 +188,9 @@ export function CourseWiseSummary({ coursePayments }: CourseWiseSummaryProps) {
                                       key={cohort.cohort}
                                       className={`${cohortIndex % 2 === 0 ? "bg-white" : "bg-purple-50/30"}`}
                                     >
+                                      <TableCell className="text-xs p-2 text-left font-medium text-purple-600">
+                                        {cohort.cohortId || '-'}
+                                      </TableCell>
                                       <TableCell className="text-xs p-2 text-left font-medium text-purple-900">
                                         {cohort.cohort || 'Unassigned'}
                                       </TableCell>
