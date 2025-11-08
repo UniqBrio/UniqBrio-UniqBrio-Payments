@@ -338,10 +338,28 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )}
       {isColumnVisible('program') && (
-        <TableCell className="text-sm p-3 text-center w-[180px]">{record.program || 'N/A'}</TableCell>
+        <TableCell className="text-sm p-3 text-center w-[220px]">
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="font-medium text-purple-600 text-xs">
+              {(record as any).matchedCourseId || record.enrolledCourse || record.activity || '-'}
+            </span>
+            <span className="text-gray-700">
+              {record.program || record.enrolledCourse || record.activity || 'N/A'}
+            </span>
+          </div>
+        </TableCell>
       )}
-      {isColumnVisible('course') && (
-        <TableCell className="text-sm p-3 text-center w-[160px]">{record.enrolledCourse || record.activity}</TableCell>
+      {isColumnVisible('cohort') && (
+        <TableCell className="text-sm p-3 text-center w-[220px]">
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="font-medium text-purple-600 text-xs">
+              {(record as any).cohortId || '-'}
+            </span>
+            <span className="text-gray-700">
+              {record.cohort || 'Unassigned'}
+            </span>
+          </div>
+        </TableCell>
       )}
       {isColumnVisible('courseType') && (
         <TableCell className="text-sm p-3 text-center w-[140px]">

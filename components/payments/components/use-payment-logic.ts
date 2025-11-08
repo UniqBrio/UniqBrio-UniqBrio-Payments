@@ -72,8 +72,8 @@ export function usePaymentLogic() {
   const DEFAULT_COLUMNS: ColumnConfig[] = [
     { key: 'id', label: 'Student ID', visible: true },
     { key: 'name', label: 'Student Name', visible: true },
-    { key: 'program', label: 'Student Course', visible: true },
-    { key: 'course', label: 'Student Course ID', visible: false },
+    { key: 'program', label: 'Enrolled Course', visible: true },
+    { key: 'cohort', label: 'Cohort', visible: true },
     { key: 'category', label: 'Student Category', visible: true },
     { key: 'courseType', label: 'Course Type', visible: true },
     { key: 'courseRegFee', label: 'Course Reg Fee', visible: true },
@@ -375,15 +375,31 @@ export function usePaymentLogic() {
           if (result.success && Array.isArray(result.data) && result.data.length > 0) {
             // Fetch courses once for triple-rule matching (activity, course, category)
             let courses: any[] = []
+            let cohorts: any[] = []
             try {
-              const coursesResp = await fetch('/api/courses', { cache: 'no-store' })
+              const [coursesResp, cohortsResp] = await Promise.all([
+                fetch('/api/courses', { cache: 'no-store' }),
+                fetch('/api/cohorts', { cache: 'no-store' })
+              ])
               if (coursesResp.ok) {
                 const cJson = await coursesResp.json()
                 courses = Array.isArray(cJson.data) ? cJson.data : []
               }
+              if (cohortsResp.ok) {
+                const cohJson = await cohortsResp.json()
+                cohorts = Array.isArray(cohJson.data) ? cohJson.data : []
+              }
             } catch (_) {
               // silently ignore
             }
+
+            // Create cohort lookup map
+            const cohortNameToIdMap = new Map<string, string>()
+            cohorts.forEach((cohort: any) => {
+              if (cohort.name) {
+                cohortNameToIdMap.set(cohort.name.toLowerCase(), cohort.cohortId)
+              }
+            })
 
             const paymentRecords = await Promise.all(result.data.map(async (student: any) => {
               // Improved course matching (frontend fallback ONLY when sync API failed)
@@ -471,6 +487,10 @@ export function usePaymentLogic() {
                 ? `Payment reminder for ${courseName}. Amount due: ₹${balance}.${nextPaymentDate ? ` Due date: ${nextPaymentDate.toLocaleDateString()}.` : ''} Please complete your payment.`
                 : `Payment for ${courseName} is complete. Thank you!`
 
+              // Lookup cohort ID from cohort name
+              const cohortName = student.cohort || `${courseName.replace(/\s+/g, '')}_${new Date().getFullYear()}_Batch01`
+              const cohortId = cohortName ? cohortNameToIdMap.get(cohortName.toLowerCase()) : undefined
+
               return {
                 id: student.studentId || student._id || `STU${Date.now()}`,
                 name: student.name || 'Unknown Student',
@@ -479,7 +499,8 @@ export function usePaymentLogic() {
                 program: student.program || student.course || courseName,
                 category: student.category || '-',
                 courseType: matchedCourse?.type || student.courseType || '-',
-                cohort: student.cohort || `${courseName.replace(/\s+/g, '')}_${new Date().getFullYear()}_Batch01`,
+                cohort: cohortName,
+                cohortId: cohortId,
                 batch: student.batch || 'Morning Batch',
                 instructor: student.instructor || matchedCourse?.instructor || 'TBD',
                 classSchedule: student.classSchedule || 'Mon-Wed-Fri 10:00-12:00',

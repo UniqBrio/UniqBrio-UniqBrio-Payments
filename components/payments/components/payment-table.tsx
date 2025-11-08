@@ -68,7 +68,9 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord,
         title: 'Course',
         fields: [
           { label: 'Enrolled Course', value: r.program || r.enrolledCourse || r.activity || 'N/A' },
-          { label: 'Enrolled Course ID', value: r.enrolledCourse || r.activity || r.matchedCourseId || '-' },
+          { label: 'Enrolled Course ID', value: (r as any).matchedCourseId || r.enrolledCourse || r.activity || '-' },
+          { label: 'Cohort', value: r.cohort || 'Unassigned' },
+          { label: 'Cohort ID', value: (r as any).cohortId || '-' },
           { label: 'Course Type', value: r.courseType || '-' },
         ],
       },
@@ -116,8 +118,8 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord,
                 )}
                 {isColumnVisible('name') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap w-[180px] text-center">Student Name</TableHead>}
                 {isColumnVisible('category') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap w-[140px] text-center">Student Category</TableHead>}
-                {isColumnVisible('program') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap w-[180px] text-center">Enrolled Course</TableHead>}
-                {isColumnVisible('course') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap w-[160px] text-center">Enrolled CourseId</TableHead>}
+                {isColumnVisible('program') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap w-[220px] text-center">Enrolled Course</TableHead>}
+                {isColumnVisible('cohort') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap w-[220px] text-center">Cohort</TableHead>}
                 {isColumnVisible('courseType') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap w-[140px] text-center">Course Type</TableHead>}
                 {isColumnVisible('courseRegFee') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap w-[150px] text-center">Course Reg Fee</TableHead>}
                 {isColumnVisible('studentRegFee') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap w-[160px] text-center">Student Reg Fee</TableHead>}
