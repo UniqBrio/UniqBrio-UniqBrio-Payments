@@ -361,8 +361,38 @@ export function usePaymentLogic() {
         let result = await response.json()
         
         if (result.success && Array.isArray(result.data) && result.data.length > 0 && !result.fallback) {
+          // Fetch cohorts to enrich the payment data with cohort IDs
+          let cohorts: any[] = []
+          try {
+            const cohortsResp = await fetch('/api/cohorts', { cache: 'no-store' })
+            if (cohortsResp.ok) {
+              const cohJson = await cohortsResp.json()
+              cohorts = Array.isArray(cohJson.data) ? cohJson.data : []
+            }
+          } catch (_) {
+            // silently ignore
+          }
+
+          // Create cohort lookup map
+          const cohortNameToIdMap = new Map<string, string>()
+          cohorts.forEach((cohort: any) => {
+            if (cohort.name) {
+              cohortNameToIdMap.set(cohort.name.toLowerCase(), cohort.cohortId)
+            }
+          })
+
+          // Enrich payment data with cohort IDs
+          const enrichedData = result.data.map((record: any) => {
+            const cohortName = record.cohort || ''
+            const cohortId = cohortName ? cohortNameToIdMap.get(cohortName.toLowerCase()) : undefined
+            return {
+              ...record,
+              cohortId: cohortId
+            }
+          })
+
           // Use synchronized data from payments collection when we have real data
-          const stable = isLikelyDegraded(result.data, records) ? records : reconcileStableData(result.data, records)
+          const stable = isLikelyDegraded(enrichedData, records) ? records : reconcileStableData(enrichedData, records)
           setRecords(stable)
           setError(null)
           setHasLoadedOnce(true)
@@ -487,8 +517,8 @@ export function usePaymentLogic() {
                 ? `Payment reminder for ${courseName}. Amount due: ₹${balance}.${nextPaymentDate ? ` Due date: ${nextPaymentDate.toLocaleDateString()}.` : ''} Please complete your payment.`
                 : `Payment for ${courseName} is complete. Thank you!`
 
-              // Lookup cohort ID from cohort name
-              const cohortName = student.cohort || `${courseName.replace(/\s+/g, '')}_${new Date().getFullYear()}_Batch01`
+              // Lookup cohort ID from cohort name (only if student has cohort)
+              const cohortName = student.cohort || ''
               const cohortId = cohortName ? cohortNameToIdMap.get(cohortName.toLowerCase()) : undefined
 
               return {
@@ -499,7 +529,7 @@ export function usePaymentLogic() {
                 program: student.program || student.course || courseName,
                 category: student.category || '-',
                 courseType: matchedCourse?.type || student.courseType || '-',
-                cohort: cohortName,
+                cohort: cohortName || '',
                 cohortId: cohortId,
                 batch: student.batch || 'Morning Batch',
                 instructor: student.instructor || matchedCourse?.instructor || 'TBD',
