@@ -382,6 +382,7 @@ export function usePaymentLogic() {
           })
 
           // Enrich payment data with cohort names from cohort IDs
+          // Communication preferences are already in the payment records from sync API
           const enrichedData = result.data.map((record: any) => {
             const cohortId = record.cohortId || ''
             let cohortName = ''
@@ -394,7 +395,11 @@ export function usePaymentLogic() {
             return {
               ...record,
               cohort: cohortName,
-              cohortId: cohortId
+              cohortId: cohortId,
+              // Preserve communication preferences from sync API
+              communicationChannels: record.communicationPreferences?.enabled && record.communicationPreferences?.channels 
+                ? record.communicationPreferences.channels 
+                : []
             }
           })
 
@@ -741,6 +746,51 @@ export function usePaymentLogic() {
             }
           } catch (_) {}
 
+          // Fetch cohorts to enrich with cohort names
+          let cohorts: any[] = []
+          try {
+            const cohortsResp = await fetch('/api/cohorts', { cache: 'no-store' })
+            if (cohortsResp.ok) {
+              const cohJson = await cohortsResp.json()
+              cohorts = Array.isArray(cohJson.data) ? cohJson.data : []
+            }
+          } catch (_) {}
+
+          // Create cohort lookup map
+          const cohortIdToObjMap = new Map<string, any>()
+          cohorts.forEach((cohort: any) => {
+            if (cohort.cohortId) {
+              cohortIdToObjMap.set(cohort.cohortId, cohort)
+            }
+          })
+
+          // Batch fetch communication preferences for all students
+          const commPrefsMap = new Map<string, string[]>()
+          try {
+            const studentIds = result.data.map((s: any) => s.studentId).filter(Boolean)
+            if (studentIds.length > 0) {
+              // Fetch communication preferences for all students in parallel
+              const commPrefsResults = await Promise.all(
+                studentIds.map(async (studentId: string) => {
+                  try {
+                    const resp = await fetch(`/api/students/communication-preferences?studentId=${studentId}`, { cache: 'no-store' })
+                    if (resp.ok) {
+                      const data = await resp.json()
+                      return { studentId, channels: data.channels || [] }
+                    }
+                  } catch (_) {}
+                  return { studentId, channels: [] }
+                })
+              )
+              // Build map for quick lookup
+              commPrefsResults.forEach(({ studentId, channels }) => {
+                commPrefsMap.set(studentId, channels)
+              })
+            }
+          } catch (_) {
+            // If batch fetch fails, continue without communication preferences
+          }
+
           const paymentRecords = await Promise.all(result.data.map(async (student: any) => {
             // Find payment document for this student to respect manual settings
             const paymentDoc = paymentDocs.find(p => p.studentId === student.studentId)
@@ -815,6 +865,18 @@ export function usePaymentLogic() {
               }
             }
 
+            // Get cohort data from student
+            const cohortId = student.cohortId || ''
+            let cohortName = ''
+            
+            if (cohortId) {
+              const cohortFromDB = cohortIdToObjMap.get(cohortId)
+              cohortName = cohortFromDB?.name || ''
+            }
+
+            // Get communication preferences from batch fetch
+            const communicationChannels = commPrefsMap.get(student.studentId) || []
+
             return {
               id: student.studentId,
               name: student.name,
@@ -823,7 +885,8 @@ export function usePaymentLogic() {
               program: student.program || student.course || 'General Course',
               category: student.category || student.level || '-',
               courseType: matchedCourse?.type || student.courseType || student.type || '-',
-              cohort: student.cohort || `${student.course}_${new Date().getFullYear()}_Batch01`,
+              cohort: cohortName,
+              cohortId: cohortId,
               paymentStatus,
               totalPaidAmount: totalPaid,
               finalPayment,
@@ -836,9 +899,10 @@ export function usePaymentLogic() {
                 : (balance > 0), // Default: Reminder on if balance > 0
               communicationText: student.communicationText || 'Payment reminder sent.',
               communicationPreferences: {
-                enabled: true,
-                channels: ['Email']
+                enabled: communicationChannels.length > 0,
+                channels: communicationChannels.length > 0 ? communicationChannels : ['Email']
               },
+              communicationChannels: communicationChannels,
               paymentDetails: {
                 upiId: student.upiId || 'payments@uniqbrio.com',
                 phoneNumber: student.phoneNumber || '+91 98765 43210'

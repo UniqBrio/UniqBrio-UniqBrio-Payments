@@ -140,7 +140,16 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
   const [emailPreviewOpen, setEmailPreviewOpen] = useState(false)
   const [reminderPreviewOpen, setReminderPreviewOpen] = useState(false)
   const [generatedQR, setGeneratedQR] = useState<string>('')
-  const [communicationChannels, setCommunicationChannels] = useState<string[] | null>(null)
+  
+  // Use communication channels from record prop (batch fetched at parent level)
+  const [communicationChannels, setCommunicationChannels] = useState<string[]>(
+    record.communicationChannels || []
+  )
+
+  // Update when record changes
+  useEffect(() => {
+    setCommunicationChannels(record.communicationChannels || [])
+  }, [record.communicationChannels])
 
   // Registration fees summary for totals
   const regSummary = getRegistrationSummary(record.registrationFees);
@@ -213,33 +222,6 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
       generateQR()
     }
   }, [qrCodeOpen, record.paymentDetails?.upiId, record.balancePayment, record.activity])
-
-  // Fetch communication preferences for this student
-  useEffect(() => {
-    const fetchCommunicationPreferences = async () => {
-      if (!record.id) return
-      
-      try {
-        const response = await fetch(`/api/students/communication-preferences?studentId=${encodeURIComponent(record.id)}`)
-        
-        if (response.ok) {
-          const data = await response.json()
-          if (data.communicationPreferences?.enabled && data.communicationPreferences?.channels) {
-            setCommunicationChannels(data.communicationPreferences.channels)
-          } else {
-            setCommunicationChannels([]) // No channels or disabled
-          }
-        } else {
-          setCommunicationChannels([]) // Failed to fetch, default to no channels
-        }
-      } catch (error) {
-        // Console message removed
-        setCommunicationChannels([]) // Error, default to no channels
-      }
-    }
-
-    fetchCommunicationPreferences()
-  }, [record.id])
 
   const formatDate = (dateString: string | null) => {
     if (!dateString || dateString === 'N/A') return "-"

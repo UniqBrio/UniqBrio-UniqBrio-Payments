@@ -7,6 +7,7 @@ export interface PaymentRecord {
   category: string
   courseType: "Individual" | "Group" | "Online" | "Hybrid" | "-"
   cohort?: string
+  cohortId?: string  // Cohort ID from database
   batch?: string
   instructor?: string
   classSchedule?: string
@@ -23,6 +24,7 @@ export interface PaymentRecord {
     enabled: boolean
     channels: ("SMS" | "Email" | "WhatsApp" | "In App" | "Push Notification")[]
   }
+  communicationChannels?: string[]  // Batch-fetched communication channels for optimization
   paymentDetails: {
     qrCode?: string
     upiId?: string
