@@ -373,33 +373,22 @@ export function usePaymentLogic() {
             // silently ignore
           }
 
-          // Create cohort lookup map
-          const cohortNameToIdMap = new Map<string, string>()
+          // Create cohort lookup map by cohortId
+          const cohortIdToObjMap = new Map<string, any>()
           cohorts.forEach((cohort: any) => {
-            if (cohort.name) {
-              cohortNameToIdMap.set(cohort.name.toLowerCase(), cohort.cohortId)
+            if (cohort.cohortId) {
+              cohortIdToObjMap.set(cohort.cohortId, cohort)
             }
           })
 
-          // Enrich payment data with cohort IDs
+          // Enrich payment data with cohort names from cohort IDs
           const enrichedData = result.data.map((record: any) => {
+            const cohortId = record.cohortId || ''
             let cohortName = ''
-            let cohortId: string | undefined = undefined
             
-            if (record.cohort && typeof record.cohort === 'string') {
-              const cohortStr = record.cohort.trim()
-              if (cohortStr) {
-                // Check if cohort has format "ID - Name" or "ID-Name"
-                const dashMatch = cohortStr.match(/^([A-Z0-9]+)\s*-\s*(.+)$/)
-                if (dashMatch) {
-                  cohortId = dashMatch[1]
-                  cohortName = dashMatch[2].trim()
-                } else {
-                  // Try to lookup in cohorts collection
-                  cohortName = cohortStr
-                  cohortId = cohortNameToIdMap.get(cohortStr.toLowerCase())
-                }
-              }
+            if (cohortId) {
+              const cohortFromDB = cohortIdToObjMap.get(cohortId)
+              cohortName = cohortFromDB?.name || ''
             }
             
             return {
@@ -440,14 +429,6 @@ export function usePaymentLogic() {
             } catch (_) {
               // silently ignore
             }
-
-            // Create cohort lookup map
-            const cohortNameToIdMap = new Map<string, string>()
-            cohorts.forEach((cohort: any) => {
-              if (cohort.name) {
-                cohortNameToIdMap.set(cohort.name.toLowerCase(), cohort.cohortId)
-              }
-            })
 
             const paymentRecords = await Promise.all(result.data.map(async (student: any) => {
               // Improved course matching (frontend fallback ONLY when sync API failed)
@@ -535,25 +516,14 @@ export function usePaymentLogic() {
                 ? `Payment reminder for ${courseName}. Amount due: ₹${balance}.${nextPaymentDate ? ` Due date: ${nextPaymentDate.toLocaleDateString()}.` : ''} Please complete your payment.`
                 : `Payment for ${courseName} is complete. Thank you!`
 
-              // Extract cohort ID and name from student cohort field
-              // Cohort might be stored as "COHORTID - Name" or just the ID or just the name
-              let cohortName = ''
-              let cohortId: string | undefined = undefined
+              // Get cohort ID directly from student record
+              const cohortId = student.cohortId || ''
               
-              if (student.cohort && typeof student.cohort === 'string') {
-                const cohortStr = student.cohort.trim()
-                if (cohortStr) {
-                  // Check if cohort has format "ID - Name" or "ID-Name"
-                  const dashMatch = cohortStr.match(/^([A-Z0-9]+)\s*-\s*(.+)$/)
-                  if (dashMatch) {
-                    cohortId = dashMatch[1]
-                    cohortName = dashMatch[2].trim()
-                  } else {
-                    // Try to lookup in cohorts collection
-                    cohortName = cohortStr
-                    cohortId = cohortNameToIdMap.get(cohortStr.toLowerCase())
-                  }
-                }
+              // Get cohort name from cohorts collection using cohortId
+              let cohortName = ''
+              if (cohortId) {
+                const cohortFromDB = cohorts.find((c: any) => c.cohortId === cohortId)
+                cohortName = cohortFromDB?.name || ''
               }
 
               return {
