@@ -361,34 +361,13 @@ export function usePaymentLogic() {
         let result = await response.json()
         
         if (result.success && Array.isArray(result.data) && result.data.length > 0 && !result.fallback) {
-          // Enrich payment data with parsed cohort information
-          // Communication preferences are already in the payment records from sync API
-          const enrichedData = result.data.map((record: any) => {
-            // Parse cohort field (format: "COHORTID - Name")
-            const cohortField = record.cohort || ''
-            let cohortId = ''
-            let cohortName = ''
-            
-            if (cohortField && cohortField.includes(' - ')) {
-              const parts = cohortField.split(' - ')
-              cohortId = parts[0].trim()
-              cohortName = parts.slice(1).join(' - ').trim()
-            } else if (cohortField) {
-              // If no separator, use the whole string as both ID and name
-              cohortId = cohortField
-              cohortName = cohortField
-            }
-            
-            return {
-              ...record,
-              cohort: cohortName,
-              cohortId: cohortId,
-              // Preserve communication preferences from sync API
-              communicationChannels: record.communicationPreferences?.enabled && record.communicationPreferences?.channels 
-                ? record.communicationPreferences.channels 
-                : []
-            }
-          })
+          // Sync API already provides cohortId & cohort; just ensure communication channels array is present
+          const enrichedData = result.data.map((record: any) => ({
+            ...record,
+            communicationChannels: record.communicationPreferences?.enabled && record.communicationPreferences?.channels
+              ? record.communicationPreferences.channels
+              : []
+          }))
 
           // Use synchronized data from payments collection when we have real data
           const stable = isLikelyDegraded(enrichedData, records) ? records : reconcileStableData(enrichedData, records)
@@ -835,18 +814,30 @@ export function usePaymentLogic() {
             }
 
             // Get cohort data from student.cohort field (format: "COHORTID - Name")
-            const cohortField = student.cohort || ''
-            let cohortId = ''
-            let cohortName = ''
+            const cohortDetails = student.cohortDetails || student.cohortInfo || {}
+            const rawCohortId = (student.cohortId || student.cohortID || cohortDetails.id || cohortDetails.cohortId || '').toString().trim()
+            const rawCohortName = (student.cohortName || student.cohortLabel || cohortDetails.name || cohortDetails.cohortName || '').toString().trim()
+            const cohortField = (student.cohort || '').toString()
+            let cohortId = rawCohortId
+            let cohortName = rawCohortName
             
-            if (cohortField && cohortField.includes(' - ')) {
-              const parts = cohortField.split(' - ')
-              cohortId = parts[0].trim()
-              cohortName = parts.slice(1).join(' - ').trim()
-            } else if (cohortField) {
-              // If no separator, use the whole string as both ID and name
-              cohortId = cohortField
-              cohortName = cohortField
+            if (!cohortId || !cohortName) {
+              if (cohortField && cohortField.includes(' - ')) {
+                const parts = cohortField.split(' - ')
+                cohortId = cohortId || parts[0].trim()
+                cohortName = cohortName || parts.slice(1).join(' - ').trim()
+              } else if (cohortField) {
+                cohortId = cohortId || cohortField.trim()
+                cohortName = cohortName || cohortField.trim()
+              }
+            }
+
+            if (!cohortName && student.batch) {
+              cohortName = student.batch.toString().trim()
+            }
+
+            if (!cohortId && cohortName) {
+              cohortId = cohortName
             }
 
             // Get communication preferences from batch fetch
@@ -860,7 +851,7 @@ export function usePaymentLogic() {
               program: student.program || student.course || 'General Course',
               category: student.category || student.level || '-',
               courseType: matchedCourse?.type || student.courseType || student.type || '-',
-              cohort: cohortName,
+              cohort: cohortName || 'Unassigned',
               cohortId: cohortId,
               paymentStatus,
               totalPaidAmount: totalPaid,

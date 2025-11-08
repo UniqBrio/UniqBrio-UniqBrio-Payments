@@ -306,11 +306,34 @@ export async function GET(request: NextRequest) {
         ? studentCoursePaymentDoc.registrationFees
         : normalizeRegistrationFees((student as any).registrationFees);
 
+  const cohortDetails = (student as any).cohortDetails || (student as any).cohortInfo || {};
+  const rawCohortId = ((student as any).cohortId ?? (student as any).cohortID ?? cohortDetails.id ?? cohortDetails.cohortId ?? '').toString().trim();
+  const rawCohortName = ((student as any).cohortName ?? (student as any).cohortLabel ?? cohortDetails.name ?? cohortDetails.cohortName ?? '').toString().trim();
+      const rawCohortField = ((student as any).cohort ?? '').toString();
+      const deriveFromComposite = (value: string) => {
+        if (!value) return { id: '', name: '' };
+        if (value.includes(' - ')) {
+          const parts = value.split(' - ');
+          return { id: parts[0].trim(), name: parts.slice(1).join(' - ').trim() };
+        }
+        return { id: value.trim(), name: value.trim() };
+      };
+      const composite = deriveFromComposite(rawCohortField);
+      const resolvedCohortId = rawCohortId || composite.id;
+      let resolvedCohortName = rawCohortName || composite.name;
+      if (!resolvedCohortName && (student as any).batch) {
+        resolvedCohortName = ((student as any).batch).toString().trim();
+      }
+      const finalCohortId = resolvedCohortId || resolvedCohortName || '';
+
+
       const studentResult = {
         id: student.studentId,
         name: (student as any).name || 'Unknown',
         activity: studentActivity || 'N/A',
         enrolledCourse: (student as any).enrolledCourse || (student as any).activity || 'N/A',
+        cohortId: finalCohortId,
+        cohort: resolvedCohortName || 'Unassigned',
   // Enrolled Course column should display the human-readable name from students.enrolledCourseName
   program: studentProgram || 'N/A', 
         category: studentCategory, // Category or level
