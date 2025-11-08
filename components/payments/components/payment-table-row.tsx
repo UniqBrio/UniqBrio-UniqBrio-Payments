@@ -314,7 +314,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         }}
       >
       {selectable && (
-        <TableCell className="p-3 w-8 text-center">
+        <TableCell className="p-3 w-[50px] text-center">
           <input
             type="checkbox"
             checked={!!selected}
@@ -325,55 +325,55 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )}
       {isColumnVisible('id') && (
-        <TableCell className="font-medium text-sm p-3 text-center">{record.id}</TableCell>
+        <TableCell className="font-medium text-sm p-3 text-center w-[120px]">{record.id}</TableCell>
       )}
       {isColumnVisible('name') && (
-        <TableCell className="text-sm p-3 text-center">{record.name}</TableCell>
+        <TableCell className="text-sm p-3 text-center w-[180px]">{record.name}</TableCell>
       )}
       {isColumnVisible('category') && (
-        <TableCell className="text-sm p-3 text-center">
+        <TableCell className="text-sm p-3 text-center w-[140px]">
           <Badge variant="outline" className="text-sm border-purple-200">
             {record.category}
           </Badge>
         </TableCell>
       )}
       {isColumnVisible('program') && (
-        <TableCell className="text-sm p-3 text-center">{record.program || 'N/A'}</TableCell>
+        <TableCell className="text-sm p-3 text-center w-[180px]">{record.program || 'N/A'}</TableCell>
       )}
       {isColumnVisible('course') && (
-        <TableCell className="text-sm p-3 text-center">{record.enrolledCourse || record.activity}</TableCell>
+        <TableCell className="text-sm p-3 text-center w-[160px]">{record.enrolledCourse || record.activity}</TableCell>
       )}
       {isColumnVisible('courseType') && (
-        <TableCell className="text-sm p-3 text-center">
+        <TableCell className="text-sm p-3 text-center w-[140px]">
           <Badge variant="secondary" className="text-sm">
             {record.courseType}
           </Badge>
         </TableCell>
       )}
       {isColumnVisible('registration') && (
-        <TableCell className="text-sm p-3 text-center">
+        <TableCell className="text-sm p-3 text-center w-[140px]">
           <RegistrationFeesDisplay record={record} />
         </TableCell>
       )}
       {isColumnVisible('courseRegFee') && (
-        <TableCell className="text-[11px] p-1 font-medium text-center">
+        <TableCell className="text-sm p-3 font-medium text-center w-[150px]">
           {record.registrationFees?.courseRegistration?.amount?.toLocaleString() ?? '-'}
         </TableCell>
       )}
       {isColumnVisible('studentRegFee') && (
-        <TableCell className="text-[11px] p-1 font-medium text-center">
+        <TableCell className="text-sm p-3 font-medium text-center w-[160px]">
           {record.registrationFees?.studentRegistration?.amount?.toLocaleString() ?? '-'}
         </TableCell>
       )}
             {isColumnVisible('finalPayment') && (
-        <TableCell className="text-[11px] p-2 min-w-[120px] text-center">
+        <TableCell className="text-sm p-3 w-[150px] text-center">
           <span className="font-medium">
             {(record.finalPayment || 0).toLocaleString()}
           </span>
         </TableCell>
       )}
       {isColumnVisible('totalPaid') && (
-        <TableCell className="text-[11px] p-1 text-green-600 font-medium text-center">
+        <TableCell className="text-sm p-3 text-green-600 font-medium text-center w-[150px]">
           {/* Show totalPaidAmount from payments collection */}
           {record.totalPaidAmount && record.totalPaidAmount > 0
             ? (record.totalPaidAmount).toLocaleString()
@@ -381,7 +381,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )}
       {isColumnVisible('balance') && (
-        <TableCell className="text-[11px] p-2 min-w-[120px] text-center">
+        <TableCell className="text-sm p-3 w-[150px] text-center">
           <span
             className={overallBalance > 0 ? "text-red-600 font-medium" : "text-green-600"}
             title={`Due: ₹${overallDue.toLocaleString()}\nPaid: ₹${totalPaid.toLocaleString()}\nBalance: ₹${overallBalance.toLocaleString()}`}
@@ -391,11 +391,11 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )}
       {isColumnVisible('status') && (
-        <TableCell className="text-[11px] p-1 text-center">
+        <TableCell className="text-sm p-3 text-center w-[120px]">
           {dynamicStatus === "-" ? (
             <span className="text-gray-400 italic">N/A</span>
           ) : (
-            <Badge className={`text-[11px] ${getStatusColor(dynamicStatus)}`}>
+            <Badge className={`text-sm ${getStatusColor(dynamicStatus)}`}>
               {dynamicStatus}
             </Badge>
           )}
@@ -405,7 +405,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         <TableCell className="text-[11px] p-1">{record.paymentFrequency}</TableCell>
       )} */}
       {isColumnVisible('paidDate') && (
-        <TableCell className="text-[11px] p-1 text-center">
+        <TableCell className="text-sm p-3 text-center w-[140px]">
           {record.paidDate ? (
             <span title={`Raw date: ${record.paidDate}`}>
               {formatDateToDisplay(record.paidDate)}
@@ -447,7 +447,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )} */}
       {isColumnVisible('reminder') && (
-        <TableCell className="text-[11px] p-1 text-center">
+        <TableCell className="text-sm p-3 text-center w-[120px]">
           {(() => {
             // Effective reminder state: default ON when pending (if unset/falsey), OFF when fully paid
             const isPaid = record.paymentStatus === 'Paid' || dynamicStatus === 'Paid' || overallBalance === 0;
@@ -456,7 +456,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
               <Badge
                 role="button"
                 variant={isPaid || !effectiveReminder ? 'secondary' : 'default'}
-                className={`text-[11px] ${!isPaid ? 'cursor-pointer hover:opacity-80' : ''} ${
+                className={`text-sm ${!isPaid ? 'cursor-pointer hover:opacity-80' : ''} ${
                   !isPaid && effectiveReminder ? 'bg-purple-600 text-white border-purple-600 hover:bg-[#9234ea]' : ''
                 } rdd-ignore-row-click`}
                 onClick={async (e) => {
@@ -598,7 +598,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )} */}
       {isColumnVisible('manualPayment') && (
-        <TableCell className="text-sm p-3 text-center">
+        <TableCell className="text-sm p-3 text-center w-[160px]">
           {/* Check if all payment amounts are 0 to show N/A */}
           {(record.finalPayment || 0) === 0 && 
            (record.totalPaidAmount || 0) === 0 && 
@@ -630,7 +630,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )}
       {isColumnVisible('payslip') && (
-        <TableCell className="text-sm p-3 text-center">
+        <TableCell className="text-sm p-3 text-center w-[120px]">
           {(record.totalPaidAmount || 0) === 0 ? (
             <span className="text-gray-400 text-sm">N/A</span>
           ) : (
@@ -647,7 +647,7 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </TableCell>
       )}
       {isColumnVisible('actions') && (
-        <TableCell className="text-sm p-3 text-center">
+        <TableCell className="text-sm p-3 text-center w-[160px]">
           <div className="flex gap-2 justify-center">
             {/* Check if all payment amounts are 0 to show N/A */}
             {(record.finalPayment || 0) === 0 && 

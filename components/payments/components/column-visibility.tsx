@@ -17,6 +17,9 @@ interface ColumnVisibilityProps {
 }
 
 export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityProps) {
+  // Define mandatory columns that cannot be moved to available columns
+  const mandatoryColumns = ['id', 'name', 'totalPaid', 'balance', 'status']
+  
   const [open, setOpen] = useState(false)
   const [availableColumns, setAvailableColumns] = useState<ColumnConfig[]>([])
   const [displayedColumns, setDisplayedColumns] = useState<ColumnConfig[]>([])
@@ -63,9 +66,13 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
   }
 
   const moveToAvailable = () => {
-    const toMove = displayedColumns.filter(col => selectedDisplayed.includes(col.key))
+    // Filter out mandatory columns from the move operation
+    const toMove = displayedColumns.filter(col => 
+      selectedDisplayed.includes(col.key) && !mandatoryColumns.includes(col.key)
+    )
+    if (toMove.length === 0) return
     setAvailableColumns([...availableColumns, ...toMove])
-    setDisplayedColumns(displayedColumns.filter(col => !selectedDisplayed.includes(col.key)))
+    setDisplayedColumns(displayedColumns.filter(col => !toMove.map(c => c.key).includes(col.key)))
     setSelectedDisplayed([])
     setFocusDisplayed(null)
   }
@@ -79,9 +86,11 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
   }
 
   const moveAllToAvailable = () => {
-    if (displayedColumns.length === 0) return
-    setAvailableColumns([...availableColumns, ...displayedColumns])
-    setDisplayedColumns([])
+    // Only move non-mandatory columns
+    const toMove = displayedColumns.filter(col => !mandatoryColumns.includes(col.key))
+    if (toMove.length === 0) return
+    setAvailableColumns([...availableColumns, ...toMove])
+    setDisplayedColumns(displayedColumns.filter(col => mandatoryColumns.includes(col.key)))
     setSelectedDisplayed([])
     setFocusDisplayed(null)
   }
@@ -488,22 +497,30 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
                   {displayedColumns.map((column, idx) => {
                     const selected = selectedDisplayed.includes(column.key)
                     const focused = focusDisplayed === idx
+                    const isMandatory = mandatoryColumns.includes(column.key)
                     return (
                       <label
                         key={column.key}
-                        className={`flex items-center gap-2 px-2 py-1 text-sm rounded transition-colors border cursor-pointer select-none
-                          ${selected ? 'bg-[#9234ea]/10 border-[#9234ea]/30' : 'border-transparent hover:bg-gray-50'}
+                        className={`flex items-center gap-2 px-2 py-1 text-sm rounded transition-colors border ${
+                          isMandatory ? 'cursor-not-allowed opacity-75 bg-gray-50' : 'cursor-pointer'
+                        }
+                          ${!isMandatory && selected ? 'bg-[#9234ea]/10 border-[#9234ea]/30' : 'border-transparent'}
+                          ${!isMandatory && !selected ? 'hover:bg-gray-50' : ''}
                           ${focusedList === 'displayed' && focusedIndex === idx ? 'bg-purple-100 border border-purple-300' : ''}`}
                         onClick={() => { 
+                          if (isMandatory) return
                           setFocusedList('displayed')
                           setFocusedIndex(idx)
                           displayedListRef.current?.focus()
                         }}
+                        title={isMandatory ? 'This column is mandatory and cannot be removed' : ''}
                       >
                         <input
                           type="checkbox"
                           checked={selected}
+                          disabled={isMandatory}
                           onChange={() => {
+                            if (isMandatory) return
                             if (selected) {
                               setSelectedDisplayed(selectedDisplayed.filter(id => id !== column.key))
                             } else {
@@ -514,7 +531,10 @@ export function ColumnVisibility({ columns, onColumnToggle }: ColumnVisibilityPr
                           className="accent-[#9234ea]"
                           aria-label={`Toggle ${column.label}`}
                         />
-                        <span className="flex-1">{column.label}</span>
+                        <span className="flex-1">
+                          {column.label}
+                          {isMandatory && <span className="text-red-500 ml-1">*</span>}
+                        </span>
                       </label>
                     )
                   })}

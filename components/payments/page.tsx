@@ -19,6 +19,9 @@ import { PaymentGrid } from './components/payment-grid'
 import { usePaymentLogic } from './components/use-payment-logic'
 import { PaymentsAnalytics } from './components/payments-analytics'
 import CourseMatchingComponent from '@/components/course-matching'
+import { CourseWiseSummary } from '@/components/course-wise-summary'
+import { generateCourseWiseSummaryWithCohorts } from '@/lib/course-cohort-utils'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 // PaymentStatusPage: Main payment management page
 export default function PaymentStatusPage() {
@@ -60,11 +63,18 @@ export default function PaymentStatusPage() {
 
   const [showCourseWisePopup, setShowCourseWisePopup] = useState(false)
   const [showCourseMatching, setShowCourseMatching] = useState(false)
+  const [showCohortSummary, setShowCohortSummary] = useState(false)
   // Default to Analytics tab on initial load so analytics is shown first
   const [activeTab, setActiveTab] = useState<'Analytics' | 'Payments'>('Analytics')
 
   // Selected rows state lifted up
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
+
+  // Generate course summary with cohort breakdown
+  const courseSummaryWithCohorts = useMemo(
+    () => generateCourseWiseSummaryWithCohorts(records),
+    [records]
+  )
 
   // Auto-refresh handled centrally inside usePaymentLogic now
 
@@ -252,13 +262,13 @@ export default function PaymentStatusPage() {
           <div className="flex gap-2 items-center">
             <div className="tooltip-container">
               <Button
-                onClick={() => setShowCourseWisePopup(true)}
+                onClick={() => setShowCohortSummary(true)}
                 className="bg-[#9234ea] hover:bg-[#9234ea]/90"
               >
                 <FileText className="h-4 w-4 mr-2" />
-                Course-wise Summary
+                Course & Cohort Summary
               </Button>
-              <div className="tooltip">Course-wise Summary</div>
+              <div className="tooltip">View course-wise payment summary with cohort breakdown</div>
             </div>
           </div>
         </div>
@@ -400,6 +410,21 @@ export default function PaymentStatusPage() {
           onClose={() => setShowCourseWisePopup(false)}
           courseData={records}
         />
+
+        {/* Course & Cohort Summary Dialog */}
+        <Dialog open={showCohortSummary} onOpenChange={setShowCohortSummary}>
+          <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-purple-700">
+                <FileText className="h-5 w-5" />
+                Course-wise Payment Summary with Cohort Breakdown
+              </DialogTitle>
+            </DialogHeader>
+            <div className="overflow-y-auto">
+              <CourseWiseSummary coursePayments={courseSummaryWithCohorts} />
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   )
