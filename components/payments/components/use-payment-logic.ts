@@ -361,13 +361,49 @@ export function usePaymentLogic() {
         let result = await response.json()
         
         if (result.success && Array.isArray(result.data) && result.data.length > 0 && !result.fallback) {
-          // Sync API already provides cohortId & cohort; just ensure communication channels array is present
-          const enrichedData = result.data.map((record: any) => ({
-            ...record,
-            communicationChannels: record.communicationPreferences?.enabled && record.communicationPreferences?.channels
-              ? record.communicationPreferences.channels
-              : []
-          }))
+          let cohorts: any[] = []
+          try {
+            const cohortsResp = await fetch('/api/cohorts', { cache: 'no-store' })
+            if (cohortsResp.ok) {
+              const cohJson = await cohortsResp.json()
+              cohorts = Array.isArray(cohJson.data) ? cohJson.data : []
+            }
+          } catch (_) {
+            // ignore cohort fetch failures
+          }
+
+          const cohortIdToObjMap = new Map<string, any>()
+          cohorts.forEach((cohort: any) => {
+            if (cohort?.cohortId) {
+              cohortIdToObjMap.set(cohort.cohortId, cohort)
+            }
+          })
+
+          // Sync API already provides cohort IDs; rehydrate display names from cohorts collection when possible
+          const enrichedData = result.data.map((record: any) => {
+            let cohortId = (record?.cohortId || '').toString().trim()
+            let cohortName = (record?.cohort || '').toString().trim()
+
+            if (!cohortId && cohortName && cohortName.includes(' - ')) {
+              const parts = cohortName.split(' - ')
+              cohortId = parts[0]?.trim() || ''
+              cohortName = parts.slice(1).join(' - ').trim() || cohortName
+            }
+
+            if (cohortId && cohortIdToObjMap.has(cohortId)) {
+              const cohortFromDB = cohortIdToObjMap.get(cohortId)
+              cohortName = cohortFromDB?.name || cohortName
+            }
+
+            return {
+              ...record,
+              cohortId,
+              cohort: cohortName || 'Unassigned',
+              communicationChannels: record.communicationPreferences?.enabled && record.communicationPreferences?.channels
+                ? record.communicationPreferences.channels
+                : []
+            }
+          })
 
           // Use synchronized data from payments collection when we have real data
           const stable = isLikelyDegraded(enrichedData, records) ? records : reconcileStableData(enrichedData, records)
@@ -712,6 +748,23 @@ export function usePaymentLogic() {
             }
           } catch (_) {}
 
+          // Fetch cohorts to derive display names by cohortId
+          let cohorts: any[] = []
+          try {
+            const cohortsResp = await fetch('/api/cohorts', { cache: 'no-store' })
+            if (cohortsResp.ok) {
+              const cohJson = await cohortsResp.json()
+              cohorts = Array.isArray(cohJson.data) ? cohJson.data : []
+            }
+          } catch (_) {}
+
+          const cohortIdToObjMap = new Map<string, any>()
+          cohorts.forEach((cohort: any) => {
+            if (cohort?.cohortId) {
+              cohortIdToObjMap.set(cohort.cohortId, cohort)
+            }
+          })
+
           // Batch fetch communication preferences for all students
           const commPrefsMap = new Map<string, string[]>()
           try {
@@ -838,6 +891,11 @@ export function usePaymentLogic() {
 
             if (!cohortId && cohortName) {
               cohortId = cohortName
+            }
+
+            if (cohortId && cohortIdToObjMap.has(cohortId)) {
+              const cohortFromDB = cohortIdToObjMap.get(cohortId)
+              cohortName = cohortFromDB?.name || cohortName
             }
 
             // Get communication preferences from batch fetch
