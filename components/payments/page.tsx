@@ -4,8 +4,10 @@ import { useState, useRef, useEffect, useMemo } from "react"
 import MainLayout from "@/components/main-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { toast } from "@/components/ui/use-toast"
-import { FileText, LayoutDashboard, CreditCard } from "lucide-react"
+import { FileText, LayoutDashboard, CreditCard, Search, X, ArrowUpDown, ArrowUp, ArrowDown, Download } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 
@@ -20,7 +22,7 @@ import { usePaymentLogic } from './components/use-payment-logic'
 import { PaymentsAnalytics } from './components/payments-analytics'
 import CourseMatchingComponent from '@/components/course-matching'
 import { CourseWiseSummary } from '@/components/course-wise-summary'
-import { generateCourseWiseSummaryWithCohorts } from '@/lib/course-cohort-utils'
+import { generateCourseWiseSummaryWithCohorts, generateCourseWiseSummaryWithCohortsEnhanced, generateCourseWiseSummaryWithProperIDs, fetchCohortsFromDB, fetchCoursesFromDB, CohortFromDB, CourseFromDB } from '@/lib/course-cohort-utils'
 
 // PaymentStatusPage: Main payment management page
 export default function PaymentStatusPage() {
@@ -72,11 +74,42 @@ export default function PaymentStatusPage() {
   const [courseSearch, setCourseSearch] = useState('')
   const [courseSortBy, setCourseSortBy] = useState<'name' | 'students' | 'amount' | 'received' | 'outstanding' | 'rate'>('name')
   const [courseSortOrder, setCourseSortOrder] = useState<'asc' | 'desc'>('asc')
+  
+  // Cohorts and courses from database
+  const [cohortsFromDB, setCohortsFromDB] = useState<CohortFromDB[]>([])
+  const [coursesFromDB, setCoursesFromDB] = useState<CourseFromDB[]>([])
+  const [loadingCohorts, setLoadingCohorts] = useState(false)
 
-  // Generate course summary with cohort breakdown
+  // Fetch cohorts and courses from database on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      setLoadingCohorts(true)
+      try {
+        const [cohorts, courses] = await Promise.all([
+          fetchCohortsFromDB(),
+          fetchCoursesFromDB()
+        ])
+        setCohortsFromDB(cohorts)
+        setCoursesFromDB(courses)
+      } catch (error) {
+        console.error('Failed to load data:', error)
+        toast({
+          title: "Warning",
+          description: "Could not load courses and cohorts from database. Showing payment-based data only.",
+          variant: "default"
+        })
+      } finally {
+        setLoadingCohorts(false)
+      }
+    }
+    
+    loadData()
+  }, [])
+
+  // Generate course summary with proper course IDs and cohort IDs from database
   const courseSummaryWithCohorts = useMemo(
-    () => generateCourseWiseSummaryWithCohorts(records),
-    [records]
+    () => generateCourseWiseSummaryWithProperIDs(records, coursesFromDB, cohortsFromDB),
+    [records, coursesFromDB, cohortsFromDB]
   )
 
   // Filtered and sorted course summary
@@ -512,94 +545,111 @@ export default function PaymentStatusPage() {
             {/* Search, Filter, Sort, and Export Bar */}
             <Card>
               <CardContent className="p-4">
-                <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                  {/* Search */}
-                  <div className="flex-1 w-full md:w-auto">
-                    <div className="relative">
-                      <input
+                <div className="flex flex-col gap-4">
+                  {/* Top Row: Search and Actions */}
+                  <div className="flex flex-col md:flex-row gap-3 items-center">
+                    {/* Search */}
+                    <div className="relative flex-1 w-full">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
                         type="text"
-                        placeholder="Search by course name or program..."
+                        placeholder="Search by student name or course name"
                         value={courseSearch}
                         onChange={(e) => setCourseSearch(e.target.value)}
-                        className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="pl-9 h-10 border-gray-200"
                       />
-                      <svg
-                        className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                        />
-                      </svg>
                       {courseSearch && (
                         <button
                           onClick={() => setCourseSearch('')}
                           className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          title="Clear search"
                         >
-                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
+                          <X className="h-4 w-4" />
                         </button>
                       )}
                     </div>
+
+                    {/* Actions Row */}
+                    <div className="flex gap-2 items-center">
+                      {/* Sort Button with Popover */}
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="h-10 px-4 border border-gray-200 rounded-md shadow-sm flex items-center gap-2 min-w-[100px] font-semibold"
+                          >
+                            <ArrowUpDown className="h-4 w-4 mr-1" />
+                            <span className="capitalize font-medium">
+                              {courseSortBy === 'name' ? 'Name' :
+                               courseSortBy === 'students' ? 'Students' :
+                               courseSortBy === 'amount' ? 'Amount' :
+                               courseSortBy === 'received' ? 'Received' :
+                               courseSortBy === 'outstanding' ? 'Outstanding' :
+                               'Rate'}
+                            </span>
+                            {courseSortOrder === 'asc' ? <ArrowUp className="h-4 w-4 ml-1" /> : <ArrowDown className="h-4 w-4 ml-1" />}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-0 bg-white rounded-lg shadow-lg border-none" align="start">
+                          <div className="p-2">
+                            <div className="text-xs font-semibold text-gray-900 mb-2">Sort By</div>
+                            <div className="mb-2 divide-y divide-gray-100">
+                              {[
+                                { key: 'name', label: 'Course Name' },
+                                { key: 'students', label: 'Students' },
+                                { key: 'amount', label: 'Total Amount' },
+                                { key: 'received', label: 'Received' },
+                                { key: 'outstanding', label: 'Outstanding' },
+                                { key: 'rate', label: 'Collection Rate' }
+                              ].map(field => (
+                                <div
+                                  key={field.key}
+                                  className={`flex items-center justify-between py-2 px-2 cursor-pointer rounded-md hover:bg-gray-50 ${courseSortBy === field.key ? 'bg-gray-100 font-semibold' : ''}`}
+                                  onClick={() => setCourseSortBy(field.key as any)}
+                                >
+                                  <span className="text-sm text-gray-700">{field.label}</span>
+                                  {courseSortBy === field.key && <span className="text-[#9234ea] text-lg ml-2">✓</span>}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="text-xs font-semibold text-gray-900 mb-2 mt-2">Order</div>
+                            <div className="divide-y divide-gray-100">
+                              <div
+                                className={`flex items-center justify-between py-2 px-2 cursor-pointer rounded-md hover:bg-gray-50 ${courseSortOrder === 'asc' ? 'bg-gray-100 font-semibold' : ''}`}
+                                onClick={() => setCourseSortOrder('asc')}
+                              >
+                                <span className="text-sm text-gray-700">Ascending <span className="text-xs">↑</span></span>
+                                {courseSortOrder === 'asc' && <span className="text-[#9234ea] text-lg ml-2">✓</span>}
+                              </div>
+                              <div
+                                className={`flex items-center justify-between py-2 px-2 cursor-pointer rounded-md hover:bg-gray-50 ${courseSortOrder === 'desc' ? 'bg-gray-100 font-semibold' : ''}`}
+                                onClick={() => setCourseSortOrder('desc')}
+                              >
+                                <span className="text-sm text-gray-700">Descending <span className="text-xs">↓</span></span>
+                                {courseSortOrder === 'desc' && <span className="text-[#9234ea] text-lg ml-2">✓</span>}
+                              </div>
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+
+                      {/* Export Button */}
+                      <Button
+                        onClick={handleExportCourseSummary}
+                        className="h-10 px-3 py-2 bg-white text-black border border-gray-300 hover:bg-gray-50 rounded-md shadow-sm flex items-center gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        <span className="text-sm font-medium">Export</span>
+                      </Button>
+                    </div>
                   </div>
 
-                  {/* Sort Controls */}
-                  <div className="flex gap-2 items-center">
-                    <label className="text-sm text-gray-600 whitespace-nowrap">Sort by:</label>
-                    <select
-                      value={courseSortBy}
-                      onChange={(e) => setCourseSortBy(e.target.value as any)}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
-                    >
-                      <option value="name">Course Name</option>
-                      <option value="students">Students</option>
-                      <option value="amount">Total Amount</option>
-                      <option value="received">Received</option>
-                      <option value="outstanding">Outstanding</option>
-                      <option value="rate">Collection Rate</option>
-                    </select>
-
-                    <button
-                      onClick={() => setCourseSortOrder(courseSortOrder === 'asc' ? 'desc' : 'asc')}
-                      className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                      title={courseSortOrder === 'asc' ? 'Sort Descending' : 'Sort Ascending'}
-                    >
-                      {courseSortOrder === 'asc' ? (
-                        <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                        </svg>
-                      ) : (
-                        <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      )}
-                    </button>
-
-                    {/* Export Button */}
-                    <Button
-                      onClick={handleExportCourseSummary}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                      title="Export to CSV"
-                    >
-                      <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Export
-                    </Button>
+                  {/* Results count */}
+                  <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#f6f3ff] rounded-lg">
+                    <span className="text-sm text-[#9234ea] font-medium">
+                      Showing {filteredCourseSummary.length} courses
+                      {courseSearch && ` (filtered by "${courseSearch}")`}
+                    </span>
                   </div>
-                </div>
-
-                {/* Results count */}
-                <div className="mt-3 text-sm text-gray-600">
-                  Showing {filteredCourseSummary.length} of {courseSummaryWithCohorts.length} courses
-                  {courseSearch && ` (filtered by "${courseSearch}")`}
                 </div>
               </CardContent>
             </Card>

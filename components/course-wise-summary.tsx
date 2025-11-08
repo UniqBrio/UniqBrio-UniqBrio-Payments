@@ -16,6 +16,7 @@ interface CohortPayment {
 }
 
 interface CoursePayment {
+  courseId: string
   course: string
   program: string
   amount: number
@@ -102,7 +103,7 @@ export function CourseWiseSummary({ coursePayments }: CourseWiseSummaryProps) {
                             </button>
                           )}
                           <BookOpen className="h-4 w-4 text-purple-500" />
-                          {course.course.replace(/\s+/g, '').substring(0, 8).toUpperCase()}
+                          {course.courseId}
                         </div>
                       </TableCell>
                       <TableCell className="text-xs p-3 text-left">
