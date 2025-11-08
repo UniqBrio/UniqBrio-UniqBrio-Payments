@@ -21,7 +21,6 @@ import { PaymentsAnalytics } from './components/payments-analytics'
 import CourseMatchingComponent from '@/components/course-matching'
 import { CourseWiseSummary } from '@/components/course-wise-summary'
 import { generateCourseWiseSummaryWithCohorts } from '@/lib/course-cohort-utils'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 // PaymentStatusPage: Main payment management page
 export default function PaymentStatusPage() {
@@ -63,9 +62,8 @@ export default function PaymentStatusPage() {
 
   const [showCourseWisePopup, setShowCourseWisePopup] = useState(false)
   const [showCourseMatching, setShowCourseMatching] = useState(false)
-  const [showCohortSummary, setShowCohortSummary] = useState(false)
   // Default to Analytics tab on initial load so analytics is shown first
-  const [activeTab, setActiveTab] = useState<'Analytics' | 'Payments'>('Analytics')
+  const [activeTab, setActiveTab] = useState<'Analytics' | 'Payments' | 'CourseCohort'>('Analytics')
 
   // Selected rows state lifted up
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
@@ -259,30 +257,22 @@ export default function PaymentStatusPage() {
             <h1 className="text-3xl font-bold text-gray-900">Payment Management</h1>
             <p className="text-gray-600 mt-1">Track student payments, send reminders, and manage financial records</p>
           </div>
-          <div className="flex gap-2 items-center">
-            <div className="tooltip-container">
-              <Button
-                onClick={() => setShowCohortSummary(true)}
-                className="bg-[#9234ea] hover:bg-[#9234ea]/90"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Course & Cohort Summary
-              </Button>
-              <div className="tooltip">View course-wise payment summary with cohort breakdown</div>
-            </div>
-          </div>
         </div>
 
         {/* Tabs before content (shared UI tabs with pill styling) */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'Analytics' | 'Payments')}>
-          <TabsList className="mb-2 grid grid-cols-2 gap-4 w-full">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'Analytics' | 'Payments' | 'CourseCohort')}>
+          <TabsList className="mb-2 grid grid-cols-3 gap-4 w-full">
             <TabsTrigger value="Analytics" className="w-full">
               <LayoutDashboard className="h-5 w-5 mr-2" />
               Analytics
             </TabsTrigger>
             <TabsTrigger value="Payments" className="w-full">
               <CreditCard className="h-5 w-5 mr-2" />
-              Student-wise payments
+              Student-wise
+            </TabsTrigger>
+            <TabsTrigger value="CourseCohort" className="w-full">
+              <FileText className="h-5 w-5 mr-2" />
+              Course & Cohort
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -290,6 +280,13 @@ export default function PaymentStatusPage() {
         {/* Analytics tab: comprehensive analytics dashboard */}
         {activeTab === 'Analytics' && (
           <PaymentsAnalytics records={records} />
+        )}
+
+        {/* Course & Cohort tab: course-wise summary with cohort breakdown */}
+        {activeTab === 'CourseCohort' && (
+          <div className="space-y-4">
+            <CourseWiseSummary coursePayments={courseSummaryWithCohorts} />
+          </div>
         )}
 
         {/* Payments tab: filters will be rendered inside the same section as table below */}
@@ -410,21 +407,6 @@ export default function PaymentStatusPage() {
           onClose={() => setShowCourseWisePopup(false)}
           courseData={records}
         />
-
-        {/* Course & Cohort Summary Dialog */}
-        <Dialog open={showCohortSummary} onOpenChange={setShowCohortSummary}>
-          <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-purple-700">
-                <FileText className="h-5 w-5" />
-                Course-wise Payment Summary with Cohort Breakdown
-              </DialogTitle>
-            </DialogHeader>
-            <div className="overflow-y-auto">
-              <CourseWiseSummary coursePayments={courseSummaryWithCohorts} />
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </MainLayout>
   )

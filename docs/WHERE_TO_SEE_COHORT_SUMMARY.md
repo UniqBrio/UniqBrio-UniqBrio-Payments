@@ -26,18 +26,18 @@ Open your browser and go to:
 http://localhost:3000/payments
 ```
 
-### 3. Find the "Course & Cohort Summary" Button
+### 3. Click the "Course & Cohort" Tab
 
-**Location:** Top right corner of the Payment Management page
+**Location:** Third tab in the tab bar (next to "Analytics" and "Student-wise")
 
-Look for the purple button labeled:
+Look for:
 ```
-📄 Course & Cohort Summary
+[ Analytics ] [ Student-wise ] [ Course & Cohort ] ← Click here!
 ```
 
-### 4. Click to View
+### 4. View the Summary
 
-When you click the button, a dialog will open showing:
+The page will display:
 - **Course-wise summary table**
 - **Expandable rows** (click any course row with a ▶ icon)
 - **Cohort breakdown** for each course (when expanded)
@@ -47,15 +47,17 @@ When you click the button, a dialog will open showing:
 ```
 Payment Management Page
     ↓
-[Payment Management Header]
+┌─────────────────────────────────────────────────────────────┐
+│ Payment Management                                          │
+├─────────────────────────────────────────────────────────────┤
+│ [ Analytics ] [ Student-wise ] [ Course & Cohort ] ← Tab 3 │
+│                                        ⬆ Click here!        │
+└─────────────────────────────────────────────────────────────┘
     ↓
-[Course & Cohort Summary Button] ← Click here!
-    ↓
-Dialog Opens
+Course & Cohort Tab Opens
     ↓
 ┌─────────────────────────────────────────┐
 │ Course-wise Payment Summary             │
-│ with Cohort Breakdown                   │
 ├─────────────────────────────────────────┤
 │                                         │
 │ ▶ Python Programming                    │  ← Click to expand
@@ -198,8 +200,8 @@ The summary is responsive:
 ## 🎯 Quick Test
 
 1. ✅ Navigate to `/payments`
-2. ✅ Click "Course & Cohort Summary" button (top right)
-3. ✅ Dialog opens with course list
+2. ✅ Click "Course & Cohort" tab (3rd tab)
+3. ✅ Course summary table loads
 4. ✅ Click a course row with ▶ icon
 5. ✅ Cohort details appear below
 6. ✅ Click again to collapse
