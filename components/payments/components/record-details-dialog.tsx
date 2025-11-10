@@ -180,11 +180,13 @@ export default function RecordDetailsDialog(props: RecordDetailsDialogProps) {
               <div className="rdd-grid">
                 {section.fields.map((f, i) => (
                   <div key={i} className={`rdd-field ${f.span === 2 ? "rdd-span-2" : ""}`}>
-                    <div className="rdd-field-label">
-                      {f.icon && <span className="rdd-field-icon">{f.icon}</span>}
-                      {f.label}
+                    <div className="rdd-field-row">
+                      <div className="rdd-field-label">
+                        {f.icon && <span className="rdd-field-icon">{f.icon}</span>}
+                        {f.label}
+                      </div>
+                      <div className="rdd-field-value">{f.value}</div>
                     </div>
-                    <div className="rdd-field-value">{f.value}</div>
                   </div>
                 ))}
               </div>

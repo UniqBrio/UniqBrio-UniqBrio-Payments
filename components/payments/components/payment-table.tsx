@@ -2,12 +2,13 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableHeader, TableBody, TableRow, TableHead } from "@/components/ui/table"
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 // CSV export helper (no external dependency)
 import { PaymentRecord } from './payment-types'
 import { PaymentTableRow } from './payment-table-row'
 import RecordDetailsDialog, { RecordDetailsSection } from './record-details-dialog'
 import { Hash, User, Tag, BookOpen, Users, GraduationCap, CreditCard, DollarSign, Calendar, Bell, Smartphone } from "lucide-react"
+import { getRegistrationSummary } from './registration-fees-display'
 
 interface PaymentTableProps {
   filteredRecords: PaymentRecord[];
@@ -47,15 +48,58 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord,
   // Details dialog state
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState<PaymentRecord | null>(null)
+  const [dialogPaymentMethods, setDialogPaymentMethods] = useState<string[]>([])
 
   const openDetails = (record: PaymentRecord) => {
     setSelectedRecord(record)
     setDetailsOpen(true)
   }
 
+  // When dialog opens, fetch paymentRecords from backend to populate Modes reliably
+  useEffect(() => {
+    const fetchMethods = async () => {
+      if (!detailsOpen || !selectedRecord) return
+      try {
+        const courseId = (selectedRecord as any).matchedCourseId || (selectedRecord as any).activity || (selectedRecord as any).enrolledCourse
+        const resp = await fetch(`/api/payments?studentId=${encodeURIComponent(selectedRecord.id)}${courseId ? `&courseId=${encodeURIComponent(courseId)}` : ''}`, { cache: 'no-store' })
+        if (!resp.ok) return
+        const json = await resp.json()
+        const doc: any = json.data || json
+        const records = Array.isArray(doc?.paymentRecords) ? doc.paymentRecords : []
+        const methods: string[] = Array.from(new Set(records
+          .map((r: any) => r?.paymentMethod)
+          .filter((m: any) => typeof m === 'string' && m.trim().length > 0)))
+        setDialogPaymentMethods(methods)
+      } catch { /* ignore network errors for dialog extras */ }
+    }
+    fetchMethods()
+  }, [detailsOpen, selectedRecord])
+
   const sections: RecordDetailsSection[] = useMemo(() => {
     if (!selectedRecord) return []
     const r = selectedRecord as any
+    // Extract payment methods from backend paymentRecords (unique list)
+    // Prefer payment methods fetched from backend when available
+    let paymentMethods: string[] = dialogPaymentMethods.length > 0 ? dialogPaymentMethods
+      : Array.isArray((r as any).paymentRecords)
+      ? Array.from(new Set((r as any).paymentRecords
+          .map((pr: any) => pr?.paymentMethod)
+          .filter((pm: any) => typeof pm === 'string' && pm.trim().length > 0)))
+      : []
+    // Fallback to legacy paymentModes field when backend didn't include embedded paymentRecords
+    if (paymentMethods.length === 0 && Array.isArray((r as any).paymentModes)) {
+      paymentMethods = Array.from(new Set((r as any).paymentModes.filter((pm: any) => typeof pm === 'string' && pm.trim().length > 0)))
+    }
+    // Compute a consistent payment summary (matches table logic)
+    const regSummary = getRegistrationSummary(r.registrationFees)
+    const totalRegAmount = regSummary?.totalAmount || 0
+    const totalPaid = r.totalPaidAmount || 0
+    const overallDue = (r.finalPayment || 0) + totalRegAmount
+    const overallBalance = Math.max(overallDue - totalPaid, 0)
+    const statusLabel = overallDue <= 0
+      ? '-'
+      : (overallBalance === 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Pending'))
+    const effectiveStatus = (r.paymentStatus && r.paymentStatus !== '-') ? r.paymentStatus : statusLabel
     return [
       {
         title: 'Student',
@@ -78,25 +122,24 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord,
       {
         title: 'Payment Summary',
         fields: [
-          { label: 'Course Fee', value: `₹${(r.finalPayment || 0).toLocaleString()}`, icon: <DollarSign size={16} /> },
+          { label: 'Course Fee', value: `₹${(r.finalPayment || 0).toLocaleString()}` , icon: <DollarSign size={16} /> },
           { label: 'Student Registration', value: r?.registrationFees?.studentRegistration?.amount ? `₹${r.registrationFees.studentRegistration.amount.toLocaleString()}` : '-', icon: <CreditCard size={16} /> },
           { label: 'Course Registration', value: r?.registrationFees?.courseRegistration?.amount ? `₹${r.registrationFees.courseRegistration.amount.toLocaleString()}` : '-', icon: <CreditCard size={16} /> },
-          { label: 'Total Paid', value: `₹${(r.totalPaidAmount || 0).toLocaleString()}`, icon: <DollarSign size={16} /> },
-          { label: 'Balance', value: `₹${(r.balancePayment || 0).toLocaleString()}`, icon: <DollarSign size={16} /> },
-          { label: 'Status', value: r.paymentStatus || '-', icon: <Tag size={16} /> },
+          { label: 'Total Paid', value: `₹${(totalPaid).toLocaleString()}` , icon: <DollarSign size={16} /> },
+          { label: 'Balance', value: `₹${(overallBalance).toLocaleString()}` , icon: <DollarSign size={16} /> },
+          { label: 'Status', value: effectiveStatus, icon: <Tag size={16} /> },
           { label: 'Paid Date', value: r.paidDate ? new Date(r.paidDate).toLocaleDateString() : '-', icon: <Calendar size={16} /> },
         ],
       },
       {
         title: 'Payment Details',
         fields: [
-          { label: 'UPI ID', value: r?.paymentDetails?.upiId || '-', icon: <Smartphone size={16} /> },
-          { label: 'Modes', value: Array.isArray(r?.paymentModes) ? r.paymentModes.join(', ') : (r?.paymentModes || '-'), icon: <CreditCard size={16} /> },
+          { label: 'Modes', value: paymentMethods.length ? paymentMethods.join(', ') : '-', icon: <CreditCard size={16} /> },
           { label: 'Reminder', value: r.paymentReminder ? 'On' : 'Off', icon: <Bell size={16} /> },
         ],
       },
     ]
-  }, [selectedRecord])
+  }, [selectedRecord, dialogPaymentMethods])
 
   return (
     <Card className="border-[#9234ea]/30">
@@ -164,7 +207,24 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord,
             title={selectedRecord.name}
             subtitle={selectedRecord.id}
             avatarFallback={selectedRecord?.name ? selectedRecord.name.split(' ').map((p: string) => p[0]).join('').slice(0,2) : '👤'}
-            status={{ label: selectedRecord.paymentStatus || '-', tone: (selectedRecord.balancePayment ?? 0) === 0 ? 'success' : 'warning' }}
+            {
+              ...(() => {
+                // Derive a consistent status for the header badge (treat '-' as missing)
+                const rs = getRegistrationSummary(selectedRecord.registrationFees)
+                const totalReg = rs?.totalAmount || 0
+                const totalPaid = selectedRecord.totalPaidAmount || 0
+                const overallDue = (selectedRecord.finalPayment || 0) + totalReg
+                const overallBalance = Math.max(overallDue - totalPaid, 0)
+                const computed = overallDue <= 0
+                  ? '-'
+                  : (overallBalance === 0
+                      ? 'Paid'
+                      : (totalPaid > 0 ? 'Partial' : 'Pending'))
+                const label = (selectedRecord.paymentStatus && selectedRecord.paymentStatus !== '-') ? selectedRecord.paymentStatus : computed
+                const tone = label === 'Paid' ? 'success' : (label === '-' ? 'default' : 'warning')
+                return { status: { label, tone } }
+              })()
+            }
             headerChips={
               <>
                 {selectedRecord.category && (

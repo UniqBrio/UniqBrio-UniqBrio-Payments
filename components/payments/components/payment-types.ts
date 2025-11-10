@@ -14,7 +14,7 @@ export interface PaymentRecord {
   finalPayment: number
   totalPaidAmount: number
   balancePayment: number
-  paymentStatus: "Paid" | "Pending"
+  paymentStatus: "Paid" | "Pending" | "Partial" | "-"
   paymentFrequency: "Monthly"| "Quarterly"|"Semi-annual" | "Weekly" | "Yearly" | "One-time"
   nextPaymentDate: string
   paidDate: string
