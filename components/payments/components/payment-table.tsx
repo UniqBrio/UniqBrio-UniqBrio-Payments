@@ -8,6 +8,7 @@ import { PaymentRecord } from './payment-types'
 import { PaymentTableRow } from './payment-table-row'
 import RecordDetailsDialog, { RecordDetailsSection } from './record-details-dialog'
 import { Hash, User, Tag, BookOpen, Users, GraduationCap, CreditCard, DollarSign, Calendar, Bell, Smartphone } from "lucide-react"
+import { formatDateToDisplay } from '@/lib/date-utils'
 import { getRegistrationSummary } from './registration-fees-display'
 
 interface PaymentTableProps {
@@ -128,7 +129,7 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord,
           { label: 'Total Paid', value: `₹${(totalPaid).toLocaleString()}` , icon: <DollarSign size={16} /> },
           { label: 'Balance', value: `₹${(overallBalance).toLocaleString()}` , icon: <DollarSign size={16} /> },
           { label: 'Status', value: effectiveStatus, icon: <Tag size={16} /> },
-          { label: 'Paid Date', value: r.paidDate ? new Date(r.paidDate).toLocaleDateString() : '-', icon: <Calendar size={16} /> },
+          { label: 'Paid Date', value: r.paidDate ? formatDateToDisplay(r.paidDate) : '-', icon: <Calendar size={16} /> },
         ],
       },
       {
@@ -233,11 +234,6 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord,
               </>
             }
             sections={sections}
-            actions={
-              <>
-                <button className="rdd-btn" onClick={() => setDetailsOpen(false)}>Close</button>
-              </>
-            }
           />
         )}
       </CardContent>

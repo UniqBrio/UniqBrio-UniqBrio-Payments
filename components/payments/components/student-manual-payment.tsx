@@ -120,11 +120,50 @@ export function ManualPaymentDialog({
   const [notes, setNotes] = useState<string>("")
   const [paymentTypes, setPaymentTypes] = useState<ManualPaymentPayload["paymentTypes"]>(["course"])
   const [receivedByName, setReceivedByName] = useState<string>("")
+  const [selectedStaffId, setSelectedStaffId] = useState<string>("") // Track the selected ID for dropdown value
   const [receivedByRole, setReceivedByRole] = useState<ManualPaymentPayload["receivedByRole"]>("instructor")
   const [paymentOption, setPaymentOption] = useState<PaymentOption>("Monthly")
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
+  
+  // Staff members dropdown data
+  const [staffMembers, setStaffMembers] = useState<Array<{value: string, label: string, role: string, disabled?: boolean}>>([])
+  const [loadingStaff, setLoadingStaff] = useState(false)
+  
+  // "Other" option fields
+  const [isOtherSelected, setIsOtherSelected] = useState(false)
+  const [otherPersonName, setOtherPersonName] = useState<string>("")
+  const [otherRemarks, setOtherRemarks] = useState<string>("")
+  const [otherPersonNameTouched, setOtherPersonNameTouched] = useState(false)
+  
   // Removed receiverName and receiverId state
+  
+  // Fetch staff members from both collections
+  useEffect(() => {
+    if (!open) return;
+    
+    const fetchStaffMembers = async () => {
+      setLoadingStaff(true);
+      try {
+        const response = await fetch('/api/staff-members');
+        if (response.ok) {
+          const data = await response.json();
+          setStaffMembers(data);
+        }
+      } catch (error) {
+        console.error('Error fetching staff members:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load staff members",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingStaff(false);
+      }
+    };
+    
+    fetchStaffMembers();
+  }, [open]);
   
   // Validation states for progressive form
   const [amountTouched, setAmountTouched] = useState(false)
@@ -171,7 +210,7 @@ export function ManualPaymentDialog({
     : false
   const isDateValid = date.trim() !== ""
   const isModeValid = mode && mode.length > 0
-  const isReceivedByNameValid = receivedByName.trim() !== ""
+  const isReceivedByNameValid = isOtherSelected ? otherPersonName.trim() !== "" : receivedByName.trim() !== ""
   const isReceivedByRoleValid = receivedByRole && receivedByRole.length > 0
   
   // Progressive validation - each field depends on previous ones being valid
@@ -261,6 +300,7 @@ export function ManualPaymentDialog({
       setAmount("");
       setNotes("");
       setReceivedByName("");
+      setSelectedStaffId("");
       setReceivedByRole("instructor");
       setPaymentOption("Monthly");
       setPaymentOptionTouched(false);
@@ -305,7 +345,8 @@ export function ManualPaymentDialog({
       isNaN(value) || value <= 0 ||
       !date ||
       !mode || !isPaymentOptionValid ||
-      !receivedByName.trim() ||
+      (isOtherSelected && !otherPersonName.trim()) ||
+      (!isOtherSelected && !receivedByName.trim()) ||
       !receivedByRole
     ) {
       toast({
@@ -328,14 +369,20 @@ export function ManualPaymentDialog({
 
     // Monthly: allow edited amount even after registrations paid (no locking)
     
+    // Use otherPersonName if "Other" is selected, otherwise use the selected staff member
+    const finalReceivedByName = isOtherSelected ? otherPersonName.trim() : receivedByName.trim();
+    const finalNotes = isOtherSelected && otherRemarks.trim() 
+      ? `${notes.trim() ? notes.trim() + ' | ' : ''}Other Person - Remarks: ${otherRemarks.trim()}`
+      : notes.trim() || undefined;
+    
     onSubmit({
       amount: value,
       date,
       mode,
-      notes: notes.trim() || undefined,
-      receiverName: receivedByName.trim(),
+      notes: finalNotes,
+      receiverName: finalReceivedByName,
       receiverId: studentInfo?.id || "",
-      receivedByName: receivedByName.trim(),
+      receivedByName: finalReceivedByName,
       receivedByRole,
       paymentTypes,
       paymentOption,
@@ -354,6 +401,7 @@ export function ManualPaymentDialog({
     setAmount("");
     setNotes("");
     setReceivedByName("");
+    setSelectedStaffId("");
     setReceivedByRole("instructor");
     setPaymentOption("Monthly");
     onClose();
@@ -363,47 +411,33 @@ export function ManualPaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto " onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-4xl" onInteractOutside={(e) => e.preventDefault()}>
         {/* X icon removed as per user request */}
         <DialogHeader>
           <DialogTitle>Manual Payment</DialogTitle>
-          {studentInfo && (
-            <div className="text-sm text-gray-600 mt-2 p-3 bg-gray-50 rounded-md">
-              <p><strong>Student:</strong> {studentInfo.name || '-'}</p>
-              <p><strong>ID:</strong> {studentInfo.id || '-'}</p>
-              <p><strong>Course:</strong> {studentInfo.program || studentInfo.activity} {studentInfo.program && studentInfo.program !== studentInfo.activity ? `(${studentInfo.activity})` : ''}</p>
-              <p><strong>Course Type:</strong> {studentInfo.courseType || '-'}</p>
-              <p><strong>Category:</strong> {studentInfo.category || '-'}</p>
-              <p><strong>Activity:</strong> {studentInfo.activity || '-'}</p>
-              <p><strong>Program:</strong> {studentInfo.program || '-'}</p>
-              <p><strong>Balance Payment:</strong> ₹{(studentInfo.balancePayment ?? 0).toLocaleString()}</p>
-              {studentInfo.registrationFees && (
-                <div className="mt-2 pt-2 border-t">
-                  <p className="font-medium">Registration Fees:</p>
-                  {studentInfo.registrationFees.studentRegistration && (() => {
-                    const feeData = getActualFeeData(studentInfo.registrationFees.studentRegistration);
-                    return feeData?.amount ? (
-                      <p><strong>Student Reg:</strong> ₹{feeData.amount.toLocaleString()}</p>
-                    ) : null;
-                  })()}
-                  {studentInfo.registrationFees.courseRegistration && (() => {
-                    const feeData = getActualFeeData(studentInfo.registrationFees.courseRegistration);
-                    return feeData?.amount ? (
-                      <p><strong>Course Reg:</strong> ₹{feeData.amount.toLocaleString()}</p>
-                    ) : null;
-                  })()}
-                  <p><strong>Status:</strong> {studentInfo.registrationFees.overall?.paid ? "✔ Paid" : "Pending"}</p>
-                </div>
-              )}
-            </div>
-          )}
         </DialogHeader>
         <div className="grid gap-3 py-2">
-          {getAvailablePaymentOptions().length > 1 && (
-            <div className="grid gap-2">
-              <RequiredLabel>Payment Types (Select Multiple)</RequiredLabel>
-              <div className="border rounded-md p-3 space-y-2 bg-white">
-                {getAvailablePaymentOptions().map((option) => {
+          {/* Top row: Student info + Payment Types side-by-side */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Student Information */}
+            {studentInfo && (
+              <div className="text-sm text-gray-600 p-3 bg-gray-50 rounded-md border">
+                <p className="font-semibold text-gray-700 mb-2">Student Information</p>
+                <p><strong>Student:</strong> {studentInfo.name || '-'} ({studentInfo.id || '-'})</p>
+                <p><strong>Course:</strong> {studentInfo.program || studentInfo.activity} {studentInfo.program && studentInfo.program !== studentInfo.activity ? `(${studentInfo.activity})` : ''}</p>
+                <p><strong>Course Type:</strong> {studentInfo.courseType || '-'}</p>
+                <p><strong>Category:</strong> {studentInfo.category || '-'}</p>
+                <p><strong>Balance Payment:</strong> ₹{(studentInfo.balancePayment ?? 0).toLocaleString()}</p>
+                <p><strong>Status:</strong> {studentInfo.registrationFees?.overall?.paid ? "✔ Paid" : "Pending"}</p>
+              </div>
+            )}
+
+            {/* Payment Types */}
+            {getAvailablePaymentOptions().length > 1 && (
+              <div className="grid gap-2">
+                <RequiredLabel>Payment Types (Select Multiple)</RequiredLabel>
+                <div className="border rounded-md p-3 space-y-2 bg-white">
+                  {getAvailablePaymentOptions().map((option) => {
                   // Check if this specific fee is already paid or if course balance is 0
                   const isFeePaid = (() => {
                     if (option.value === "course") return option.amount <= 0; // Disable if balance is 0 or negative
@@ -455,44 +489,46 @@ export function ManualPaymentDialog({
                   );
                 })}
               </div>
-              <p className="text-xs text-gray-600">
-                Select multiple payment types to pay together. Amount is calculated automatically and must match the selected total.
-              </p>
+              
             </div>
-          )}
-          {/* Payment option dropdown - moved above amount and mandatory */}
-          <div className="grid gap-1">
-            <RequiredLabel>Payment option</RequiredLabel>
-            <Select 
-              value={paymentOption}
-              onValueChange={(v) => { setPaymentOption(v as PaymentOption); setPaymentOptionTouched(true); }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select payment option" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="One time">One time</SelectItem>
-                <SelectItem value="Monthly">Monthly</SelectItem>
-                <SelectItem value="EMI" disabled>EMI</SelectItem>
-              </SelectContent>
-            </Select>
-            {paymentOptionTouched && !isPaymentOptionValid && (
-              <span className="text-red-500 text-xs">Please select a payment option</span>
             )}
           </div>
 
-          <div className="grid gap-1">
-            <RequiredLabel htmlFor="mp-amount">
-              Payment Amount 
-            </RequiredLabel>
-            <Input
-              id="mp-amount"
-              type="text"
-              value={amount}
-              required
-              disabled={paymentOption === 'One time' ? !isFirstPayment : false}
-              onBlur={() => setAmountTouched(true)}
-              onChange={(e) => {
+          {/* Payment option and Amount side-by-side */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Payment option dropdown - moved above amount and mandatory */}
+            <div className="grid gap-1">
+              <RequiredLabel>Payment option</RequiredLabel>
+              <Select 
+                value={paymentOption}
+                onValueChange={(v) => { setPaymentOption(v as PaymentOption); setPaymentOptionTouched(true); }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select payment option" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="One time">One time</SelectItem>
+                  <SelectItem value="Monthly">Monthly</SelectItem>
+                  <SelectItem value="EMI" disabled>EMI</SelectItem>
+                </SelectContent>
+              </Select>
+              {paymentOptionTouched && !isPaymentOptionValid && (
+                <span className="text-red-500 text-xs">Please select a payment option</span>
+              )}
+            </div>
+
+            <div className="grid gap-1">
+              <RequiredLabel htmlFor="mp-amount">
+                Payment Amount 
+              </RequiredLabel>
+              <Input
+                id="mp-amount"
+                type="text"
+                value={amount}
+                required
+                disabled={paymentOption === 'One time' ? !isFirstPayment : false}
+                onBlur={() => setAmountTouched(true)}
+                onChange={(e) => {
                 // Only allow editing on first payment
                 if (paymentOption === 'One time' && !isFirstPayment) return;
                 
@@ -552,8 +588,12 @@ export function ManualPaymentDialog({
               </p>
             )}
           </div>
-          <div className="grid gap-1">
-            <RequiredLabel htmlFor="mp-date">Date</RequiredLabel>
+          </div>
+
+          {/* Date + Mode side-by-side */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1">
+              <RequiredLabel htmlFor="mp-date">Date</RequiredLabel>
             <div className="relative">
               {showDatePicker ? (
                 <Input 
@@ -591,6 +631,7 @@ export function ManualPaymentDialog({
               <span className="text-gray-500 text-xs">Complete the amount field first</span>
             )}
           </div>
+
           <div className="grid gap-1">
             <RequiredLabel>Mode</RequiredLabel>
             <Select 
@@ -619,6 +660,8 @@ export function ManualPaymentDialog({
               <span className="text-gray-500 text-xs">Complete the amount and date fields first</span>
             )}
           </div>
+          </div>
+
         {(mode === "UPI" || mode === "Card" || mode === "Bank Transfer") && (
           <div className="grid gap-1">
             <Label htmlFor="mp-file">Upload File (Reference Only)</Label>
@@ -634,55 +677,94 @@ export function ManualPaymentDialog({
           </div>
         )}
         
-        <div className="grid gap-1">
-          <RequiredLabel htmlFor="mp-received-by-name">Payment Received By (Name)</RequiredLabel>
-          <Input
-            id="mp-received-by-name"
-            type="text"
-            value={receivedByName}
-            required
-            onBlur={() => setReceivedByNameTouched(true)}
-            onChange={(e) => setReceivedByName(e.target.value)}
-            disabled={!canEnableReceivedByName}
-            placeholder="Enter name of person receiving payment"
-            className={`${receivedByNameTouched && !isReceivedByNameValid ? 'border-red-500 focus:border-red-500' : ''} ${!canEnableReceivedByName ? 'opacity-50 cursor-not-allowed' : ''}`}
-          />
-          {receivedByNameTouched && !isReceivedByNameValid && (
-            <span className="text-red-500 text-xs">Please enter the receiver's name</span>
+          {/* Payment Received By - Full width dropdown */}
+          <div className="grid gap-1">
+            <RequiredLabel htmlFor="mp-received-by-name">Payment Received By (Name)</RequiredLabel>
+            <Select 
+              value={selectedStaffId} 
+              onValueChange={(v) => {
+                // Check if "Other" is selected
+                if (v === 'other') {
+                  setIsOtherSelected(true);
+                  setSelectedStaffId('other');
+                  setReceivedByName('');
+                  setReceivedByRole('admin'); // Set default role for "other"
+                } else {
+                  setIsOtherSelected(false);
+                  setOtherPersonName('');
+                  setOtherRemarks('');
+                  setSelectedStaffId(v);
+                  // Extract role and label from staffMembers based on selected value
+                  const selectedStaff = staffMembers.find(s => s.value === v);
+                  if (selectedStaff) {
+                    // Store the full label (name with ID) instead of just the ID
+                    setReceivedByName(selectedStaff.label);
+                    setReceivedByRole(selectedStaff.role as ManualPaymentPayload["receivedByRole"]);
+                  }
+                }
+                setReceivedByNameTouched(true);
+              }} 
+              required
+              disabled={!canEnableReceivedByName || loadingStaff}
+            >
+              <SelectTrigger className={`${receivedByNameTouched && !isReceivedByNameValid ? 'border-red-500 focus:border-red-500' : ''} ${!canEnableReceivedByName ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                <SelectValue placeholder={loadingStaff ? "Loading staff members..." : "Select person receiving payment"} />
+              </SelectTrigger>
+              <SelectContent className="max-h-[200px]">
+                {staffMembers.map((staff) => (
+                  staff.role === 'separator' ? (
+                    <div key={staff.value} className="px-2 py-1.5 text-sm font-semibold text-gray-700 bg-gray-100 cursor-default">
+                      {staff.label}
+                    </div>
+                  ) : (
+                    <SelectItem key={staff.value} value={staff.value}>
+                      {staff.label}
+                    </SelectItem>
+                  )
+                ))}
+              </SelectContent>
+            </Select>
+            {receivedByNameTouched && !isReceivedByNameValid && !isOtherSelected && (
+              <span className="text-red-500 text-xs">Please select the receiver's name</span>
+            )}
+            {!canEnableReceivedByName && (
+              <span className="text-gray-500 text-xs">Complete the amount, date, and mode fields first</span>
+            )}
+          </div>
+
+          {/* Show "Other" input fields when "Other" is selected */}
+          {isOtherSelected && (
+            <>
+              <div className="grid gap-1">
+                <RequiredLabel htmlFor="mp-other-person-name">Enter Person Name</RequiredLabel>
+                <Input
+                  id="mp-other-person-name"
+                  type="text"
+                  value={otherPersonName}
+                  required
+                  onBlur={() => setOtherPersonNameTouched(true)}
+                  onChange={(e) => setOtherPersonName(e.target.value)}
+                  placeholder="Enter name of person receiving payment"
+                  className={otherPersonNameTouched && otherPersonName.trim() === '' ? 'border-red-500 focus:border-red-500' : ''}
+                />
+                {otherPersonNameTouched && otherPersonName.trim() === '' && (
+                  <span className="text-red-500 text-xs">Please enter the person's name</span>
+                )}
+              </div>
+
+              <div className="grid gap-1">
+                <Label htmlFor="mp-other-remarks">Remarks (Optional)</Label>
+                <Input
+                  id="mp-other-remarks"
+                  type="text"
+                  value={otherRemarks}
+                  onChange={(e) => setOtherRemarks(e.target.value)}
+                  placeholder="Enter any additional remarks or details"
+                />
+                <span className="text-xs text-gray-500">Add any additional information about this person</span>
+              </div>
+            </>
           )}
-          {!canEnableReceivedByName && (
-            <span className="text-gray-500 text-xs">Complete the amount, date, and mode fields first</span>
-          )}
-        </div>
-        
-        <div className="grid gap-1">
-          <RequiredLabel>Role</RequiredLabel>
-          <Select 
-            value={receivedByRole} 
-            onValueChange={(v) => {
-              setReceivedByRole(v as ManualPaymentPayload["receivedByRole"]);
-              setReceivedByRoleTouched(true);
-            }} 
-            required
-            disabled={!canEnableReceivedByRole}
-          >
-            <SelectTrigger className={`${receivedByRoleTouched && !isReceivedByRoleValid ? 'border-red-500 focus:border-red-500' : ''} ${!canEnableReceivedByRole ? 'opacity-50 cursor-not-allowed' : ''}`}>
-              <SelectValue placeholder="Select role" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="instructor">Instructor</SelectItem>
-              <SelectItem value="non-instructor">Non-Instructor</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="superadmin">Super Admin</SelectItem>
-            </SelectContent>
-          </Select>
-          {receivedByRoleTouched && !isReceivedByRoleValid && (
-            <span className="text-red-500 text-xs">Please select a role</span>
-          )}
-          {!canEnableReceivedByRole && (
-            <span className="text-gray-500 text-xs">Complete all previous fields first</span>
-          )}
-        </div>
         
        
         </div>

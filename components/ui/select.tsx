@@ -39,7 +39,7 @@ const SelectScrollUpButton = React.forwardRef<
   <SelectPrimitive.ScrollUpButton
     ref={ref}
     className={cn(
-      'flex cursor-default items-center justify-center py-1',
+      'hidden', // Hide scroll up button
       className,
     )}
     {...props}
@@ -56,7 +56,7 @@ const SelectScrollDownButton = React.forwardRef<
   <SelectPrimitive.ScrollDownButton
     ref={ref}
     className={cn(
-      'flex cursor-default items-center justify-center py-1',
+      'hidden', // Hide scroll down button
       className,
     )}
     {...props}
@@ -86,10 +86,14 @@ const SelectContent = React.forwardRef<
       <SelectScrollUpButton />
       <SelectPrimitive.Viewport
         className={cn(
-          'p-1',
+          'p-1 overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-gray-500',
           position === 'popper' &&
             'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]',
         )}
+        style={{
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#9ca3af #f3f4f6'
+        }}
       >
         {children}
       </SelectPrimitive.Viewport>
