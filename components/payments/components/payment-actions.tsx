@@ -7,7 +7,7 @@ import { StudentManualPaymentPayload } from "./student-manual-payment"
 import { generatePayslipPDF } from "./generate-payslip-pdf"
 import { fetchLatestPaymentMethod } from '@/lib/payment-utils'
 
-// Utility function for formatting currency
+
 const formatCurrency = (amount: number, currency: string = "INR") => {
   const numericAmount = isNaN(amount) ? 0 : amount
   const formattedNumber = new Intl.NumberFormat('en-IN').format(numericAmount)
