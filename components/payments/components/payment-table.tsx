@@ -7,6 +7,7 @@ import { useMemo, useState } from "react"
 import { PaymentRecord } from './payment-types'
 import { PaymentTableRow } from './payment-table-row'
 import RecordDetailsDialog, { RecordDetailsSection } from './record-details-dialog'
+import { Hash, User, Tag, BookOpen, Users, GraduationCap, CreditCard, DollarSign, Calendar, Bell, Smartphone } from "lucide-react"
 
 interface PaymentTableProps {
   filteredRecords: PaymentRecord[];
@@ -59,40 +60,39 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord,
       {
         title: 'Student',
         fields: [
-          { label: 'Student ID', value: r.id },
-          { label: 'Student Name', value: r.name },
-          { label: 'Category', value: r.category },
+          { label: 'Student ID', value: r.id, icon: <Hash size={16} /> },
+          { label: 'Student Name', value: r.name, icon: <User size={16} /> },
+          { label: 'Category', value: r.category, icon: <Tag size={16} /> },
         ],
       },
       {
         title: 'Course',
         fields: [
-          { label: 'Enrolled Course', value: r.program || r.enrolledCourse || r.activity || 'N/A' },
-          { label: 'Enrolled Course ID', value: (r as any).matchedCourseId || r.enrolledCourse || r.activity || '-' },
-          { label: 'Cohort', value: r.cohort || 'Unassigned' },
-          { label: 'Cohort ID', value: (r as any).cohortId || '-' },
-          { label: 'Course Type', value: r.courseType || '-' },
+          { label: 'Enrolled Course', value: r.program || r.enrolledCourse || r.activity || 'N/A', icon: <BookOpen size={16} /> },
+          { label: 'Enrolled Course ID', value: (r as any).matchedCourseId || r.enrolledCourse || r.activity || '-', icon: <Hash size={16} /> },
+          { label: 'Cohort', value: r.cohort || 'Unassigned', icon: <Users size={16} /> },
+          { label: 'Cohort ID', value: (r as any).cohortId || '-', icon: <Hash size={16} /> },
+          { label: 'Course Type', value: r.courseType || '-', icon: <GraduationCap size={16} /> },
         ],
       },
       {
         title: 'Payment Summary',
         fields: [
-          { label: 'Course Fee', value: (r.finalPayment || 0).toLocaleString() },
-          { label: 'Student Registration', value: r?.registrationFees?.studentRegistration?.amount?.toLocaleString?.() ?? '-' },
-          { label: 'Course Registration', value: r?.registrationFees?.courseRegistration?.amount?.toLocaleString?.() ?? '-' },
-          { label: 'Total Paid', value: (r.totalPaidAmount || 0).toLocaleString() },
-          { label: 'Balance', value: (r.balancePayment || 0).toLocaleString() },
-          
-          { label: 'Status', value: r.paymentStatus || '-' },
-          { label: 'Paid Date', value: r.paidDate ? new Date(r.paidDate).toLocaleDateString() : '-' },
+          { label: 'Course Fee', value: `₹${(r.finalPayment || 0).toLocaleString()}`, icon: <DollarSign size={16} /> },
+          { label: 'Student Registration', value: r?.registrationFees?.studentRegistration?.amount ? `₹${r.registrationFees.studentRegistration.amount.toLocaleString()}` : '-', icon: <CreditCard size={16} /> },
+          { label: 'Course Registration', value: r?.registrationFees?.courseRegistration?.amount ? `₹${r.registrationFees.courseRegistration.amount.toLocaleString()}` : '-', icon: <CreditCard size={16} /> },
+          { label: 'Total Paid', value: `₹${(r.totalPaidAmount || 0).toLocaleString()}`, icon: <DollarSign size={16} /> },
+          { label: 'Balance', value: `₹${(r.balancePayment || 0).toLocaleString()}`, icon: <DollarSign size={16} /> },
+          { label: 'Status', value: r.paymentStatus || '-', icon: <Tag size={16} /> },
+          { label: 'Paid Date', value: r.paidDate ? new Date(r.paidDate).toLocaleDateString() : '-', icon: <Calendar size={16} /> },
         ],
       },
       {
         title: 'Payment Details',
         fields: [
-          { label: 'UPI ID', value: r?.paymentDetails?.upiId || '-' },
-          { label: 'Modes', value: Array.isArray(r?.paymentModes) ? r.paymentModes.join(', ') : (r?.paymentModes || '-') },
-          { label: 'Reminder', value: r.paymentReminder ? 'On' : 'Off' },
+          { label: 'UPI ID', value: r?.paymentDetails?.upiId || '-', icon: <Smartphone size={16} /> },
+          { label: 'Modes', value: Array.isArray(r?.paymentModes) ? r.paymentModes.join(', ') : (r?.paymentModes || '-'), icon: <CreditCard size={16} /> },
+          { label: 'Reminder', value: r.paymentReminder ? 'On' : 'Off', icon: <Bell size={16} /> },
         ],
       },
     ]

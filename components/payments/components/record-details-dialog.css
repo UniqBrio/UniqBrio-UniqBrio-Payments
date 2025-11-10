@@ -11,9 +11,8 @@
 
 .rdd-dialog {
   width: 100%;
-  max-width: 880px;
-  max-height: min(85vh, 900px);
-  overflow: hidden;
+  max-width: 1200px;
+  max-height: 95vh;
   background: #ffffff;
   color: #1f2937;
   border: 1px solid #e5e7eb;
@@ -21,6 +20,7 @@
   box-shadow: 0 20px 60px rgba(0,0,0,0.18);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* Header */
@@ -28,9 +28,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 20px;
+  padding: 14px 18px;
   border-bottom: 1px solid #f1f5f9;
-  gap: 16px;
+  gap: 14px;
+  flex-shrink: 0;
 }
 .rdd-header-gradient {
   background: linear-gradient(90deg, #7c3aed 0%, #a855f7 45%, #f97316 100%);
@@ -45,8 +46,8 @@
 }
 
 .rdd-avatar {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: rgba(255,255,255,0.2);
   display: grid;
@@ -67,43 +68,43 @@
 .rdd-titles {
   display: grid;
   align-items: start;
-  gap: 4px;
+  gap: 2px;
 }
 .rdd-title {
   margin: 0;
-  font-size: 28px;
+  font-size: 24px;
   line-height: 1.2;
   font-weight: 700;
   letter-spacing: 0.2px;
 }
 .rdd-subtitle {
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   opacity: 0.9;
 }
 
 /* Chips under title */
-.rdd-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.rdd-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 .rdd-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: 5px;
+  padding: 4px 9px;
   border-radius: 999px;
   background: rgba(255,255,255,0.25);
   color: #fff;
   border: 1px solid rgba(255,255,255,0.35);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 /* Status badge */
 .rdd-badge {
   display: inline-block;
   width: fit-content;
-  margin-top: 6px;
-  font-size: 12px;
+  margin-top: 4px;
+  font-size: 11px;
   line-height: 1;
-  padding: 6px 10px;
+  padding: 5px 9px;
   border-radius: 999px;
   background: rgba(255,255,255,0.25);
   color: #fff;
@@ -119,8 +120,8 @@
   border: 1px solid rgba(255,255,255,0.5);
   background: rgba(255,255,255,0.2);
   color: #fff;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 10px;
   display: grid;
   place-items: center;
@@ -134,79 +135,112 @@
 
 /* Content */
 .rdd-content {
-  padding: 16px 20px 6px;
-  overflow: auto;
+  padding: 16px 18px 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  gap: 16px;
+}
+
+/* Create 3-column layout for sections */
+@media (min-width: 1024px) {
+  .rdd-content {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .rdd-section + .rdd-section {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px dashed color-mix(in oklab, white 10%, transparent);
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.rdd-section {
+  background: #ffffff;
+  border: 1px solid #f3f4f6;
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 1px 3px rgba(16,24,40,0.05);
 }
 
 .rdd-section-title {
-  margin: 0 0 10px 0;
-  font-size: 14px;
+  margin: 0 0 12px 0;
+  font-size: 13px;
   font-weight: 700;
-  color: #6b7280;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
+  color: #9234ea;
+  letter-spacing: 0.5px;
+  text-transform: capitalize;
 }
 
 .rdd-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px 14px;
-}
-@media (min-width: 720px) {
-  .rdd-grid {
-    grid-template-columns: 1fr 1fr;
-  }
+  gap: 12px;
 }
 
 .rdd-field {
   min-width: 0;
-  border: 1px solid #eef2f7;
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 12px 14px;
-  box-shadow: 0 1px 2px rgba(16,24,40,0.05);
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  transition: none;
+}
+.rdd-field:hover {
+  border: none;
+  box-shadow: none;
 }
 .rdd-span-2 {
   grid-column: 1 / -1;
 }
 .rdd-field-label {
-  font-size: 12px;
-  color: #6b7280;
+  font-size: 11px;
+  color: #9ca3af;
   margin-bottom: 6px;
   letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+}
+.rdd-field-icon {
+  display: inline-flex;
+  align-items: center;
+  color: #9234ea;
 }
 .rdd-field-value {
   font-size: 14px;
   color: #111827;
   word-break: break-word;
+  font-weight: 600;
+  text-align: left;
+  line-height: 1.4;
 }
 
 /* Footer */
 .rdd-footer {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  padding: 12px 20px 16px;
+  gap: 8px;
+  padding: 10px 18px 12px;
   border-top: 1px solid #f1f5f9;
   background: #ffffff;
+  flex-shrink: 0;
 }
 
 /* Suggested button styles for footer (optional) */
 .rdd-btn {
-  height: 36px;
-  padding: 0 14px;
+  height: 32px;
+  padding: 0 12px;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
   background: #ffffff;
   color: #111827;
   cursor: pointer;
   font-weight: 550;
+  font-size: 13px;
 }
 .rdd-btn:hover { background: #f9fafb; }
 .rdd-btn-primary {
