@@ -734,7 +734,7 @@ export function ManualPaymentDialog({
 
           {/* Show "Other" input fields when "Other" is selected */}
           {isOtherSelected && (
-            <>
+            <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1">
                 <RequiredLabel htmlFor="mp-other-person-name">Enter Person Name</RequiredLabel>
                 <Input
@@ -753,7 +753,7 @@ export function ManualPaymentDialog({
               </div>
 
               <div className="grid gap-1">
-                <Label htmlFor="mp-other-remarks">Remarks (Optional)</Label>
+                <Label htmlFor="mp-other-remarks">Remarks</Label>
                 <Input
                   id="mp-other-remarks"
                   type="text"
@@ -761,9 +761,9 @@ export function ManualPaymentDialog({
                   onChange={(e) => setOtherRemarks(e.target.value)}
                   placeholder="Enter any additional remarks or details"
                 />
-                <span className="text-xs text-gray-500">Add any additional information about this person</span>
+                
               </div>
-            </>
+            </div>
           )}
         
        
