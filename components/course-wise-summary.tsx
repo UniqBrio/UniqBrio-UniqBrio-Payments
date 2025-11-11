@@ -251,23 +251,23 @@ export function CourseWiseSummary({ coursePayments, allRecords = [] }: CourseWis
                             </button>
                           )}
                           <BookOpen className="h-4 w-4 text-orange-600" />
-                          <span className="font-semibold text-orange-900">{course.courseId}</span>
+                          <span className="font-semibold text-black">{course.courseId}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-xs p-3 text-left">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-orange-900">{course.program || course.course}</span>
+                          <span className="font-semibold text-black">{course.program || course.course}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-xs p-3 text-center">
                         <div className="flex items-center justify-center gap-1">
                           <Users className="h-3 w-3 text-orange-600" />
-                          <span className="font-semibold text-orange-900">{course.students}</span>
+                          <span className="font-semibold text-black">{course.students}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-xs p-3 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <span className="font-semibold text-orange-900">{formatCurrency(course.amount)}</span>
+                          <span className="font-semibold text-black">{formatCurrency(course.amount)}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-xs p-3 text-center">
@@ -281,7 +281,7 @@ export function CourseWiseSummary({ coursePayments, allRecords = [] }: CourseWis
                       <TableCell className="text-xs p-3 text-center">
                         <div className="space-y-1">
                           <div className="flex justify-center text-xs">
-                            <span className="font-semibold text-orange-900">{collectionRate.toFixed(1)}%</span>
+                            <span className="font-semibold text-black">{collectionRate.toFixed(1)}%</span>
                           </div>
                           <Progress value={collectionRate} className="h-2" />
                         </div>
