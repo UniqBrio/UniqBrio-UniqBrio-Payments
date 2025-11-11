@@ -140,6 +140,8 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
   const [emailPreviewOpen, setEmailPreviewOpen] = useState(false)
   const [reminderPreviewOpen, setReminderPreviewOpen] = useState(false)
   const [generatedQR, setGeneratedQR] = useState<string>('')
+  const [reminderConfirmOpen, setReminderConfirmOpen] = useState(false)
+  const [pendingReminderState, setPendingReminderState] = useState<boolean | null>(null)
   
   // Use communication channels from record prop (batch fetched at parent level)
   const [communicationChannels, setCommunicationChannels] = useState<string[]>(
@@ -467,21 +469,10 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
                 onClick={async (e) => {
                   e.stopPropagation();
                   if (!isPaid) {
+                    // Show confirmation dialog
                     const newReminderState = !effectiveReminder;
-                    try {
-                      const courseKey = record.matchedCourseId || record.activity || record.enrolledCourse || 'NA';
-                      await onUpdateRecord(`${record.id}::${courseKey}`, { paymentReminder: newReminderState });
-                      toast({
-                        title: newReminderState ? '✔ Reminder Enabled' : '❌ Reminder Disabled',
-                        description: `Payment reminders ${newReminderState ? 'enabled' : 'disabled'} for ${record.name}`,
-                      });
-                    } catch (error) {
-                      toast({
-                        title: '❌ Update Failed',
-                        description: 'Failed to update reminder setting. Please try again.',
-                        variant: 'destructive',
-                      });
-                    }
+                    setPendingReminderState(newReminderState);
+                    setReminderConfirmOpen(true);
                   } else {
                     toast({
                       title: '⚠️ Cannot Update',
@@ -833,6 +824,56 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogAction className="bg-[#9234ea] hover:bg-[#9234ea]/90">Okay</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* Reminder Toggle Confirmation Dialog */}
+    <AlertDialog open={reminderConfirmOpen} onOpenChange={setReminderConfirmOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Reminder Settings</AlertDialogTitle>
+          <AlertDialogDescription>
+            {pendingReminderState 
+              ? "Do you want to send before payment reminders?"
+              : "Do you want to stop sending before payment reminders?"}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setReminderConfirmOpen(false);
+              setPendingReminderState(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <AlertDialogAction 
+            className="bg-[#9234ea] hover:bg-[#9234ea]/90"
+            onClick={async () => {
+              if (pendingReminderState !== null) {
+                try {
+                  const courseKey = record.matchedCourseId || record.activity || record.enrolledCourse || 'NA';
+                  await onUpdateRecord(`${record.id}::${courseKey}`, { paymentReminder: pendingReminderState });
+                  toast({
+                    title: pendingReminderState ? '✔ Reminder Enabled' : '❌ Reminder Disabled',
+                    description: `Payment reminders ${pendingReminderState ? 'enabled' : 'disabled'} for ${record.name}`,
+                  });
+                } catch (error) {
+                  toast({
+                    title: '❌ Update Failed',
+                    description: 'Failed to update reminder setting. Please try again.',
+                    variant: 'destructive',
+                  });
+                }
+              }
+              setReminderConfirmOpen(false);
+              setPendingReminderState(null);
+            }}
+          >
+            Confirm
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

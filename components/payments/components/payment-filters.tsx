@@ -479,6 +479,24 @@ export function PaymentFilters({
               <Button
                 variant="ghost"
                 size="sm"
+                onClick={() => setViewMode("list")}
+                className={`h-10 w-10 p-0 rounded-none border-0 ${
+                  viewMode === "list" 
+                    ? "bg-[#9234ea] text-white hover:bg-[#9234ea]/90" 
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+                title="List"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 16 16" fill="currentColor">
+                  <rect x="2" y="3" width="12" height="1.5" rx="0.75" />
+                  <rect x="2" y="7.25" width="12" height="1.5" rx="0.75" />
+                  <rect x="2" y="11.5" width="12" height="1.5" rx="0.75" />
+                </svg>
+              </Button>
+              <div className="w-px bg-gray-300"></div>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setViewMode("grid")}
                 className={`h-10 w-10 p-0 rounded-none border-0 ${
                   viewMode === "grid" 
@@ -492,24 +510,6 @@ export function PaymentFilters({
                   <circle cx="12" cy="4" r="2.5" />
                   <circle cx="4" cy="12" r="2.5" />
                   <circle cx="12" cy="12" r="2.5" />
-                </svg>
-              </Button>
-              <div className="w-px bg-gray-300"></div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setViewMode("list")}
-                className={`h-10 w-10 p-0 rounded-none border-0 ${
-                  viewMode === "list" 
-                    ? "bg-[#9234ea] text-white hover:bg-[#9234ea]/90" 
-                    : "bg-white text-black hover:bg-gray-50"
-                }`}
-                title="List"
-              >
-                <svg className="h-5 w-5" viewBox="0 0 16 16" fill="currentColor">
-                  <rect x="2" y="3" width="12" height="1.5" rx="0.75" />
-                  <rect x="2" y="7.25" width="12" height="1.5" rx="0.75" />
-                  <rect x="2" y="11.5" width="12" height="1.5" rx="0.75" />
                 </svg>
               </Button>
             </div>
