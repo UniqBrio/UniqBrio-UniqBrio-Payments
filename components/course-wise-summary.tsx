@@ -334,20 +334,20 @@ export function CourseWiseSummary({ coursePayments, allRecords = [] }: CourseWis
                                       className={`bg-white ${hasStudents ? 'cursor-pointer' : ''} border-l-4 border-purple-400`}
                                       onClick={() => hasStudents && openCohortDetails(cohort, course.courseId)}
                                     >
-                                      <TableCell className="text-xs p-2 text-left font-medium text-purple-700">
+                                      <TableCell className="text-xs p-2 text-left font-medium text-black">
                                         {cohort.cohortId || '-'}
                                       </TableCell>
-                                      <TableCell className="text-xs p-2 text-left font-medium text-purple-900">
+                                      <TableCell className="text-xs p-2 text-left font-medium text-black">
                                         {cohort.cohort || 'Unassigned'}
                                       </TableCell>
                                       <TableCell className="text-xs p-2 text-center">
                                         <div className="flex items-center justify-center gap-1">
                                           <Users className="h-3 w-3 text-purple-600" />
-                                          <span className="font-medium text-purple-900">{cohort.students}</span>
+                                          <span className="font-medium text-black">{cohort.students}</span>
                                         </div>
                                       </TableCell>
                                       <TableCell className="text-xs p-2 text-center">
-                                        <span className="font-medium text-purple-900">{formatCurrency(cohort.amount)}</span>
+                                        <span className="font-medium text-black">{formatCurrency(cohort.amount)}</span>
                                       </TableCell>
                                       <TableCell className="text-xs p-2 text-center">
                                         <span className="font-medium text-green-600">
@@ -362,7 +362,7 @@ export function CourseWiseSummary({ coursePayments, allRecords = [] }: CourseWis
                                       <TableCell className="text-xs p-2 text-center">
                                         <div className="space-y-1">
                                           <div className="flex justify-center text-xs">
-                                            <span className="font-medium text-purple-900">{cohortCollectionRate.toFixed(1)}%</span>
+                                            <span className="font-medium text-black">{cohortCollectionRate.toFixed(1)}%</span>
                                           </div>
                                           <Progress value={cohortCollectionRate} className="h-2" />
                                         </div>
