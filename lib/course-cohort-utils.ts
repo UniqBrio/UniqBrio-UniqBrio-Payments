@@ -11,6 +11,7 @@ export interface CohortPayment {
   amount: number
   received: number
   outstanding: number
+  studentIds?: string[] // Student IDs in this cohort
 }
 
 export interface CoursePaymentWithCohorts {
@@ -418,6 +419,7 @@ export function generateCourseWiseSummaryWithProperIDs(
       amount: number
       received: number
       outstanding: number
+      studentIds: string[]
     }>()
 
     courseRecords.forEach(record => {
@@ -448,7 +450,8 @@ export function generateCourseWiseSummaryWithProperIDs(
           students: 0,
           amount: 0,
           received: 0,
-          outstanding: 0
+          outstanding: 0,
+          studentIds: []
         })
       }
 
@@ -457,6 +460,7 @@ export function generateCourseWiseSummaryWithProperIDs(
       cohortData.amount += totalAmount
       cohortData.received += receivedAmount
       cohortData.outstanding += outstandingAmount
+      cohortData.studentIds.push(record.id)
     })
 
     // Add cohorts from DB that exist for this course but may not have payment records yet
@@ -469,7 +473,8 @@ export function generateCourseWiseSummaryWithProperIDs(
             students: 0,
             amount: 0,
             received: 0,
-            outstanding: 0
+            outstanding: 0,
+            studentIds: []
           })
         }
       })
@@ -482,7 +487,8 @@ export function generateCourseWiseSummaryWithProperIDs(
         students: data.students,
         amount: data.amount,
         received: data.received,
-        outstanding: data.outstanding
+        outstanding: data.outstanding,
+        studentIds: data.studentIds
       }))
       .sort((a, b) => a.cohort.localeCompare(b.cohort))
 

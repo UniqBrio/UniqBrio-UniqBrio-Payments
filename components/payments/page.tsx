@@ -655,7 +655,7 @@ export default function PaymentStatusPage() {
             </Card>
 
             {/* Course Summary Table */}
-            <CourseWiseSummary coursePayments={filteredCourseSummary} />
+            <CourseWiseSummary coursePayments={filteredCourseSummary} allRecords={records} />
           </div>
         )}
 
