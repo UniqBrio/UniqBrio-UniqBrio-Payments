@@ -83,6 +83,7 @@ export function usePaymentLogic() {
     { key: 'balance', label: 'Balance (INR)', visible: true },
     { key: 'status', label: 'Status', visible: true },
     { key: 'paidDate', label: 'Paid Date', visible: true },
+    { key: 'nextReminderDate', label: 'Next Reminder Date', visible: true },
     // { key: 'nextDue', label: 'Next Due', visible: true },
     // { key: 'courseStartDate', label: 'Start Date', visible: true },
     { key: 'reminder', label: 'Reminder', visible: true },

@@ -130,6 +130,7 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord,
           { label: 'Balance', value: `₹${(overallBalance).toLocaleString()}` , icon: <DollarSign size={16} /> },
           { label: 'Status', value: effectiveStatus, icon: <Tag size={16} /> },
           { label: 'Paid Date', value: r.paidDate ? formatDateToDisplay(r.paidDate) : '-', icon: <Calendar size={16} /> },
+          { label: 'Next Reminder Date', value: '-', icon: <Calendar size={16} /> },
         ],
       },
       {
@@ -172,6 +173,7 @@ export function PaymentTable({ filteredRecords, isColumnVisible, onUpdateRecord,
                 {isColumnVisible('balance') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap w-[150px] text-center">Balance (INR)</TableHead>}
                 {isColumnVisible('status') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap w-[120px] text-center">Status</TableHead>}
                 {isColumnVisible('paidDate') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap text-center w-[140px]">Paid Date</TableHead>}
+                {isColumnVisible('nextReminderDate') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap text-center w-[180px]">Next Reminder Date</TableHead>}
                 {/* {isColumnVisible('nextDue') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap text-center">Next Due</TableHead>}
                 {isColumnVisible('courseStartDate') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap text-center">Start Date</TableHead>} */}
                 {isColumnVisible('reminder') && <TableHead className="text-sm p-3 font-semibold sticky top-0 z-40 bg-gray-100 border-b-2 border-[#9234ea]/30 shadow-sm whitespace-nowrap w-[120px] text-center">Reminder</TableHead>}

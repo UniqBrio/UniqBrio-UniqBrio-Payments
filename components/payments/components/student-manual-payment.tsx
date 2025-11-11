@@ -115,6 +115,7 @@ export function ManualPaymentDialog({
 }) {
   const [amount, setAmount] = useState<string>("")
   const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10))
+  const [time, setTime] = useState<string>(new Date().toTimeString().slice(0, 5)) // HH:MM format
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false)
   const [mode, setMode] = useState<ManualPaymentPayload["mode"]>(defaultMode)
   const [notes, setNotes] = useState<string>("")
@@ -168,6 +169,7 @@ export function ManualPaymentDialog({
   // Validation states for progressive form
   const [amountTouched, setAmountTouched] = useState(false)
   const [dateTouched, setDateTouched] = useState(false)
+  const [timeTouched, setTimeTouched] = useState(false)
   const [modeTouched, setModeTouched] = useState(false)
   const [receivedByNameTouched, setReceivedByNameTouched] = useState(false)
   const [receivedByRoleTouched, setReceivedByRoleTouched] = useState(false)
@@ -209,15 +211,17 @@ export function ManualPaymentDialog({
     ? (amount.trim() !== "" && enteredAmount !== selectedTotal)
     : false
   const isDateValid = date.trim() !== ""
+  const isTimeValid = time.trim() !== ""
   const isModeValid = mode && mode.length > 0
   const isReceivedByNameValid = isOtherSelected ? otherPersonName.trim() !== "" : receivedByName.trim() !== ""
   const isReceivedByRoleValid = receivedByRole && receivedByRole.length > 0
   
   // Progressive validation - each field depends on previous ones being valid
   const canEnableDate = isAmountValid
-  const canEnableMode = isAmountValid && isDateValid
-  const canEnableReceivedByName = isAmountValid && isDateValid && isModeValid
-  const canEnableReceivedByRole = isAmountValid && isDateValid && isModeValid && isReceivedByNameValid
+  const canEnableTime = isAmountValid && isDateValid
+  const canEnableMode = isAmountValid && isDateValid && isTimeValid
+  const canEnableReceivedByName = isAmountValid && isDateValid && isTimeValid && isModeValid
+  const canEnableReceivedByRole = isAmountValid && isDateValid && isTimeValid && isModeValid && isReceivedByNameValid
 
   // Helper function to safely extract fee data from actual database values
   function getActualFeeData(feeObj: any) {
@@ -298,6 +302,8 @@ export function ManualPaymentDialog({
       // Reset when dialog closes
       setPaymentTypes([]);
       setAmount("");
+      setDate(new Date().toISOString().slice(0, 10));
+      setTime(new Date().toTimeString().slice(0, 5));
       setNotes("");
       setReceivedByName("");
       setSelectedStaffId("");
@@ -344,6 +350,7 @@ export function ManualPaymentDialog({
     if (
       isNaN(value) || value <= 0 ||
       !date ||
+      !time ||
       !mode || !isPaymentOptionValid ||
       (isOtherSelected && !otherPersonName.trim()) ||
       (!isOtherSelected && !receivedByName.trim()) ||
@@ -351,7 +358,7 @@ export function ManualPaymentDialog({
     ) {
       toast({
         title: "Required fields missing",
-        description: "Please fill all required fields including payment option, amount, date, mode, receiver name and role.",
+        description: "Please fill all required fields including payment option, amount, date, time, mode, receiver name and role.",
         variant: "destructive",
       });
       return;
@@ -375,9 +382,13 @@ export function ManualPaymentDialog({
       ? `${notes.trim() ? notes.trim() + ' | ' : ''}Other Person - Remarks: ${otherRemarks.trim()}`
       : notes.trim() || undefined;
     
+    // Combine date and time into ISO string with IST timezone (+05:30)
+    // This ensures the time you enter (e.g., 12:30) is stored as 12:30 IST in the backend
+    const dateTimeString = `${date}T${time}:00+05:30`;
+    
     onSubmit({
       amount: value,
-      date,
+      date: dateTimeString,
       mode,
       notes: finalNotes,
       receiverName: finalReceivedByName,
@@ -590,9 +601,9 @@ export function ManualPaymentDialog({
           </div>
           </div>
 
-          {/* Date + Mode side-by-side */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1">
+          {/* Date + Time + Mode in same row with adjusted sizes */}
+          <div className="grid grid-cols-12 gap-3">
+            <div className="col-span-4 grid gap-1">
               <RequiredLabel htmlFor="mp-date">Date</RequiredLabel>
             <div className="relative">
               {showDatePicker ? (
@@ -632,7 +643,27 @@ export function ManualPaymentDialog({
             )}
           </div>
 
-          <div className="grid gap-1">
+          <div className="col-span-3 grid gap-1">
+            <RequiredLabel htmlFor="mp-time">Time</RequiredLabel>
+            <Input 
+              id="mp-time" 
+              type="time" 
+              value={time} 
+              onChange={(e) => setTime(e.target.value)}
+              onBlur={() => setTimeTouched(true)}
+              disabled={!canEnableTime}
+              required 
+              className={`${timeTouched && !isTimeValid ? 'border-red-500 focus:border-red-500' : ''} ${!canEnableTime ? 'opacity-50 cursor-not-allowed' : ''}`}
+            />
+            {timeTouched && !isTimeValid && (
+              <span className="text-red-500 text-xs">Please select time</span>
+            )}
+            {!canEnableTime && (
+              <span className="text-gray-500 text-xs">Complete date first</span>
+            )}
+          </div>
+
+          <div className="col-span-5 grid gap-1">
             <RequiredLabel>Mode</RequiredLabel>
             <Select 
               value={mode} 
@@ -657,7 +688,7 @@ export function ManualPaymentDialog({
               <span className="text-red-500 text-xs">Please select a payment mode</span>
             )}
             {!canEnableMode && (
-              <span className="text-gray-500 text-xs">Complete the amount and date fields first</span>
+              <span className="text-gray-500 text-xs">Complete date and time first</span>
             )}
           </div>
           </div>
@@ -775,7 +806,7 @@ export function ManualPaymentDialog({
           </Button>
           <Button 
             onClick={handleSubmit} 
-            disabled={!isAmountValid || !isDateValid || !isModeValid || !isReceivedByNameValid || !isReceivedByRoleValid}
+            disabled={!isAmountValid || !isDateValid || !isTimeValid || !isModeValid || !isReceivedByNameValid || !isReceivedByRoleValid}
             className="bg-[#9234ea] hover:bg-[#9234ea]/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Save payment

@@ -526,6 +526,10 @@ function PaymentGridCard({
               </span>
             </div>
             <div className="flex justify-between text-xs">
+              <span className="text-gray-600">Next Reminder Date:</span>
+              <span className="text-gray-400 italic">-</span>
+            </div>
+            <div className="flex justify-between text-xs">
               <span className="text-gray-600">Reminder:</span>
               <Badge 
                 variant={record.paymentStatus === 'Paid' || !record.paymentReminder ? "secondary" : "default"} 

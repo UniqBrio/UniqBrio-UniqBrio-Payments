@@ -51,7 +51,7 @@ export function ReminderPreviewDialog({ record, isOpen, onClose, onSendConfirm }
   const [successMessage, setSuccessMessage] = useState('')
   // Modes that are not yet implemented for sending
   // NOTE: SMS removed from this list to enable real sending
-  const COMING_SOON_MODES: string[] = []
+  const COMING_SOON_MODES: string[] = ['WhatsApp']
 
   // Fetch preview via API (used for coming soon modes or when we want server-format)
   const fetchPreview = async (mode: string) => {
@@ -171,6 +171,7 @@ Please complete your payment by the due date.
 
 UniqBrio Academic Team`
 
+      case 'in app':
       case 'app':
         return `📱 In-App Notification
 
@@ -208,24 +209,24 @@ Tap to pay now via:
             setStudentCommPrefs(preferences)
             
             // Set initial mode from students collection preferences
-            const preferredChannels = preferences.channels || ['Email']
-            // Pick first non-coming-soon mode; fallback to Email
-            const preferredMode = preferredChannels.find((c: string) => !COMING_SOON_MODES.includes(c)) || 'Email'
+            const preferredChannels = preferences.channels || ['In app']
+            // Pick first non-coming-soon mode; fallback to In app
+            const preferredMode = preferredChannels.find((c: string) => !COMING_SOON_MODES.includes(c)) || 'In app'
             setSelectedMode(preferredMode)
             setMessageContent(generateReminderContent(preferredMode))
           } else {
             // Fallback to record preferences or default
             console.log('⚠️ No preferences from students collection, using fallback')
-            const fallbackChannels = record.communicationPreferences?.channels || ['Email']
-            const fallbackMode = fallbackChannels.find((c: string) => !COMING_SOON_MODES.includes(c)) || 'Email'
+            const fallbackChannels = record.communicationPreferences?.channels || ['In app']
+            const fallbackMode = fallbackChannels.find((c: string) => !COMING_SOON_MODES.includes(c)) || 'In app'
             setSelectedMode(fallbackMode)
             setMessageContent(generateReminderContent(fallbackMode))
           }
         } catch (error) {
           console.error('❌ Error fetching student preferences:', error)
           // Use record preferences as fallback
-          const fallbackChannels = record.communicationPreferences?.channels || ['Email']
-          const fallbackMode = fallbackChannels.find((c: string) => !COMING_SOON_MODES.includes(c)) || 'Email'
+          const fallbackChannels = record.communicationPreferences?.channels || ['In app']
+          const fallbackMode = fallbackChannels.find((c: string) => !COMING_SOON_MODES.includes(c)) || 'In app'
           setSelectedMode(fallbackMode)
           setMessageContent(generateReminderContent(fallbackMode))
         } finally {
@@ -261,6 +262,7 @@ Tap to pay now via:
         return <Phone className="h-4 w-4" />
       case 'whatsapp':
         return <MessageSquare className="h-4 w-4" />
+      case 'in app':
       case 'app':
         return <Smartphone className="h-4 w-4" />
       default:
@@ -308,9 +310,9 @@ Tap to pay now via:
           <div>
             <label className="text-sm font-medium mb-2 block">Communication Mode:</label>
             <div className="flex gap-2 w-full">
-              {['Email', 'SMS', 'WhatsApp', 'App'].map((mode) => {
+              {['Email','In app', 'WhatsApp', 'SMS'].map((mode) => {
                 const isSelected = selectedMode === mode
-                const isSMS = mode === 'SMS'
+                const isComingSoon = mode === 'SMS' || mode === 'WhatsApp'
                 return (
                   <div key={mode} className="flex flex-col items-center flex-1">
                     <Button
@@ -319,11 +321,11 @@ Tap to pay now via:
                       onClick={() => handleModeChange(mode)}
                       aria-pressed={isSelected}
                       title={`${mode} mode`}
-                      disabled={isSMS}
+                      disabled={isComingSoon}
                       className={`flex items-center justify-center gap-1 transition-colors duration-200 border-[1.5px] relative group w-full px-2
-                        ${isSMS && isSelected
+                        ${isComingSoon && isSelected
                           ? 'bg-gray-400 border-black text-white cursor-not-allowed'
-                          : isSMS
+                          : isComingSoon
                           ? 'bg-gray-200 border-gray-400 text-gray-600 cursor-not-allowed hover:bg-gray-200 hover:text-gray-600'
                           : isSelected
                           ? 'bg-[#9234ea] border-[#9234ea] text-white hover:bg-[#7a2cbe] hover:text-white'
@@ -332,13 +334,8 @@ Tap to pay now via:
                     >
                       {getModeIcon(mode)}
                       {mode}
-                      {isSMS && (
+                      {isComingSoon && (
                         <span title="Coming Soon">🔜</span>
-                      )}
-                      {(studentCommPrefs?.channels?.includes(mode as any) || record.communicationPreferences?.channels?.includes(mode as any)) && (
-                        <Badge variant="secondary" className="ml-1 text-xs">
-                          {studentCommPrefs?.channels?.includes(mode) ? 'Student Preference' : 'Available'}
-                        </Badge>
                       )}
                     </Button>
                   </div>

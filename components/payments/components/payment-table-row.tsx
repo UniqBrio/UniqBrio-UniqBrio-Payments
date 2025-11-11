@@ -415,6 +415,11 @@ export function PaymentTableRow({ record, isColumnVisible, onUpdateRecord, refre
           )}
         </TableCell>
       )}
+      {isColumnVisible('nextReminderDate') && (
+        <TableCell className="text-sm p-3 text-center w-[180px]">
+          <span className="text-gray-400 italic">-</span>
+        </TableCell>
+      )}
       {/* {isColumnVisible('nextDue') && (
         <TableCell className="text-[11px] p-1 text-center">
 
