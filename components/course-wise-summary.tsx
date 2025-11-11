@@ -157,71 +157,76 @@ export function CourseWiseSummary({ coursePayments }: CourseWiseSummaryProps) {
                     
                     {/* Cohort Details Row */}
                     {isExpanded && hasCohorts && (
-                      <TableRow key={`${course.course}-cohorts`} className="bg-purple-50/50">
+                      <TableRow key={`${course.course}-cohorts`} className="bg-gradient-to-r from-purple-50 to-indigo-50 border-l-4 border-purple-400">
                         <TableCell colSpan={8} className="p-0">
-                          <div className="px-8 py-4">
-                            <div className="text-xs font-semibold text-purple-700 mb-3 flex items-center gap-2">
-                              <Users className="h-4 w-4" />
-                              Cohort-wise Breakdown
+                          <div className="px-8 py-4 bg-gradient-to-br from-purple-50/80 to-indigo-50/80 rounded-lg m-2 border border-purple-200 shadow-sm">
+                            <div className="text-sm font-bold text-purple-800 mb-4 flex items-center gap-2 pb-2 border-b-2 border-purple-300">
+                              <Users className="h-5 w-5" />
+                              <span>Cohort-wise Breakdown for {course.program}</span>
                             </div>
-                            <Table>
-                              <TableHeader>
-                                <TableRow className="border-b bg-purple-100/50">
-                                  <TableHead className="font-semibold text-xs p-2 text-left text-purple-700">Cohort ID</TableHead>
-                                  <TableHead className="font-semibold text-xs p-2 text-left text-purple-700">Cohort</TableHead>
-                                  <TableHead className="font-semibold text-xs p-2 text-center text-purple-700">Students</TableHead>
-                                  <TableHead className="font-semibold text-xs p-2 text-center text-purple-700">Total Amount (INR)</TableHead>
-                                  <TableHead className="font-semibold text-xs p-2 text-center text-purple-700">Received (INR)</TableHead>
-                                  <TableHead className="font-semibold text-xs p-2 text-center text-purple-700">Outstanding (INR)</TableHead>
-                                  <TableHead className="font-semibold text-xs p-2 text-center text-purple-700">Collection Rate</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {course.cohorts!.map((cohort, cohortIndex) => {
-                                  const cohortCollectionRate = cohort.amount > 0 ? (cohort.received / cohort.amount) * 100 : 0
-                                  return (
-                                    <TableRow 
-                                      key={cohort.cohort}
-                                      className={`${cohortIndex % 2 === 0 ? "bg-white" : "bg-purple-50/30"}`}
-                                    >
-                                      <TableCell className="text-xs p-2 text-left font-medium text-purple-600">
-                                        {cohort.cohortId || '-'}
-                                      </TableCell>
-                                      <TableCell className="text-xs p-2 text-left font-medium text-purple-900">
-                                        {cohort.cohort || 'Unassigned'}
-                                      </TableCell>
-                                      <TableCell className="text-xs p-2 text-center">
-                                        <div className="flex items-center justify-center gap-1">
-                                          <Users className="h-3 w-3 text-gray-500" />
-                                          {cohort.students}
-                                        </div>
-                                      </TableCell>
-                                      <TableCell className="text-xs p-2 text-center">
-                                        {formatCurrency(cohort.amount)}
-                                      </TableCell>
-                                      <TableCell className="text-xs p-2 text-center">
-                                        <span className="font-medium text-green-600">
-                                          {formatCurrency(cohort.received)}
-                                        </span>
-                                      </TableCell>
-                                      <TableCell className="text-xs p-2 text-center">
-                                        <span className={`font-medium ${cohort.outstanding > 0 ? "text-red-600" : "text-green-600"}`}>
-                                          {formatCurrency(cohort.outstanding)}
-                                        </span>
-                                      </TableCell>
-                                      <TableCell className="text-xs p-2 text-center">
-                                        <div className="space-y-1">
-                                          <div className="flex justify-center text-xs">
-                                            <span>{cohortCollectionRate.toFixed(1)}%</span>
+                            <div className="bg-white rounded-md border border-purple-200 overflow-hidden shadow-sm">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow className="border-b-2 border-purple-300 bg-gradient-to-r from-purple-100 to-indigo-100">
+                                    <TableHead className="font-bold text-xs p-3 text-left text-purple-800 bg-purple-100/50">Cohort ID</TableHead>
+                                    <TableHead className="font-bold text-xs p-3 text-left text-purple-800 bg-purple-100/50">Cohort Name</TableHead>
+                                    <TableHead className="font-bold text-xs p-3 text-center text-purple-800 bg-purple-100/50">Students</TableHead>
+                                    <TableHead className="font-bold text-xs p-3 text-center text-purple-800 bg-purple-100/50">Total Amount (INR)</TableHead>
+                                    <TableHead className="font-bold text-xs p-3 text-center text-purple-800 bg-purple-100/50">Received (INR)</TableHead>
+                                    <TableHead className="font-bold text-xs p-3 text-center text-purple-800 bg-purple-100/50">Outstanding (INR)</TableHead>
+                                    <TableHead className="font-bold text-xs p-3 text-center text-purple-800 bg-purple-100/50">Collection Rate</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {course.cohorts!.map((cohort, cohortIndex) => {
+                                    const cohortCollectionRate = cohort.amount > 0 ? (cohort.received / cohort.amount) * 100 : 0
+                                    return (
+                                      <TableRow 
+                                        key={cohort.cohort}
+                                        className={`${cohortIndex % 2 === 0 ? "bg-white hover:bg-purple-50/30" : "bg-purple-50/20 hover:bg-purple-50/40"} transition-colors border-l-2 ${cohortIndex % 2 === 0 ? 'border-purple-300' : 'border-indigo-300'}`}
+                                      >
+                                        <TableCell className="text-xs p-3 text-left font-semibold text-purple-700">
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                                            {cohort.cohortId || '-'}
                                           </div>
-                                          <Progress value={cohortCollectionRate} className="h-2" />
-                                        </div>
-                                      </TableCell>
-                                    </TableRow>
-                                  )
-                                })}
-                              </TableBody>
-                            </Table>
+                                        </TableCell>
+                                        <TableCell className="text-xs p-3 text-left font-semibold text-gray-800">
+                                          {cohort.cohort || 'Unassigned'}
+                                        </TableCell>
+                                        <TableCell className="text-xs p-3 text-center">
+                                          <div className="flex items-center justify-center gap-1 bg-blue-50 rounded-full px-2 py-1 inline-flex">
+                                            <Users className="h-3 w-3 text-blue-600" />
+                                            <span className="font-medium text-blue-700">{cohort.students}</span>
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="text-xs p-3 text-center font-medium text-gray-700">
+                                          {formatCurrency(cohort.amount)}
+                                        </TableCell>
+                                        <TableCell className="text-xs p-3 text-center">
+                                          <span className="font-bold text-green-600 bg-green-50 px-2 py-1 rounded">
+                                            {formatCurrency(cohort.received)}
+                                          </span>
+                                        </TableCell>
+                                        <TableCell className="text-xs p-3 text-center">
+                                          <span className={`font-bold px-2 py-1 rounded ${cohort.outstanding > 0 ? "text-red-600 bg-red-50" : "text-green-600 bg-green-50"}`}>
+                                            {formatCurrency(cohort.outstanding)}
+                                          </span>
+                                        </TableCell>
+                                        <TableCell className="text-xs p-3 text-center">
+                                          <div className="space-y-1">
+                                            <div className="flex justify-center text-xs font-bold text-purple-700">
+                                              <span>{cohortCollectionRate.toFixed(1)}%</span>
+                                            </div>
+                                            <Progress value={cohortCollectionRate} className="h-2 bg-purple-100" />
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    )
+                                  })}
+                                </TableBody>
+                              </Table>
+                            </div>
                           </div>
                         </TableCell>
                       </TableRow>
