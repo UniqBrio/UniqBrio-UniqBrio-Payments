@@ -331,7 +331,7 @@ export function CourseWiseSummary({ coursePayments, allRecords = [] }: CourseWis
                                   return (
                                     <TableRow 
                                       key={cohort.cohort}
-                                      className={`bg-white ${hasStudents ? 'cursor-pointer hover:bg-purple-50' : ''} border-l-4 border-purple-400`}
+                                      className={`bg-white ${hasStudents ? 'cursor-pointer' : ''} border-l-4 border-purple-400`}
                                       onClick={() => hasStudents && openCohortDetails(cohort, course.courseId)}
                                     >
                                       <TableCell className="text-xs p-2 text-left font-medium text-purple-700">
