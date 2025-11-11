@@ -144,11 +144,7 @@ export function CourseWiseSummary({ coursePayments }: CourseWiseSummaryProps) {
                           <span className="text-gray-400 italic">-</span>
                         ) : course.outstanding === 0 ? (
                           <Badge variant="default" className="bg-green-600 text-xs">
-                            Complete
-                          </Badge>
-                        ) : collectionRate >= 50 ? (
-                          <Badge variant="secondary" className="text-xs">
-                            Partial
+                            Paid
                           </Badge>
                         ) : (
                           <Badge variant="destructive" className="text-xs">

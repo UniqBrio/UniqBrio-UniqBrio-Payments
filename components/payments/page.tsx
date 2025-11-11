@@ -511,7 +511,7 @@ export default function PaymentStatusPage() {
                     <div>
                       <p className="text-sm text-green-600 font-medium">Total Received</p>
                       <p className="text-2xl font-bold text-green-900">
-                        ₹{new Intl.NumberFormat('en-IN').format(filteredCourseSummary.reduce((sum, c) => sum + c.received, 0))}
+                        INR {new Intl.NumberFormat('en-IN').format(filteredCourseSummary.reduce((sum, c) => sum + c.received, 0))}
                       </p>
                     </div>
                     <div className="bg-green-200 p-3 rounded-full">
@@ -529,7 +529,7 @@ export default function PaymentStatusPage() {
                     <div>
                       <p className="text-sm text-red-600 font-medium">Outstanding</p>
                       <p className="text-2xl font-bold text-red-900">
-                        ₹{new Intl.NumberFormat('en-IN').format(filteredCourseSummary.reduce((sum, c) => sum + c.outstanding, 0))}
+                        INR {new Intl.NumberFormat('en-IN').format(filteredCourseSummary.reduce((sum, c) => sum + c.outstanding, 0))}
                       </p>
                     </div>
                     <div className="bg-red-200 p-3 rounded-full">
