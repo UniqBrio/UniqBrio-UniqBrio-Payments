@@ -146,11 +146,10 @@ export function generateCourseWiseSummaryWithCohorts(
     courseRecords.forEach(record => {
       const cohortName = record.cohort || 'Unassigned'
       
-      // Calculate registration fees
+      // Calculate registration fees (excluding confirmation fee since it's not displayed in the table)
       const registrationTotal = 
         (record.registrationFees?.studentRegistration?.amount || 0) + 
-        (record.registrationFees?.courseRegistration?.amount || 0) + 
-        (record.registrationFees?.confirmationFee?.amount || 0)
+        (record.registrationFees?.courseRegistration?.amount || 0)
       
       const totalAmount = (Number(record.finalPayment) || 0) + registrationTotal
       const receivedAmount = Number(record.totalPaidAmount) || 0
@@ -261,11 +260,10 @@ export function generateCourseWiseSummaryWithCohortsEnhanced(
     courseRecords.forEach(record => {
       const cohortName = record.cohort || 'Unassigned'
       
-      // Calculate registration fees
+      // Calculate registration fees (excluding confirmation fee since it's not displayed in the table)
       const registrationTotal = 
         (record.registrationFees?.studentRegistration?.amount || 0) + 
-        (record.registrationFees?.courseRegistration?.amount || 0) + 
-        (record.registrationFees?.confirmationFee?.amount || 0)
+        (record.registrationFees?.courseRegistration?.amount || 0)
       
       const totalAmount = (Number(record.finalPayment) || 0) + registrationTotal
       const receivedAmount = Number(record.totalPaidAmount) || 0
@@ -430,11 +428,10 @@ export function generateCourseWiseSummaryWithProperIDs(
       const cohortName = cohortFromDB?.name || cohortNameFromRecord
       const cohortId = cohortFromDB?.cohortId
       
-      // Calculate registration fees
+      // Calculate registration fees (excluding confirmation fee since it's not displayed in the table)
       const registrationTotal = 
         (record.registrationFees?.studentRegistration?.amount || 0) + 
-        (record.registrationFees?.courseRegistration?.amount || 0) + 
-        (record.registrationFees?.confirmationFee?.amount || 0)
+        (record.registrationFees?.courseRegistration?.amount || 0)
       
       const totalAmount = (Number(record.finalPayment) || 0) + registrationTotal
       const receivedAmount = Number(record.totalPaidAmount) || 0

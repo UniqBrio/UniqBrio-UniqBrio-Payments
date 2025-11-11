@@ -54,6 +54,9 @@ export function usePaymentLogic() {
       const suspiciousZeroFinal = (Number(r.finalPayment || 0) === 0) && Number(p.finalPayment || 0) > 0;
       const suspiciousDashCategory = (!r.category || r.category === '-') && (p.category && p.category !== '-');
       const suspiciousCourseType = (!r.courseType || (r.courseType as any) === '-') && (p.courseType && (p.courseType as any) !== '-');
+      // Preserve cohort data if new data is empty or "Unassigned" but we have valid previous data
+      const suspiciousCohort = (!r.cohort || r.cohort === 'Unassigned' || !r.cohortId) && 
+                               (p.cohort && p.cohort !== 'Unassigned' && p.cohortId);
       const merged: PaymentRecord = { ...p, ...r };
       if (suspiciousZeroFinal) {
         merged.finalPayment = p.finalPayment;
@@ -63,6 +66,10 @@ export function usePaymentLogic() {
       }
       if (suspiciousDashCategory) merged.category = p.category;
       if (suspiciousCourseType) merged.courseType = p.courseType;
+      if (suspiciousCohort) {
+        merged.cohort = p.cohort;
+        merged.cohortId = p.cohortId;
+      }
       if (!r.registrationFees && p.registrationFees) merged.registrationFees = p.registrationFees;
       return merged;
     });
@@ -383,25 +390,39 @@ export function usePaymentLogic() {
 
           // Sync API already provides cohort IDs; rehydrate display names from cohorts collection when possible
           const enrichedData = result.data.map((record: any) => {
+            // First, check if we already have this record in our state with cohort data
+            const existingRecord = records.find((r: PaymentRecord) => 
+              r.id === record.id || r.id === record.studentId
+            )
+            const existingCohortId = existingRecord?.cohortId
+            const existingCohortName = existingRecord?.cohort
+            
             let cohortId = (record?.cohortId || '').toString().trim()
             let cohortName = (record?.cohort || '').toString().trim()
 
-            if (!cohortId && cohortName && cohortName.includes(' - ')) {
-              const parts = cohortName.split(' - ')
-              cohortId = parts[0]?.trim() || ''
-              cohortName = parts.slice(1).join(' - ').trim() || cohortName
-            }
+            // Preserve existing cohort data if new data is empty but we have valid existing data
+            if ((!cohortId || !cohortName || cohortName === 'Unassigned') && existingCohortId && existingCohortName && existingCohortName !== 'Unassigned') {
+              cohortId = existingCohortId
+              cohortName = existingCohortName
+            } else {
+              if (!cohortId && cohortName && cohortName.includes(' - ')) {
+                const parts = cohortName.split(' - ')
+                cohortId = parts[0]?.trim() || ''
+                cohortName = parts.slice(1).join(' - ').trim() || cohortName
+              }
 
-            const lookupId = cohortId.toUpperCase()
-            if (lookupId && cohortIdToObjMap.has(lookupId)) {
-              const cohortFromDB = cohortIdToObjMap.get(lookupId)
-              cohortName = cohortFromDB?.name || cohortName
+              const lookupId = cohortId.toUpperCase()
+              if (lookupId && cohortIdToObjMap.has(lookupId)) {
+                const cohortFromDB = cohortIdToObjMap.get(lookupId)
+                cohortName = cohortFromDB?.name || cohortName
+                cohortId = cohortFromDB?.cohortId || cohortId
+              }
             }
 
             return {
               ...record,
-              cohortId,
-              cohort: cohortName || cohortId || 'Unassigned',
+              cohortId: cohortId || existingCohortId || '',
+              cohort: cohortName || cohortId || existingCohortName || 'Unassigned',
               communicationChannels: record.communicationPreferences?.enabled && record.communicationPreferences?.channels
                 ? record.communicationPreferences.channels
                 : []
@@ -719,10 +740,71 @@ export function usePaymentLogic() {
           }
         }
         
-  const stable = isLikelyDegraded(result.data, records) ? records : reconcileStableData(result.data, records)
+        // Fetch cohorts to preserve and enrich cohort data
+        let cohorts: any[] = []
+        try {
+          const cohortsResp = await fetch('/api/cohorts', { cache: 'no-store' })
+          if (cohortsResp.ok) {
+            const cohJson = await cohortsResp.json()
+            cohorts = Array.isArray(cohJson.data) ? cohJson.data : []
+          }
+        } catch (_) {
+          // ignore cohort fetch failures
+        }
+
+        const cohortIdToObjMap = new Map<string, any>()
+        cohorts.forEach((cohort: any) => {
+          if (cohort?.cohortId) {
+            cohortIdToObjMap.set(cohort.cohortId, cohort)
+            cohortIdToObjMap.set(cohort.cohortId.toUpperCase(), cohort)
+          }
+        })
+
+        // Enrich data with preserved cohort information
+        const enrichedData = result.data.map((record: any) => {
+          // First, check if we already have this record in our state with cohort data
+          const existingRecord = records.find((r: PaymentRecord) => 
+            r.id === record.id || r.id === record.studentId
+          )
+          const existingCohortId = existingRecord?.cohortId
+          const existingCohortName = existingRecord?.cohort
+          
+          let cohortId = (record?.cohortId || '').toString().trim()
+          let cohortName = (record?.cohort || '').toString().trim()
+
+          // Preserve existing cohort data if new data is empty but we have valid existing data
+          if ((!cohortId || !cohortName || cohortName === 'Unassigned') && existingCohortId && existingCohortName && existingCohortName !== 'Unassigned') {
+            cohortId = existingCohortId
+            cohortName = existingCohortName
+          } else {
+            if (!cohortId && cohortName && cohortName.includes(' - ')) {
+              const parts = cohortName.split(' - ')
+              cohortId = parts[0]?.trim() || ''
+              cohortName = parts.slice(1).join(' - ').trim() || cohortName
+            }
+
+            const lookupId = cohortId.toUpperCase()
+            if (lookupId && cohortIdToObjMap.has(lookupId)) {
+              const cohortFromDB = cohortIdToObjMap.get(lookupId)
+              cohortName = cohortFromDB?.name || cohortName
+              cohortId = cohortFromDB?.cohortId || cohortId
+            }
+          }
+
+          return {
+            ...record,
+            cohortId: cohortId || existingCohortId || '',
+            cohort: cohortName || cohortId || existingCohortName || 'Unassigned',
+            communicationChannels: record.communicationPreferences?.enabled && record.communicationPreferences?.channels
+              ? record.communicationPreferences.channels
+              : []
+          }
+        })
+        
+  const stable = isLikelyDegraded(enrichedData, records) ? records : reconcileStableData(enrichedData, records)
   setRecords(stable)
   setError(null)
-  if (result.data.length > 0) setHasLoadedOnce(true)
+  if (enrichedData.length > 0) setHasLoadedOnce(true)
   // Only log status code if needed; removed verbose console log
       } else {
         // Fallback to students API if sync fails
@@ -871,29 +953,36 @@ export function usePaymentLogic() {
             }
 
             // Get cohort data from student.cohort field (format: "COHORTID - Name")
+            // First, check if we already have this student in our records with cohort data
+            const existingRecord = records.find((r: PaymentRecord) => r.id === student.studentId)
+            const existingCohortId = existingRecord?.cohortId
+            const existingCohortName = existingRecord?.cohort
+            
             const cohortDetails = student.cohortDetails || student.cohortInfo || {}
             const rawCohortId = (student.cohortId || student.cohortID || cohortDetails.id || cohortDetails.cohortId || '').toString().trim()
             const rawCohortName = (student.cohortName || student.cohortLabel || cohortDetails.name || cohortDetails.cohortName || '').toString().trim()
             const cohortField = (student.cohort || '').toString()
-            let cohortId = rawCohortId
-            let cohortName = rawCohortName
+            
+            // Preserve existing cohort data if new data is empty but we have valid existing data
+            let cohortId = rawCohortId || existingCohortId || ''
+            let cohortName = rawCohortName || (existingCohortName && existingCohortName !== 'Unassigned' ? existingCohortName : '') || ''
             
             if (!cohortId || !cohortName) {
               if (cohortField && cohortField.includes(' - ')) {
                 const parts = cohortField.split(' - ')
                 cohortId = cohortId || parts[0].trim()
                 cohortName = cohortName || parts.slice(1).join(' - ').trim()
-              } else if (cohortField) {
+              } else if (cohortField && cohortField !== 'Unassigned') {
                 cohortId = cohortId || cohortField.trim()
                 cohortName = cohortName || cohortField.trim()
               }
             }
 
-            if (!cohortName && student.batch) {
+            if (!cohortName && student.batch && student.batch !== 'Unassigned') {
               cohortName = student.batch.toString().trim()
             }
 
-            if (!cohortId && cohortName) {
+            if (!cohortId && cohortName && cohortName !== 'Unassigned') {
               cohortId = cohortName
             }
 
@@ -901,6 +990,13 @@ export function usePaymentLogic() {
             if (lookupId && cohortIdToObjMap.has(lookupId)) {
               const cohortFromDB = cohortIdToObjMap.get(lookupId)
               cohortName = cohortFromDB?.name || cohortName
+              cohortId = cohortFromDB?.cohortId || cohortId
+            }
+            
+            // Final fallback: if we still don't have cohort data, preserve what we had before
+            if ((!cohortId || !cohortName || cohortName === 'Unassigned') && existingCohortId && existingCohortName && existingCohortName !== 'Unassigned') {
+              cohortId = existingCohortId
+              cohortName = existingCohortName
             }
 
             // Get communication preferences from batch fetch
