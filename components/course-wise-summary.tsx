@@ -205,11 +205,11 @@ export function CourseWiseSummary({ coursePayments, allRecords = [] }: CourseWis
     <>
     <Card className="border-orange-200">
       <CardHeader className="bg-orange-50 py-3">
-        <CardTitle className="flex items-center gap-2 text-orange-700 text-lg">
+        <CardTitle className="flex items-center gap-2 text-black text-lg">
           <BookOpen className="h-5 w-5" />
           Course-wise Payment Summary
         </CardTitle>
-        <CardDescription className="text-orange-600 text-sm">Payment collection status by course</CardDescription>
+        <CardDescription className="text-black text-sm">Payment collection status by course</CardDescription>
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
